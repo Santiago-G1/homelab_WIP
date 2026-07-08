@@ -1,0 +1,40 @@
+# CREDENCIALES Y SECRETOS
+*.tfvars
+*.tfvars.json
+.env
+.env.*
+**/.env
+*.env
+*.pem
+*.key
+*secret*
+*password*
+
+# TERRAFORM
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# ANSIBLE
+*.vault
+.vault_pass
+
+# SISTEMA
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# LOGS Y TEMPORALES
+*.log
+*.tmp
+*.bak

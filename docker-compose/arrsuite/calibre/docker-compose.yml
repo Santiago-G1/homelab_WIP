@@ -1,0 +1,16 @@
+calibre:
+    image: lscr.io/linuxserver/calibre:latest
+    container_name: calibre
+    env_file:
+      - ../.env
+    environment:
+      - PUID=${GLOBAL_PUID}
+      - PGID=${GLOBAL_PGID}
+      - TZ=Europe/Madrid
+    volumes:
+      - /opt/calibre/config:/config
+      - /mnt/data/comics/calibre:/libros
+    ports:
+      - 8082:8080
+      - 8081:8081
+    restart: unless-stopped

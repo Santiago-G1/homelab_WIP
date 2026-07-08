@@ -1,0 +1,14 @@
+ prowlarr:
+    image: lscr.io/linuxserver/prowlarr:latest
+    container_name: prowlarr
+    env_file:
+      - ../.env
+    environment:
+      - PUID=${GLOBAL_PUID}
+      - PGID=${GLOBAL_PGID}
+      - TZ=Etc/UTC
+    volumes:
+      - /opt/prowlarr/config:/config
+    ports:
+      - 9696:9696
+    restart: unless-stopped

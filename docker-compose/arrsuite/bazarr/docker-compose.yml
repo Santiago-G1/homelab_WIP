@@ -1,0 +1,15 @@
+ bazarr:
+    image: lscr.io/linuxserver/bazarr:latest
+    container_name: bazarr
+    env_file:
+      -../.env
+    environment:
+      - PUID=${GLOBAL_PUID}
+      - PGID=${GLOBAL_PGID}
+      - TZ=Etc/UTC
+    volumes:
+      - /opt/bazarr/config:/config
+      - /mnt/data:/data
+    ports:
+      - 6767:6767
+    restart: unless-stopped
