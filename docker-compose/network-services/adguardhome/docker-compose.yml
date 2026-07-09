@@ -1,0 +1,31 @@
+services:
+  adguardhome:
+    image: adguard/adguardhome:latest
+    container_name: adguardhome
+    restart: unless-stopped
+    # Volumes persist your configurations and query logs
+    volumes:
+      - ./workdir:/opt/adguardhome/work
+      - ./confdir:/opt/adguardhome/config
+    ports:
+      # --- Plain DNS ---
+      - "53:53/tcp"
+      - "53:53/udp"
+      
+      # --- DHCP Server (Optional: Uncomment if using AdGuard as DHCP) ---
+      # - "67:67/udp"
+      # - "68:68/tcp"
+      # - "68:68/udp"
+
+      # --- Admin Web UI & Setup ---
+      - "3000:3000/tcp" # Used for initial setup wizard
+      - "80:80/tcp"     # Standard HTTP (or use for Web UI after setup)
+      - "443:443/tcp"   # HTTPS / DNS-over-HTTPS
+      - "443:443/udp"   # DNS-over-HTTPS (QUIC)
+
+      # --- Encrypted DNS (Optional) ---
+      - "853:853/tcp"   # DNS-over-TLS
+      - "853:853/udp"   # DNS-over-QUIC
+      - "784:784/udp"   # DNS-over-QUIC (alternative)
+      - "5443:5443/tcp" # DNSCrypt
+      - "5443:5443/udp" # DNSCrypt

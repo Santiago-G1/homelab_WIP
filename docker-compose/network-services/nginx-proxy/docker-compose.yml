@@ -1,0 +1,31 @@
+services:
+  app:
+    image: 'jc21/nginx-proxy-manager:latest'
+    restart: unless-stopped
+    ports:
+      - '80:80' # Public HTTP Port
+      - '443:443' # Public HTTPS Port
+      - '81:81' # Admin Web Port
+    environment:
+      # Database connection details
+      DB_MYSQL_HOST: "db"
+      DB_MYSQL_PORT: 3306
+      DB_MYSQL_USER: ${NPM_DB_USER}
+      DB_MYSQL_PASSWORD: ${NPM_DB_PASSWORD}
+      DB_MYSQL_NAME: "npm"
+    volumes:
+      - ./config:/data
+      - ./letsencrypt:/etc/letsencrypt
+    depends_on:
+      - db
+
+  db:
+    image: 'jc21/mariadb-aria:latest'
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${NPM_DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: 'npm'
+      MYSQL_USER: ${NPM_DB_USER}
+      MYSQL_PASSWORD: ${NPM_DB_PASSWORD}
+    volumes:
+      - ./mysql:/var/lib/mysql
