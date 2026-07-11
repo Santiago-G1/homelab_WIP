@@ -20,11 +20,9 @@ services:
     volumes:
       - /opt/docker/soulsync/config:/app/config
       - /opt/docker/soulsync/logs:/app/logs
-    
       - /mnt/data/music_downloads:/app/downloads
       - /mnt/data/music_staging:/app/Staging
       - /mnt/data/music:/music:rw
-      
       - /opt/docker/soulsync/music-videos:/app/MusicVideos
       - /opt/docker/soulsync/scripts:/app/scripts
       - soulsync_database:/app/data
@@ -32,7 +30,7 @@ services:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8008/" ]
+      test: ["CMD", "curl", "-f", "http://localhost:8008/"]
       interval: 30s
       timeout: 10s
       retries: 3
