@@ -3,8 +3,6 @@ services:
     container_name: grafana_postgres
     image: postgres:15
     restart: always
-    env_file:
-      - ../.env
     environment:
       POSTGRES_DB: ${GF_DATABASE_NAME}
       POSTGRES_USER: ${GF_DATABASE_USER}
