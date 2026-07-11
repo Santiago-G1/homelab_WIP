@@ -2,6 +2,8 @@ services:
   soulsync:
     image: boulderbadgedad/soulsync:latest
     container_name: soulsync-webui
+    env_file:
+      - ../.env
     environment:
       - PUID=${MUSIC_PUID}
       - PGID=${MUSIC_PGID}
