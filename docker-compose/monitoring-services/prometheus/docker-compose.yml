@@ -7,7 +7,7 @@ services:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
       - ./data:/prometheus
     networks:
-      - monitoring-net
+      - monitoring
     ports:
       - "9090:9090"
 
