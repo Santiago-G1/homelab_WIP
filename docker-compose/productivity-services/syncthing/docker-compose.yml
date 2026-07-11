@@ -4,8 +4,8 @@ services:
     container_name: syncthing
     hostname: homelab
     environment:
-      - PUID=$GLOBAL_PUID
-      - PGID=$GLOBAL_PGID
+      - PUID=${GLOBAL_PUID}
+      - PGID=${GLOBAL_PGID}
     volumes:
       - /mnt/data:/var/syncthing
     network_mode: host
