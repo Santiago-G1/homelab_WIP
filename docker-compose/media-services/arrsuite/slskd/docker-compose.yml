@@ -13,6 +13,6 @@ slskd:
     - TZ=Etc/UTC
     - SLSKD_REMOTE_CONFIGURATION=true
   volumes:
-    - /opt/slskd/config:/config
+    - /.config:/config
     - /mnt/data/music:/music
   restart: always
