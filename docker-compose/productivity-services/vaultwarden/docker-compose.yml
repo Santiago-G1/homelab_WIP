@@ -1,0 +1,13 @@
+services:
+  # Vaultwarden Password Manager
+  vaultwarden:
+    image: vaultwarden/server:latest
+    container_name: vaultwarden
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    # profiles: ["core", "all"]
+    environment:
+      - DOMAIN=https://password.$DOMAINNAME_HS
+    volumes:
+      - ./config:/data

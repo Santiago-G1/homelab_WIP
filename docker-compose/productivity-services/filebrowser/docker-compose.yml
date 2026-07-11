@@ -1,0 +1,9 @@
+services:
+  filebrowser:
+    image: gtstef/filebrowser:stable
+    volumes:
+      - ./config:/folder 
+      - /mnt/data:/home/filebrowser/data
+    ports:
+      - 80:80
+    restart: unless-stopped

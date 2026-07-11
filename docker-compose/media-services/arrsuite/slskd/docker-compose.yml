@@ -1,0 +1,18 @@
+slskd:
+  image: slskd/slskd
+  container_name: slskd
+  env_file:
+    - ../.env
+  ports:
+    - 5030:5030
+    - 5031:5031
+    - 50300:50300
+  environment:
+    - PUID=${MUSIC_PUID}
+    - PGID=${MUSIC_PGID}
+    - TZ=Etc/UTC
+    - SLSKD_REMOTE_CONFIGURATION=true
+  volumes:
+    - /opt/slskd/config:/config
+    - /mnt/data/music:/music
+  restart: always
