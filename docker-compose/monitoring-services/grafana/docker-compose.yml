@@ -16,8 +16,6 @@ services:
     image: grafana/grafana-enterprise:latest
     container_name: grafana
     restart: unless-stopped
-    env_file:
-      - ../.env
     environment:
       GF_DATABASE_TYPE: postgres
       GF_DATABASE_HOST: grafana_postgres:5432
