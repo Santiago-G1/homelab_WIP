@@ -9,44 +9,34 @@ resource "proxmox_lxc" "multiple_mountpoints" {
   memory       = var.memory
   swap         = var.swap
 
-  initialization {
-    hostname = var.hostname
-    dns { servers = var.dns_servers }
-    ip_config {
-      ipv4 {
-        address = var.ip_address
-        gateway = var.gateway
-      }
-    }
+
+  ssh_public_keys = <<-EOT
+    ssh-rsa <public_key_1> user@example.com
+    ssh-ed25519 <public_key_2> user@example.com
+  EOT
+
+  rootfs {
+    storage = var.disk_datastore
+    size    = "${var.disk_size}G"
   }
 
-  operating_system {
-    template_file_id = var.template
-    type             = var.os_type
+
+  // Bind Mount Point
+  mountpoint {
+    key     = "1"
+    slot    = 1
+    storage = var.mount_storage
+    volume  = var.mount_volume
+    mp      = "/mnt/data"
+    size    = "256G"
   }
 
-  disk {
-    datastore_id = var.disk_datastore
-    size         = var.disk_size
-  }
 
-  dynamic "mount_point" {
-    for_each = var.mount_points
-    content {
-      volume = mount_point.value.volume
-      mp     = mount_point.value.mount_path
-    }
-  }
-
-  cpu { cores = var.cpu_cores }
-  
-  memory {
-    dedicated = var.memory
-    swap      = var.swap
-  }
-
-  features {
-    nesting = var.nesting
-    keyctl  = var.keyctl
+  network {
+    name       = "eth0"
+    bridge     = "vmbr0"
+    ip         = "${var.ip_address}/24"
+    gw         = var.gateway
+    nameserver = join(" ", var.default_dns)
   }
 }
