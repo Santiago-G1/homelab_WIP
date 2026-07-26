@@ -1,8 +1,13 @@
-resource "proxmox_virtual_environment_container" "this" {
-  description    = var.description
-  node_name      = var.node_name
-  vm_id          = var.vm_id
-  unprivileged   = var.unprivileged
+resource "proxmox_lxc" "multiple_mountpoints" {
+  target_node  = var.node
+  hostname     = var.hostname
+  vmid         = var.vm_id
+  ostemplate   = var.template
+  unprivileged = true
+  ostype       = var.os_type
+  cores        = var.cpu_cores
+  memory       = var.memory
+  swap         = var.swap
 
   initialization {
     hostname = var.hostname
