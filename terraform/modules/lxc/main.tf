@@ -21,16 +21,17 @@ resource "proxmox_lxc" "multiple_mountpoints" {
   }
 
 
-  // Bind Mount Point
-  mountpoint {
-    key     = "1"
-    slot    = 1
-    storage = var.mount_storage
-    volume  = var.mount_volume
-    mp      = "/mnt/data"
-    size    = "256G"
-  }
-
+  dynamic "mountpoint" {
+      for_each = var.mount_volume != null && var.mount_volume != "" ? [1] : []
+      content {
+        key     = "1"
+        slot    = 1
+        storage = var.mount_storage
+        volume  = var.mount_volume
+        mp      = "/mnt/data"
+        size    = "256G"
+      }
+    }
 
   network {
     name       = "eth0"

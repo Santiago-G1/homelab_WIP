@@ -27,7 +27,7 @@ variable "os_type" {
 }
 
 variable "ip_address" {
-  description = "Dirección IP con máscara (ej: 192.168.10.3/24)"
+  description = "Dirección IP con máscara (ej: 192.168.xx.xx/24)"
   type        = string
 }
 
@@ -78,11 +78,11 @@ variable "default_dns" {
 variable "mount_storage" {
   description = "Storage para el mountpoint"
   type        = string
-  default     = "tank"
+  default     = null
 }
 
 variable "mount_volume" {
   description = "Volumen o ruta en el host"
   type        = string
-  default     = "/tank"
+  default     = null
 }
