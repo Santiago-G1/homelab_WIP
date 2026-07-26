@@ -1,6 +1,7 @@
-variable "node_name" {
+variable "node" {
   description = "Nombre del nodo Proxmox"
   type        = string
+  default     = "pve"
 }
 
 variable "hostname" {
@@ -13,15 +14,10 @@ variable "vm_id" {
   type        = number
 }
 
-variable "description" {
-  description = "Descripción del contenedor"
-  type        = string
-  default     = ""
-}
-
 variable "template" {
   description = "Template del sistema operativo"
   type        = string
+  default     = "debian-13-standard_13.1-2_amd64.tar.zst"
 }
 
 variable "os_type" {
@@ -38,13 +34,9 @@ variable "ip_address" {
 variable "gateway" {
   description = "Gateway por defecto"
   type        = string
+  default     = "192.168.10.1"
 }
 
-variable "dns_servers" {
-  description = "Servidores DNS"
-  type        = list(string)
-  default     = ["1.1.1.1", "8.8.8.8"]
-}
 
 variable "disk_size" {
   description = "Tamaño del disco root en GB"
@@ -76,29 +68,21 @@ variable "swap" {
   default     = 2048
 }
 
-variable "nesting" {
-  description = "Habilitar nesting (necesario para Docker)"
-  type        = bool
-  default     = true
+
+variable "default_dns" {
+  description = "Default dns server (Adguard home, fallback cloudflare)"
+  type        = list(string)
+  default     = ["192.168.10.3", "1.1.1.1"]
 }
 
-variable "keyctl" {
-  description = "Habilitar keyctl (necesario para Tailscale)"
-  type        = bool
-  default     = false
+variable "mount_storage" {
+  description = "Storage para el mountpoint"
+  type        = string
+  default     = "tank"
 }
 
-variable "unprivileged" {
-  description = "Contenedor sin privilegios"
-  type        = bool
-  default     = true
-}
-
-variable "mount_points" {
-  description = "Lista de mount points para datasets ZFS existentes"
-  type = list(object({
-    mount_path = string
-    volume     = string
-  }))
-  default = []
+variable "mount_volume" {
+  description = "Volumen o ruta en el host"
+  type        = string
+  default     = "/tank"
 }
