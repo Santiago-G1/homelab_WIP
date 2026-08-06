@@ -1,18 +1,23 @@
 slskd:
-  image: slskd/slskd
-  container_name: slskd
-  env_file:
-    - ../.env
-  ports:
-    - 5030:5030
-    - 5031:5031
-    - 50300:50300
-  environment:
-    - PUID=${MUSIC_PUID}
-    - PGID=${MUSIC_PGID}
-    - TZ=Etc/UTC
-    - SLSKD_REMOTE_CONFIGURATION=true
-  volumes:
-    - ./config:/config
-    - /mnt/data/music:/music
-  restart: always
+    image: slskd/slskd:latest
+    container_name: slskd
+    env_file:
+      - ../.env
+    environment:
+      - PUID=${MUSIC_PUID}
+      - PGID=${MUSIC_PGID}
+      - TZ=Etc/UTC
+      - SLSKD_REMOTE_CONFIGURATION=true
+      - SLSKD_API_KEY=${SLSKD_API_KEY}
+      - SLSKD_SLSK_USERNAME=${SLSKD_USERNAME}
+      - SLSKD_SLSK_PASSWORD=${SLSKD_PASSWORD}
+    volumes:
+      - ./config:/app
+      - /mnt/data/music:/music
+    ports:
+      - "5030:5030"
+      - "5031:5031"
+      - "50300:50300"
+    networks:
+      - soulsync-network
+    restart: always
