@@ -12,19 +12,10 @@ module "radicale" {
   ip_address  = "192.168.10.14"
 }
 
-module "syncthing" {
-  source        = "../modules/lxc"
-  hostname      = "syncthing"
-  vm_id         = 115
-  ip_address    = "192.168.10.15"
-  mount_storage = "tank"
-  mount_volume  = "/tank/obsidian"
-}
 
-
-module "filebrowser" {
+module "cloud-service" {
   source        = "../modules/lxc"
-  hostname      = "filebrowser"
+  hostname      = "cloud-service"
   vm_id         = 117
   ip_address    = "192.168.10.17"
   mount_storage = "tank"
