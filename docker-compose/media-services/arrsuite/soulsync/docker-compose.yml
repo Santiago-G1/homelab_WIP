@@ -9,7 +9,7 @@ services:
       - PGID=${MUSIC_PGID}
       - UMASK=022
       - PYTHONPATH=/app
-      - SOULSYNC_CONFIG_PATH=/opt/soulsync/config
+      - SOULSYNC_CONFIG_PATH=./config
       - TZ=America/New_York
       - SOULSYNC_SPOTIFY_CALLBACK_PORT=8888
       - SOULSYNC_TIDAL_CALLBACK_PORT=8889
