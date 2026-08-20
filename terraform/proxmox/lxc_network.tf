@@ -24,5 +24,5 @@ module "cf_tunnel" {
   source      = "../modules/lxc"
   hostname    = "cf-tunnel"
   vm_id       = 107
-  ip_address  = "192.168.10.7"
+  ip_address  = "192.168.10.6"
 }

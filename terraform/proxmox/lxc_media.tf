@@ -13,7 +13,7 @@ module "immich" {
   source        = "../modules/lxc"
   hostname      = "immich"
   vm_id         = 126
-  ip_address    = "192.168.10.26"
+  ip_address    = "192.168.10.22"
   disk_size     = 20
   cpu_cores     = 3
   memory        = 6144
@@ -25,7 +25,7 @@ module "frontend" {
   source        = "../modules/lxc"
   hostname      = "frontend"
   vm_id         = 123
-  ip_address    = "192.168.10.23"
+  ip_address    = "192.168.10.21"
   disk_size     = 8
   cpu_cores     = 2
   mount_storage = "tank"
