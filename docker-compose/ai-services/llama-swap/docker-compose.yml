@@ -1,0 +1,34 @@
+services:
+  llama-swap:
+    image: ghcr.io/mostlygeek/llama-swap:cuda
+    container_name: llama-swap
+    restart: unless-stopped
+    ports:
+      - "${LLAMA_SWAP_PORT_HOST:-5001}:8080"
+    cap_add:
+      - IPC_LOCK
+    environment:
+      - LD_LIBRARY_PATH=/usr/local/cuda-12.4/targets/x86_64-linux/lib:/usr/lib/x86_64-linux-gnu
+    devices:
+      - /dev/nvidia0:/dev/nvidia0
+      - /dev/nvidiactl:/dev/nvidiactl
+      - /dev/nvidia-uvm:/dev/nvidia-uvm
+      - /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools
+    volumes:
+      - ./config.yaml:/app/config.yaml
+      - ./config.yaml:/etc/llama-swap/config/config.yaml
+      - ${MODELS_DATA_PATH:-/mnt/data}:/mnt/data
+      - ./llama.cpp:/opt/llama.cpp
+      - /usr/local/cuda-12.4:/usr/local/cuda-12.4
+
+      # Nvidia libraries
+      - /usr/lib/x86_64-linux-gnu/libcuda.so:/usr/lib/x86_64-linux-gnu/libcuda.so
+      - /usr/lib/x86_64-linux-gnu/libcuda.so.1:/usr/lib/x86_64-linux-gnu/libcuda.so.1
+      - /usr/lib/x86_64-linux-gnu/libnvidia-ptxjitcompiler.so.1:/usr/lib/x86_64-linux-gnu/libnvidia-ptxjitcompiler.so.1
+      - /usr/bin/nvidia-smi:/usr/bin/nvidia-smi
+    networks:
+      - ai-stack
+
+networks:
+  ai-stack:
+    external: true

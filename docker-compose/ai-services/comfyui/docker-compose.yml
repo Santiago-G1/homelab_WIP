@@ -1,0 +1,51 @@
+services:
+  comfyui:
+    platform: linux/amd64
+    image: ghcr.io/ai-dock/comfyui:latest-cuda
+    container_name: comfyui
+    restart: unless-stopped
+    devices:
+      - /dev/nvidia0:/dev/nvidia0
+      - /dev/nvidiactl:/dev/nvidiactl
+      - /dev/nvidia-uvm:/dev/nvidia-uvm
+      - /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools
+    volumes:
+      - ./workspace:${WORKSPACE:-/workspace}
+      - ./config/authorized_keys:/root/.ssh/authorized_keys_mount
+
+      # IMAGE MODELS DIRECTORY
+      - ${IMAGE_MODELS_PATH:-/mnt/data/image_models}/unet:/workspace/ComfyUI/models/unet
+      - ${IMAGE_MODELS_PATH:-/mnt/data/image_models}/clip:/workspace/ComfyUI/models/clip
+      - ${IMAGE_MODELS_PATH:-/mnt/data/image_models}/vae:/workspace/ComfyUI/models/vae
+      - ${OUTPUT_PATH:-/mnt/data/comfyui_output}:/workspace/ComfyUI/output
+
+      # NVIDIA LIBRARIES
+      - /usr/lib/x86_64-linux-gnu/libcuda.so:/usr/lib/x86_64-linux-gnu/libcuda.so
+      - /usr/lib/x86_64-linux-gnu/libcuda.so.1:/usr/lib/x86_64-linux-gnu/libcuda.so.1
+      - /usr/lib/x86_64-linux-gnu/libnvidia-ptxjitcompiler.so.1:/usr/lib/x86_64-linux-gnu/libnvidia-ptxjitcompiler.so.1
+      - /usr/local/cuda-12.4:/usr/local/cuda-12.4
+    ports:
+      - "${COMFYUI_PORT_HOST:-8188}:${COMFYUI_PORT_HOST:-8188}"
+    environment:
+      - COMFYUI_ARGS=${COMFYUI_ARGS:---force-fp32 --fp32-vae --normalvram}
+      - LD_LIBRARY_PATH=/usr/local/cuda-12.4/targets/x86_64-linux/lib:/usr/lib/x86_64-linux-gnu
+      - AUTO_UPDATE=false
+      - DIRECT_ADDRESS=${DIRECT_ADDRESS:-}
+      - DIRECT_ADDRESS_GET_WAN=false
+      - WORKSPACE=${WORKSPACE:-/workspace}
+      - WORKSPACE_SYNC=false
+      - CF_TUNNEL_TOKEN=${CF_TUNNEL_TOKEN:-}
+      - CF_QUICK_TUNNELS=false
+      - SYNCTHING_ENABLE=false
+      - CIVITAI_TOKEN=${CIVITAI_TOKEN:-}
+      - HF_TOKEN=${HF_TOKEN:-}
+      - WEB_ENABLE_AUTH=${WEB_ENABLE_AUTH:-false}
+      - WEB_ENABLE_HTTPS=false
+      - COMFYUI_PORT_HOST=${COMFYUI_PORT_HOST:-8188}
+      - SERVERLESS=false
+    networks:
+      - ai-stack
+
+networks:
+  ai-stack:
+    external: true
