@@ -25,7 +25,7 @@ services:
       - /usr/lib/x86_64-linux-gnu/libnvidia-ptxjitcompiler.so.1:/usr/lib/x86_64-linux-gnu/libnvidia-ptxjitcompiler.so.1
       - /usr/local/cuda-12.4:/usr/local/cuda-12.4
     ports:
-      - "$COMFYUI_PORT_HOST:8188"
+      - "8188:8188"
     environment:
       - COMFYUI_ARGS=${COMFYUI_ARGS:---force-fp32 --fp32-vae --normalvram}
       - LD_LIBRARY_PATH=/usr/local/cuda-12.4/targets/x86_64-linux/lib:/usr/lib/x86_64-linux-gnu
