@@ -1,0 +1,34 @@
+services:                                                                                                                                             
+  filebrowser:                                                                                                                                        
+    image: gtstef/filebrowser:beta                                                                                                                    
+    container_name: filebrowser                                                                                                                       
+    environment:
+      - FILEBROWSER_CONFIG=/home/filebrowser/data/config.yaml
+      - FILEBROWSER_ONLYOFFICE_SECRET=YOUR-SECRET-KEY
+    volumes:
+      - $CLOUD_MOUNT:/folder
+      - ./config:/home/filebrowser/data
+    ports:
+      - "80:80"
+    restart: unless-stopped
+    depends_on:
+      - onlyoffice
+ 
+  onlyoffice:
+    image: onlyoffice/documentserver:latest
+    container_name: onlyoffice
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    environment:
+      - JWT_ENABLED=true
+      - JWT_SECRET=YOUR-SECRET-KEY
+    volumes:
+      - onlyoffice_data:/var/www/onlyoffice/Data
+      - onlyoffice_logs:/var/log/onlyoffice
+      - onlyoffice_lib:/var/lib/onlyoffice
+
+volumes:
+  onlyoffice_data:
+  onlyoffice_logs:
+  onlyoffice_lib:
