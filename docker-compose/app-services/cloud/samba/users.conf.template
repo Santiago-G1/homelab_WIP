@@ -1,0 +1,5 @@
+# Samba users. Format: username:UID:groupname:GID:password:homedir
+# Copy this file to users.conf and set real passwords.
+# users.conf is gitignored and must never be committed.
+admin:1000:smb:1000:CHANGE-ME:/storage
+llm:1001:smb:1000:CHANGE-ME:/llm_storage

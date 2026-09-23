@@ -20,6 +20,9 @@
 **/filebrowser/config/*.sqlite
 **/filebrowser/config/*.db
 
+# SAMBA (credenciales, usar users.conf.template)
+**/samba/users.conf
+
 # TERRAFORM
 .terraform/
 .terraform.lock.hcl
