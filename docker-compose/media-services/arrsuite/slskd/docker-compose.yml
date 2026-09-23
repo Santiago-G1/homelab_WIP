@@ -1,4 +1,25 @@
-
+services:
+  slskd:
+    image: slskd/slskd:latest
+    container_name: slskd
+    environment:
+      - PUID=1010
+      - PGID=1010
+      - TZ=Etc/UTC
+      - SLSKD_REMOTE_CONFIGURATION=true
+      - SLSKD_API_KEY=${SLSKD_API_KEY:?SLSKD_API_KEY is required}
+      - SLSKD_SLSK_USERNAME=${SLSKD_USERNAME:?SLSKD_USERNAME is required}
+      - SLSKD_SLSK_PASSWORD=${SLSKD_PASSWORD:?SLSKD_PASSWORD is required}
+    volumes:
+      - /opt/docker/slskd/data:/app
+      - /mnt/data/music:/music
+    ports:
+      - "5030:5030"
+      - "5031:5031"
+      - "50300:50300"
+    networks:
+      - soulsync-network
+    restart: always
 
 networks:
   soulsync-network:

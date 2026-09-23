@@ -6,7 +6,13 @@ services:
       - LOG_LEVEL=debug
       - TZ=Etc/UTC
     ports:
-      - 5055:5055
+      - "5055:5055"
     volumes:
-      - ./config:/app/config
+      - /opt/docker/seerr/data:/app/config
+    networks:
+      - soulsync-network
     restart: unless-stopped
+
+networks:
+  soulsync-network:
+    external: true

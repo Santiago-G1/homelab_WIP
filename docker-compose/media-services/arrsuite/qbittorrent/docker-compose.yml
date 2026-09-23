@@ -2,18 +2,22 @@ services:
   qbittorrent:
     image: lscr.io/linuxserver/qbittorrent:latest
     container_name: qbittorrent
-    env_file:
-      - ../.env
     environment:
-      - PUID=${GLOBAL_PUID}
-      - PGID=${GLOBAL_PGID}
+      - PUID=1000
+      - PGID=1000
       - TZ=Etc/UTC
       - WEBUI_PORT=8080
     volumes:
-      - ./config:/config
+      - /opt/docker/qbittorrent/data:/config
       - /mnt/data:/data
     ports:
-      - 8080:8080
-      - 6881:6881
-      - 6881:6881/udp
+      - "8080:8080"
+      - "6881:6881"
+      - "6881:6881/udp"
+    networks:
+      - soulsync-network
     restart: unless-stopped
+
+networks:
+  soulsync-network:
+    external: true

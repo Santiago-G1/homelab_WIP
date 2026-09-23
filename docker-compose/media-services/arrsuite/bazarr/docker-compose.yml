@@ -2,15 +2,19 @@ services:
   bazarr:
     image: lscr.io/linuxserver/bazarr:latest
     container_name: bazarr
-    env_file:
-      - ../.env
     environment:
-      - PUID=${GLOBAL_PUID}
-      - PGID=${GLOBAL_PGID}
+      - PUID=1000
+      - PGID=1000
       - TZ=Etc/UTC
     volumes:
-      - ./config:/config
+      - /opt/docker/bazarr/data:/config
       - /mnt/data:/data
     ports:
-      - 6767:6767
+      - "6767:6767"
+    networks:
+      - soulsync-network
     restart: unless-stopped
+
+networks:
+  soulsync-network:
+    external: true

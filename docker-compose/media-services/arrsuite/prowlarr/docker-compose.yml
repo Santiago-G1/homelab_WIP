@@ -2,14 +2,19 @@ services:
   prowlarr:
     image: lscr.io/linuxserver/prowlarr:latest
     container_name: prowlarr
-    env_file:
-      - ../.env
     environment:
-      - PUID=${GLOBAL_PUID}
-      - PGID=${GLOBAL_PGID}
+      - PUID=1000
+      - PGID=1000
       - TZ=Etc/UTC
     volumes:
-      - ./config:/config
+      - /opt/docker/prowlarr/data:/config
+      - /mnt/data:/data
     ports:
-      - 9696:9696
+      - "9696:9696"
+    networks:
+      - soulsync-network
     restart: unless-stopped
+
+networks:
+  soulsync-network:
+    external: true

@@ -8,5 +8,11 @@ services:
       - CAPTCHA_SOLVER=none
       - TZ=Europe/London
     ports:
-      - 8191:8191
+      - "8191:8191"
+    networks:
+      - soulsync-network
     restart: unless-stopped
+
+networks:
+  soulsync-network:
+    external: true
