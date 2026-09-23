@@ -48,6 +48,9 @@ The infrastructure is segmented into distinct layers managed via automated pipel
 
 The environment is logically separated into the following LXC instances, each running dedicated Docker Compose stacks on the `192.168.10.0/24` subnet:
 
+### Management Services
+- **Devops (192.168.10.11):** IaC repository, Terraform + Ansible control node
+
 ### Network Services
 - **Adguard (192.168.10.3):** Adguard Home (Port 81)
 - **Nginx Proxy Manager (192.168.10.4):** NPM (Port 81)

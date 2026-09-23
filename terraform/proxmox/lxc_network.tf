@@ -3,6 +3,10 @@ module "adguard" {
   hostname    = "adguard"
   vm_id       = 103
   ip_address  = "192.168.10.3"
+  cpu_cores   = 2
+  memory      = 1024
+  swap        = 1024
+  disk_size   = 7
   default_dns = ["1.1.1.1"]
 }
 
@@ -11,6 +15,9 @@ module "npm" {
   hostname   = "npm"
   vm_id      = 104
   ip_address = "192.168.10.4"
+  cpu_cores  = 2
+  memory     = 1048
+  swap       = 512
 }
 
 module "tailscale" {
@@ -18,6 +25,9 @@ module "tailscale" {
   hostname   = "tailscale"
   vm_id      = 105
   ip_address = "192.168.10.5"
+  cpu_cores  = 1
+  memory     = 512
+  swap       = 512
   keyctl     = true
 }
 
@@ -26,4 +36,7 @@ module "cf_tunnel" {
   hostname   = "cf-tunnel"
   vm_id      = 107
   ip_address = "192.168.10.6"
+  cpu_cores  = 1
+  memory     = 1024
+  swap       = 1024
 }
