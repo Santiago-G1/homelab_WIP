@@ -1,3 +1,4 @@
+# Planned, not deployed yet.
 module "monitoring" {
   source     = "../modules/lxc"
   hostname   = "monitoring"

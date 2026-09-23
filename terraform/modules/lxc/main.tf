@@ -12,7 +12,7 @@ resource "proxmox_lxc" "multiple_mountpoints" {
   vmid            = var.vm_id
   ostemplate      = var.template
   unprivileged    = var.unprivileged
-  ostype          = var.os_type
+  ostype          = "debian"
   cores           = var.cpu_cores
   memory          = var.memory
   swap            = var.swap
@@ -29,17 +29,18 @@ resource "proxmox_lxc" "multiple_mountpoints" {
     size    = "${var.disk_size}G"
   }
 
-  # Bind mount desde una ruta del host (no un volumen de storage).
-  # El provider exige 'size' aunque se ignore en bind mounts.
+  # Bind mounts desde el host. En el provider, para un bind mount
+  # 'storage' y 'volume' deben ser la misma ruta del host, y 'size' es
+  # obligatorio aunque Proxmox lo ignore.
   dynamic "mountpoint" {
-    for_each = var.mount_volume != null && var.mount_volume != "" ? [1] : []
+    for_each = { for idx, mp in var.mount_points : tostring(idx) => mp }
     content {
-      key     = "1"
-      slot    = 1
-      storage = var.mount_volume
-      volume  = var.mount_volume
-      mp      = var.mount_point
-      size    = var.mount_size
+      key     = mountpoint.key
+      slot    = tonumber(mountpoint.key)
+      storage = mountpoint.value.volume
+      volume  = mountpoint.value.volume
+      mp      = mountpoint.value.mount_path
+      size    = mountpoint.value.size
     }
   }
 

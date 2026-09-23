@@ -14,16 +14,11 @@ variable "vm_id" {
   type        = number
 }
 
+# Todos los contenedores son Debian.
 variable "template" {
-  description = "Template del sistema operativo"
+  description = "Template Debian del sistema operativo"
   type        = string
   default     = "local:vztmpl/debian-13-standard_13.1-2_amd64.tar.zst"
-}
-
-variable "os_type" {
-  description = "Tipo de sistema operativo"
-  type        = string
-  default     = "debian"
 }
 
 variable "ip_address" {
@@ -103,20 +98,15 @@ variable "ssh_public_keys" {
   default     = null
 }
 
-variable "mount_volume" {
-  description = "Ruta del host a montar por bind mount (ej: /tank/media). null = sin mountpoint"
-  type        = string
-  default     = null
-}
-
-variable "mount_point" {
-  description = "Ruta de montaje dentro del contenedor"
-  type        = string
-  default     = "/mnt/data"
-}
-
-variable "mount_size" {
-  description = "Requerido por el provider aunque se ignore en bind mounts"
-  type        = string
-  default     = "256G"
+variable "mount_points" {
+  description = <<-EOT
+    Bind mounts desde el host. 'volume' es la ruta en el host y 'mount_path'
+    la ruta dentro del contenedor. Se pueden declarar varios por contenedor.
+  EOT
+  type = list(object({
+    volume     = string
+    mount_path = string
+    size       = optional(string, "256G")
+  }))
+  default = []
 }

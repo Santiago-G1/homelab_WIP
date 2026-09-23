@@ -1,5 +1,3 @@
-# Alpine community-script install (os_type alpine, 1G rootfs) - not fully
-# reproducible from this module.
 module "vaultwarden" {
   source     = "../modules/lxc"
   hostname   = "vaultwarden"
@@ -24,15 +22,16 @@ module "radicale" {
   keyctl     = true
 }
 
-# Reality has two bind mounts (/mnt/data/obsidian, /mnt/data/cloud);
-# the module only supports one.
 module "cloud-service" {
-  source       = "../modules/lxc"
-  hostname     = "cloud-service"
-  vm_id        = 128
-  ip_address   = "192.168.10.25"
-  cpu_cores    = 2
-  memory       = 2048
-  mount_volume = "/tank/cloud"
-  mount_point  = "/mnt/data/cloud"
+  source     = "../modules/lxc"
+  hostname   = "cloud-service"
+  vm_id      = 128
+  ip_address = "192.168.10.25"
+  cpu_cores  = 2
+  memory     = 2048
+
+  mount_points = [
+    { volume = "/tank/cloud", mount_path = "/mnt/data/cloud" },
+    { volume = "/tank/obsidian", mount_path = "/mnt/data/obsidian" },
+  ]
 }
