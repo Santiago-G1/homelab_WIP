@@ -15,6 +15,11 @@
 !.env.template
 !.env.sample
 
+# FILEBROWSER (runtime data, nunca commitear)
+**/filebrowser/config/database.sqlite
+**/filebrowser/config/*.sqlite
+**/filebrowser/config/*.db
+
 # TERRAFORM
 .terraform/
 .terraform.lock.hcl

@@ -9,13 +9,15 @@ server:
 
 auth:
   adminUsername: admin
-  adminPassword: $PASSWORD
   methods:
     password:
       enabled: true
 
+# Secrets are NOT stored here: config.yaml does not expand $VARS.
+# Set them via environment variables instead:
+#   FILEBROWSER_ADMIN_PASSWORD      -> admin password
+#   FILEBROWSER_ONLYOFFICE_SECRET   -> must match ONLYOFFICE_JWT_SECRET
 integrations:
   office:
     url: "https://your.domain.com" #domain or ip
     internalUrl: "http://onlyoffice:80"
-    secret: "YOUR-SECRET-KEY"
