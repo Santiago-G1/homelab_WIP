@@ -17,7 +17,7 @@ variable "vm_id" {
 variable "template" {
   description = "Template del sistema operativo"
   type        = string
-  default     = "debian-13-standard_13.1-2_amd64.tar.zst"
+  default     = "local:vztmpl/debian-13-standard_13.1-2_amd64.tar.zst"
 }
 
 variable "os_type" {
@@ -27,7 +27,7 @@ variable "os_type" {
 }
 
 variable "ip_address" {
-  description = "Dirección IP con máscara (ej: 192.168.xx.xx/24)"
+  description = "Dirección IP sin máscara (ej: 192.168.10.20); el módulo añade /24"
   type        = string
 }
 
@@ -37,6 +37,17 @@ variable "gateway" {
   default     = "192.168.10.1"
 }
 
+variable "bridge" {
+  description = "Bridge de red del host"
+  type        = string
+  default     = "vmbr0"
+}
+
+variable "default_dns" {
+  description = "Servidores DNS (Adguard Home, fallback Cloudflare)"
+  type        = list(string)
+  default     = ["192.168.10.3", "1.1.1.1"]
+}
 
 variable "disk_size" {
   description = "Tamaño del disco root en GB"
@@ -68,21 +79,44 @@ variable "swap" {
   default     = 2048
 }
 
-
-variable "default_dns" {
-  description = "Default dns server (Adguard home, fallback cloudflare)"
-  type        = list(string)
-  default     = ["192.168.10.3", "1.1.1.1"]
+variable "unprivileged" {
+  description = "Contenedor sin privilegios"
+  type        = bool
+  default     = true
 }
 
-variable "mount_storage" {
-  description = "Storage para el mountpoint"
+variable "nesting" {
+  description = "Habilitar nesting (necesario para Docker)"
+  type        = bool
+  default     = true
+}
+
+variable "keyctl" {
+  description = "Habilitar keyctl (necesario para Tailscale)"
+  type        = bool
+  default     = false
+}
+
+variable "ssh_public_keys" {
+  description = "Claves SSH públicas a inyectar (vacío = ninguna)"
   type        = string
   default     = null
 }
 
 variable "mount_volume" {
-  description = "Volumen o ruta en el host"
+  description = "Ruta del host a montar por bind mount (ej: /tank/media). null = sin mountpoint"
   type        = string
   default     = null
+}
+
+variable "mount_point" {
+  description = "Ruta de montaje dentro del contenedor"
+  type        = string
+  default     = "/mnt/data"
+}
+
+variable "mount_size" {
+  description = "Requerido por el provider aunque se ignore en bind mounts"
+  type        = string
+  default     = "256G"
 }

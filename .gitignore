@@ -10,6 +10,11 @@
 *secret*
 *password*
 
+# Plantillas versionables (nunca secretos reales)
+!.env.example
+!.env.template
+!.env.sample
+
 # TERRAFORM
 .terraform/
 .terraform.lock.hcl

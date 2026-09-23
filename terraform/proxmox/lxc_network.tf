@@ -7,22 +7,23 @@ module "adguard" {
 }
 
 module "npm" {
-  source      = "../modules/lxc"
-  hostname    = "npm"
-  vm_id       = 104
-  ip_address  = "192.168.10.4"
+  source     = "../modules/lxc"
+  hostname   = "npm"
+  vm_id      = 104
+  ip_address = "192.168.10.4"
 }
 
 module "tailscale" {
-  source      = "../modules/lxc"
-  hostname    = "tailscale"
-  vm_id       = 105
-  ip_address  = "192.168.10.5"
+  source     = "../modules/lxc"
+  hostname   = "tailscale"
+  vm_id      = 105
+  ip_address = "192.168.10.5"
+  keyctl     = true
 }
 
 module "cf_tunnel" {
-  source      = "../modules/lxc"
-  hostname    = "cf-tunnel"
-  vm_id       = 107
-  ip_address  = "192.168.10.6"
+  source     = "../modules/lxc"
+  hostname   = "cf-tunnel"
+  vm_id      = 107
+  ip_address = "192.168.10.6"
 }

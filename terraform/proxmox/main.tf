@@ -1,8 +1,8 @@
 terraform {
   required_providers {
     proxmox = {
-      source  = "bpg/proxmox"
-      version = "0.55.0"
+      source  = "Telmate/proxmox"
+      version = "~> 2.9"
     }
   }
 }
@@ -23,19 +23,9 @@ variable "proxmox_api_token_secret" {
   sensitive   = true
 }
 
-variable "node_name" {
-  description = "PROXMOX NODE NAME" 
-  type        = string
-}
-
-variable "lxc_password" {
-  description = "Default password"
-  type        = string
-  sensitive   = true
-}
-
 provider "proxmox" {
-  endpoint  = var.proxmox_api_url
-  api_token = "${var.proxmox_api_token_id}=${var.proxmox_api_token_secret}"
-  insecure  = true
+  pm_api_url          = var.proxmox_api_url
+  pm_api_token_id     = var.proxmox_api_token_id
+  pm_api_token_secret = var.proxmox_api_token_secret
+  pm_tls_insecure     = true
 }
