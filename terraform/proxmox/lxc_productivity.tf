@@ -1,91 +1,37 @@
 module "vaultwarden" {
-  source = "../modules/lxc"
-
-  node_name   = var.node_name
-  hostname    = "vaultwarden"
-  vm_id       = 125
-  description = "Vaultwarden Password Manager"
-  template    = var.default_template
-  os_type     = var.default_os_type
-  ip_address  = "192.168.10.25/24"
-  gateway     = var.default_gateway
-  dns_servers = var.default_dns
-  
-  disk_size = 8
-  cpu_cores = 1
-  memory    = 2048
-  swap      = 2048
+  source     = "../modules/lxc"
+  hostname   = "vaultwarden"
+  vm_id      = 125
+  ip_address = "192.168.10.23"
+  cpu_cores  = 1
+  memory     = 256
+  swap       = 512
+  disk_size  = 1
+  keyctl     = true
 }
 
 module "radicale" {
-  source = "../modules/lxc"
-
-  node_name   = var.node_name
-  hostname    = "radicale"
-  vm_id       = 114
-  description = "Radicale CalDAV/CardDAV"
-  template    = var.default_template
-  os_type     = var.default_os_type
-  ip_address  = "192.168.10.14/24"
-  gateway     = var.default_gateway
-  dns_servers = var.default_dns
-  
-  disk_size = 8
-  cpu_cores = 1
-  memory    = 2048
-  swap      = 2048
+  source     = "../modules/lxc"
+  hostname   = "radicale"
+  vm_id      = 114
+  ip_address = "192.168.10.24"
+  cpu_cores  = 1
+  memory     = 512
+  swap       = 512
+  disk_size  = 2
+  keyctl     = true
 }
 
-module "syncthing" {
-  source = "../modules/lxc"
+module "cloud-service" {
+  source     = "../modules/lxc"
+  hostname   = "cloud-service"
+  vm_id      = 128
+  ip_address = "192.168.10.25"
+  cpu_cores  = 2
+  memory     = 2048
 
-  node_name   = var.node_name
-  hostname    = "syncthing"
-  vm_id       = 115
-  description = "Syncthing File Sync"
-  template    = var.default_template
-  os_type     = var.default_os_type
-  ip_address  = "192.168.10.15/24"
-  gateway     = var.default_gateway
-  dns_servers = var.default_dns
-  
-  disk_size = 8
-  cpu_cores = 1
-  memory    = 2048
-  swap      = 2048
-  
   mount_points = [
-    {
-      mount_path = "/mnt/data"
-      volume     = "tank/obsidian1"
-    }
-  ]
-}
-
-
-module "filebrowser" {
-  source = "../modules/lxc"
-
-  node_name   = var.node_name
-  hostname    = "filebrowser"
-  vm_id       = 117
-  description = "Filebrowser Web File Manager"
-  template    = var.default_template
-  os_type     = var.default_os_type
-  ip_address  = "192.168.10.17/24"
-  gateway     = var.default_gateway
-  dns_servers = var.default_dns
-  
-  disk_size = 8
-  cpu_cores = 1
-  memory    = 2048
-  swap      = 2048
-  
-  
-  mount_points = [
-    {
-      mount_path = "/mnt/data"
-      volume     = "tank/cloud"
-    }
+    { volume = "/tank/cloud", mount_path = "/mnt/data/cloud" },
+    { volume = "/tank/obsidian", mount_path = "/mnt/data/obsidian" },
   ]
 }

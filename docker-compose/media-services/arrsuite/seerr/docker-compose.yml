@@ -1,11 +1,18 @@
-seerr:
-  image: ghcr.io/seerr-team/seerr:latest
-  container_name: seerr
-  environment:
-    - LOG_LEVEL=debug
-    - TZ=Etc/UTC
-  ports:
-    - 5055:5055
-  volumes:
-    - ./config:/app/config
-  restart: unless-stopped
+services:
+  seerr:
+    image: ghcr.io/seerr-team/seerr:latest
+    container_name: seerr
+    environment:
+      - LOG_LEVEL=debug
+      - TZ=Etc/UTC
+    ports:
+      - "5055:5055"
+    volumes:
+      - /opt/docker/seerr/data:/app/config
+    networks:
+      - soulsync-network
+    restart: unless-stopped
+
+networks:
+  soulsync-network:
+    external: true

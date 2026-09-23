@@ -1,6 +1,7 @@
-variable "node_name" {
+variable "node" {
   description = "Nombre del nodo Proxmox"
   type        = string
+  default     = "pve"
 }
 
 variable "hostname" {
@@ -13,37 +14,34 @@ variable "vm_id" {
   type        = number
 }
 
-variable "description" {
-  description = "Descripción del contenedor"
-  type        = string
-  default     = ""
-}
-
+# Todos los contenedores son Debian.
 variable "template" {
-  description = "Template del sistema operativo"
+  description = "Template Debian del sistema operativo"
   type        = string
-}
-
-variable "os_type" {
-  description = "Tipo de sistema operativo"
-  type        = string
-  default     = "debian"
+  default     = "local:vztmpl/debian-13-standard_13.1-2_amd64.tar.zst"
 }
 
 variable "ip_address" {
-  description = "Dirección IP con máscara (ej: 192.168.10.3/24)"
+  description = "Dirección IP sin máscara (ej: 192.168.10.20); el módulo añade /24"
   type        = string
 }
 
 variable "gateway" {
   description = "Gateway por defecto"
   type        = string
+  default     = "192.168.10.1"
 }
 
-variable "dns_servers" {
-  description = "Servidores DNS"
+variable "bridge" {
+  description = "Bridge de red del host"
+  type        = string
+  default     = "vmbr0"
+}
+
+variable "default_dns" {
+  description = "Servidores DNS (Adguard Home, fallback Cloudflare)"
   type        = list(string)
-  default     = ["1.1.1.1", "8.8.8.8"]
+  default     = ["192.168.10.3", "1.1.1.1"]
 }
 
 variable "disk_size" {
@@ -76,6 +74,12 @@ variable "swap" {
   default     = 2048
 }
 
+variable "unprivileged" {
+  description = "Contenedor sin privilegios"
+  type        = bool
+  default     = true
+}
+
 variable "nesting" {
   description = "Habilitar nesting (necesario para Docker)"
   type        = bool
@@ -88,17 +92,21 @@ variable "keyctl" {
   default     = false
 }
 
-variable "unprivileged" {
-  description = "Contenedor sin privilegios"
-  type        = bool
-  default     = true
+variable "ssh_public_keys" {
+  description = "Claves SSH públicas a inyectar (vacío = ninguna)"
+  type        = string
+  default     = null
 }
 
 variable "mount_points" {
-  description = "Lista de mount points para datasets ZFS existentes"
+  description = <<-EOT
+    Bind mounts desde el host. 'volume' es la ruta en el host y 'mount_path'
+    la ruta dentro del contenedor. Se pueden declarar varios por contenedor.
+  EOT
   type = list(object({
-    mount_path = string
     volume     = string
+    mount_path = string
+    size       = optional(string, "256G")
   }))
   default = []
 }

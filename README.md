@@ -27,12 +27,12 @@ The primary objective of this repository is to practice production-grade DevOps 
 
 ## Architecture
 
-![Architecture Diagram](/docs/diagram.drawio.svg#gh-light-mode-only)
-![Architecture Diagram](/docs/diagram.drawio.svg#gh-dark-mode-only)
+![Architecture Diagram](/docs/homelab-visual.drawio.svg#gh-light-mode-only)
+![Architecture Diagram](/docs/homelab-visual.drawio.svg#gh-dark-mode-only)
 
 The physical network is built for stability and self-hosting, utilizing the following hardware path:
 - **WAN:** Starlink Standard 4 (Bypass Mode)
-- **Routing:** Cudy WR3000 running OpenWrt (192.168.1.1)
+- **Routing:** Cudy WR3000 (192.168.10.1)
 - **Switching:** Mercury 1Gbps 5-port switch
 - **Compute:** Main Proxmox VE Server (pve 9.2.3)
 - **Backup:** Dedicated Proxmox Backup Server (192.168.10.9)
@@ -48,25 +48,28 @@ The infrastructure is segmented into distinct layers managed via automated pipel
 
 The environment is logically separated into the following LXC instances, each running dedicated Docker Compose stacks on the `192.168.10.0/24` subnet:
 
+### Management Services
+- **Devops (192.168.10.11):** IaC repository, Terraform + Ansible control node
+
 ### Network Services
 - **Adguard (192.168.10.3):** Adguard Home (Port 81)
 - **Nginx Proxy Manager (192.168.10.4):** NPM (Port 81)
 - **Tailscale (192.168.10.5):** Tailscale mesh VPN node
-- **Cloudflare (192.168.10.7):** Cloudflare Tunnel (Handles external exposure for internal services like Navidrome)
-
-### Media Services
-- **Arrsuite (192.168.10.20):** qBittorrent (8080), Radarr (7878), Sonarr (8989), Prowlarr (9696), Bazarr (6767), Seerr (5055), Flaresolverr (8191), Slskd (5030), Calibre (8082)
-- **Frontend (192.168.10.23):** Navidrome (4533), Jellyfin (8096), Komga (25600)
-- **Immich (192.168.10.26):** Immich (2283)
-
-### Productivity Services
-- **Vaultwarden (192.168.10.25):** Vaultwarden (8000)
-- **Radicale (192.168.10.14):** Radicale (5232)
-- **Syncthing (192.168.10.15):** Syncthing (8384)
-- **Quantum Filebrowser (192.168.10.28):** Quantum Filebrowser (8080)
+- **Cloudflare (192.168.10.6):** Cloudflare Tunnel (Handles external exposure for internal services like Navidrome)
 
 ### Monitoring Services
 - **Monitor (192.168.10.10):** Prometheus (9090), Grafana (8080)
+
+### Media Services
+- **Arrsuite (192.168.10.20):** qBittorrent (8080), Radarr (7878), Sonarr (8989), Prowlarr (9696), Bazarr (6767), Seerr (5055), Flaresolverr (8191), Slskd (5030), Calibre (8082)
+- **Frontend (192.168.10.21):** Navidrome (4533), Jellyfin (8096), Komga (25600)
+- **Immich (192.168.10.22):** Immich (2283)
+
+### Productivity Services
+- **Vaultwarden (192.168.10.23):** Vaultwarden (8000)
+- **Radicale (192.168.10.24):** Radicale (5232)
+- **Quantum Filebrowser (192.168.10.25):** Quantum Filebrowser (8080), Syncthing (8384)
+- **AI-Stack (192.168.10.26)** Llama-Swap (5001), Litellm (4000), Open-webui (3000), Comfyui (8188)
 
 ---
 

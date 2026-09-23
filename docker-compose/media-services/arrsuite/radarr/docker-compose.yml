@@ -1,15 +1,20 @@
-radarr:
-  image: lscr.io/linuxserver/radarr:latest
-  container_name: radarr
-  env_file:
-    - ../.env
-  environment:
-    - PUID=${GLOBAL_PUID}
-    - PGID=${GLOBAL_PGID}
-    - TZ=Etc/UTC
-  volumes:
-    - ./config:/config
-    - /mnt/data:/data
-  ports:
-    - 7878:7878
-  restart: unless-stopped
+services:
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: radarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+    volumes:
+      - /opt/docker/radarr/data:/config
+      - /mnt/data:/data
+    ports:
+      - "7878:7878"
+    networks:
+      - soulsync-network
+    restart: unless-stopped
+
+networks:
+  soulsync-network:
+    external: true

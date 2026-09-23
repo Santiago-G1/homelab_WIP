@@ -10,6 +10,19 @@
 *secret*
 *password*
 
+# Plantillas versionables (nunca secretos reales)
+!.env.example
+!.env.template
+!.env.sample
+
+# FILEBROWSER (runtime data, nunca commitear)
+**/filebrowser/config/database.sqlite
+**/filebrowser/config/*.sqlite
+**/filebrowser/config/*.db
+
+# SAMBA (credenciales, usar users.conf.template)
+**/samba/users.conf
+
 # TERRAFORM
 .terraform/
 .terraform.lock.hcl

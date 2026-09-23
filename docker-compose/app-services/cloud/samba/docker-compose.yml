@@ -1,0 +1,16 @@
+services:
+  samba:
+    image: dockurr/samba
+    container_name: samba
+    environment:
+      UID: "1000"
+      GID: "1000"
+      CLEAR: "Y"
+    ports:
+      - "445:445"
+    volumes:
+      - $CLOUD_MOUNT:/storage
+      - $LLM_MOUNT:/llm_storage
+      - ./smb.conf:/etc/samba/smb.conf
+      - ./users.conf:/etc/samba/users.conf
+    restart: always
