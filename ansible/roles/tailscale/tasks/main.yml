@@ -1,0 +1,49 @@
+---
+- name: Install the Tailscale signing key
+  ansible.builtin.get_url:
+    url: >-
+      https://pkgs.tailscale.com/stable/debian/{{ ansible_distribution_release }}.noarmor.gpg
+    dest: /usr/share/keyrings/tailscale-archive-keyring.gpg
+    mode: "0644"
+
+- name: Add the Tailscale apt repository
+  ansible.builtin.apt_repository:
+    repo: >-
+      deb [signed-by=/usr/share/keyrings/tailscale-archive-keyring.gpg]
+      https://pkgs.tailscale.com/stable/debian {{ ansible_distribution_release }} main
+    filename: tailscale
+    state: present
+    update_cache: true
+
+- name: Install the tailscale package
+  ansible.builtin.apt:
+    name: tailscale
+    state: present
+    update_cache: true
+
+- name: Enable and start tailscaled
+  ansible.builtin.service:
+    name: tailscaled
+    enabled: true
+    state: started
+
+- name: Check whether this node is already in the tailnet
+  ansible.builtin.command: tailscale ip -4
+  register: tailscale_ip
+  changed_when: false
+  failed_when: false
+
+- name: Join the tailnet as a subnet router
+  ansible.builtin.command: >-
+    tailscale up
+    --authkey={{ vault_tailscale_auth_key }}
+    --hostname={{ inventory_hostname }}
+    --advertise-routes={{ tailscale_advertise_routes }}
+    --accept-dns=false
+  when: tailscale_ip.rc != 0
+  changed_when: true
+
+- name: Show the tailnet status
+  ansible.builtin.command: tailscale status --peers=false
+  register: tailscale_state
+  changed_when: false

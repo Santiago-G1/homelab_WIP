@@ -2,6 +2,8 @@
 stacks:
   - name: caddy
     src: network-services/caddy
+    env:
+      CLOUDFLARE_API_TOKEN: "{{ vault_cloudflare_api_token }}"
 
 # Reached through the proxy with real SNI, so these prove the route table works.
 proxy_checks:

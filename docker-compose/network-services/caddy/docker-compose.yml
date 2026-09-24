@@ -1,15 +1,23 @@
 services:
   caddy:
-    image: caddy:2-alpine
+    build: .
+    image: caddy-cloudflare:local
     container_name: caddy
     restart: unless-stopped
     ports:
       - "80:80"
       - "443:443"
       - "443:443/udp" # HTTP/3
+    # The DNS-01 plugin resolves the zone through the system resolver, and the
+    # lab resolver rewrites every *.domain.com name, so use public ones.
+    dns:
+      - 1.1.1.1
+      - 9.9.9.9
+    environment:
+      - TZ=Etc/UTC
+      # Used by the TLS DNS-01 challenge (see the Caddyfile).
+      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN:?CLOUDFLARE_API_TOKEN is required}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - ./data:/data
       - ./config:/config
-    environment:
-      - TZ=Etc/UTC

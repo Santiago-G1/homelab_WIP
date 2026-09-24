@@ -3,7 +3,7 @@
 module "ai" {
   source     = "../modules/lxc"
   hostname   = "AI"
-  vm_id      = 101
+  vm_id      = 126
   ip_address = "192.168.10.26"
   cpu_cores  = 4
   memory     = 12288

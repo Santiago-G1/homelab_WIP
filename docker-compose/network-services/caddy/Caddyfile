@@ -2,7 +2,7 @@
 #
 # The route table lives in the (routes) snippet below: one line per hostname
 # from the DNS plan, pointing at the container that runs the service. Both the
-# HTTPS site (with certificates from Caddy's local CA) and the plain HTTP site
+# HTTPS site and the plain HTTP site
 # import it, so the Cloudflare tunnel can use either origin.
 {
 	email admin@domain.com
@@ -10,11 +10,9 @@
 	auto_https disable_redirects
 }
 
-# Certificates are signed by Caddy's own CA (LAN only). Install the root CA on
-# your devices to avoid warnings:
-#   docker exec caddy cat /data/caddy/pki/authorities/local/root.crt
-# For public certificates switch to the Cloudflare DNS challenge:
-#   tls { dns cloudflare {env.CLOUDFLARE_API_TOKEN} }
+# Certificates come from Let's Encrypt through the Cloudflare DNS-01
+# challenge, which also lets Caddy issue the *.domain.com wildcard in
+# one go (the API token is injected as an environment variable).
 (routes) {
 	map {host} {backend} {
 		# Blocky has no web UI; this serves its API, DoH (/dns-query) and metrics.
@@ -27,6 +25,9 @@
 		radarr.domain.com 192.168.10.20:7878
 		sonarr.domain.com 192.168.10.20:8989
 		soulsync.domain.com 192.168.10.20:8008
+		# Filebrowser, on the cloud container: this is what the old
+		# cloud.domain.com DNS record pointed at.
+		cloud.domain.com 192.168.10.25:80
 		torrent.domain.com 192.168.10.20:8080
 		movies.domain.com 192.168.10.21:8096
 		komga.domain.com 192.168.10.21:25600
@@ -41,7 +42,11 @@
 }
 
 https://*.domain.com {
-	tls internal
+	tls {
+		dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+		# The zone lookup must not use the lab resolver: Blocky answers every
+		# *.domain.com name itself, so the plugin cannot see the NS records.
+	}
 	import routes
 }
 

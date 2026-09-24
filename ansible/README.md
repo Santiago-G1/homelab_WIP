@@ -88,5 +88,9 @@ ansible-vault edit inventories/group_vars/all/vault.yml
 Alerts are evaluated by Prometheus and shown in Prometheus and Grafana; there
 is no notification channel configured on purpose.
 
+Certificates are issued by Let's Encrypt through the Cloudflare DNS-01 challenge
+(the token lives in the vault as `vault_cloudflare_api_token`), including the
+`*.domain.com` wildcard, so there is nothing to install on client devices.
+
 The Grafana admin password is the image default (`admin`/`admin`) until the first
 login changes it.

@@ -32,7 +32,7 @@
     - name: Reverse proxy routes answer
       ansible.builtin.command:
         cmd: >-
-          curl -sk --resolve {{ item.host }}:443:127.0.0.1 -o /dev/null
+          curl -s --resolve {{ item.host }}:443:127.0.0.1 -o /dev/null
           -w '%{http_code}' https://{{ item.host }}{{ item.path | default('/') }}
       loop: "{{ proxy_checks | default([]) }}"
       loop_control:

@@ -1,7 +1,7 @@
 module "vaultwarden" {
   source     = "../modules/lxc"
   hostname   = "vaultwarden"
-  vm_id      = 125
+  vm_id      = 123
   ip_address = "192.168.10.23"
   cpu_cores  = 1
   memory     = 256
@@ -13,7 +13,7 @@ module "vaultwarden" {
 module "radicale" {
   source     = "../modules/lxc"
   hostname   = "radicale"
-  vm_id      = 114
+  vm_id      = 124
   ip_address = "192.168.10.24"
   cpu_cores  = 1
   memory     = 512
@@ -25,7 +25,7 @@ module "radicale" {
 module "cloud-service" {
   source     = "../modules/lxc"
   hostname   = "cloud-service"
-  vm_id      = 128
+  vm_id      = 125
   ip_address = "192.168.10.25"
   cpu_cores  = 2
   memory     = 2048
