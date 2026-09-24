@@ -1,0 +1,13 @@
+---
+stacks:
+  - name: caddy
+    src: network-services/caddy
+
+# Reached through the proxy with real SNI, so these prove the route table works.
+proxy_checks:
+  - { host: music.domain.com }
+  - { host: password.domain.com }
+  - { host: torrent.domain.com }
+  - { host: immich.domain.com }
+  - { host: adguard.domain.com, path: /metrics } # Blocky has no UI
+  - { host: grafana.domain.com }

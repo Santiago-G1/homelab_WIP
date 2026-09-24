@@ -6,7 +6,7 @@ module "vaultwarden" {
   cpu_cores  = 1
   memory     = 256
   swap       = 512
-  disk_size  = 1
+  disk_size  = 4
   keyctl     = true
 }
 
@@ -18,7 +18,7 @@ module "radicale" {
   cpu_cores  = 1
   memory     = 512
   swap       = 512
-  disk_size  = 2
+  disk_size  = 4
   keyctl     = true
 }
 
@@ -29,6 +29,8 @@ module "cloud-service" {
   ip_address = "192.168.10.25"
   cpu_cores  = 2
   memory     = 2048
+  # Docker images for the cloud stacks (OnlyOffice alone is ~2.7 GB).
+  disk_size = 16
 
   mount_points = [
     { volume = "/tank/cloud", mount_path = "/mnt/data/cloud" },

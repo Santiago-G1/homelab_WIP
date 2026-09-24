@@ -1,0 +1,117 @@
+# Blocky — DNS resolver and ad-blocker for the lab.
+#
+# Replaces AdGuard Home. Every setting below mirrors the AdGuard configuration
+# that was recovered from the container backup, so resolution behaviour is
+# unchanged: same upstream, same blocklists, same rewrites.
+
+# AdGuard upstream_dns / bootstrap_dns / upstream_mode: parallel.
+upstreams:
+  groups:
+    default:
+      - https://base.dns.mullvad.net/dns-query
+
+# Used to resolve the DoH upstream and the blocklist URLs. The Mullvad servers
+# only answer their own DoH queries for some names (they cannot resolve
+# cdn.jsdelivr.net), so a public resolver comes first.
+bootstrapDns:
+  - 1.1.1.1
+  - 9.9.9.9
+  - 194.242.2.6
+  - 194.242.2.4
+
+ports:
+  dns: 53
+  # 80 keeps the previous DoH URL (http://192.168.10.3/dns-query) working;
+  # 4000 is what the reverse proxy and Prometheus use.
+  http:
+    - 80
+    - 4000
+
+# AdGuard aaaa_disabled: true and refuse_any: true.
+filtering:
+  queryTypes:
+    - AAAA
+    - ANY
+
+# AdGuard rewrites: every *.domain.com and *.lab.duckdns.org name
+# resolves to the reverse proxy (Blocky resolves subdomains of a mapping too).
+customDNS:
+  customTTL: 1h
+  mapping:
+    domain.com: 192.168.10.4
+    lab.duckdns.org: 192.168.10.4
+
+# The filters AdGuard had enabled. HostlistsRegistry serves them in AdGuard
+# syntax, which Blocky cannot parse, so these are the same HaGeZi lists in their
+# domain-list format (one domain per line).
+blocking:
+  denylists:
+    hagezi:
+      - https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/ultimate-onlydomains.txt
+      - https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/tif-onlydomains.txt
+      - https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/native.apple-onlydomains.txt
+      - https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/gambling-onlydomains.txt
+      - https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/native.oppo-realme-onlydomains.txt
+      - https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/native.winoffice-onlydomains.txt
+      - https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/native.xiaomi-onlydomains.txt
+      - https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/spam-tlds-onlydomains.txt
+      - https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/urlshortener-onlydomains.txt
+    special:
+      - |
+        # AdGuard blocked_hosts
+        version.bind
+        id.server
+        hostname.bind
+  allowlists:
+    hagezi:
+      - |
+        # AdGuard user_rules: @@||huggingface.co^$important
+        huggingface.co
+        cdn-lfs.huggingface.co
+        hf.co
+  clientGroupsBlock:
+    default:
+      - hagezi
+      - special
+  # AdGuard blocking_mode "default" answers blocked names with 0.0.0.0.
+  blockType: zeroIp
+
+# AdGuard cache_size/cache_optimistic.
+caching:
+  minTime: 5m
+  maxTime: 30m
+  prefetching: true
+  prefetchThreshold: 5
+
+# AdGuard ratelimit: 20 queries/s per client, never for the LAN.
+rateLimit:
+  enable: true
+  rate: 20
+  allowlist:
+    - 127.0.0.1/32
+    - ::1/128
+    - 192.168.0.0/16
+
+# AdGuard querylog + statistics, as a local SQLite file.
+queryLog:
+  type: sqlite
+  target: /app/querylog/querylog.db
+  logRetentionDays: 7
+  fields:
+    - clientIP
+    - clientName
+    - responseReason
+
+# AdGuard hostsfile_enabled.
+hostsFile:
+  sources:
+    - /etc/hosts
+  hostsTTL: 1h
+
+# Scraped by Prometheus.
+prometheus:
+  enable: true
+  path: /metrics
+
+log:
+  level: info

@@ -1,0 +1,21 @@
+---
+# Base configuration for every container.
+- name: Base configuration
+  hosts: lxc
+  roles:
+    - common
+    - node_exporter
+
+# Docker Engine plus every Compose project declared in host_vars/.
+- name: Docker hosts
+  hosts: docker_hosts
+  roles:
+    - docker
+    - stacks
+
+# The control node is monitored as well, but it is not re-configured by the
+# base role (it is the machine running Ansible).
+- name: Monitoring agent on the control node
+  hosts: management
+  roles:
+    - node_exporter

@@ -1,0 +1,17 @@
+# Managed by Ansible (roles/stacks).
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+scrape_configs:
+{% for job in prometheus_jobs %}
+  - job_name: {{ job.job }}
+{% if job.metrics_path is defined %}
+    metrics_path: {{ job.metrics_path }}
+{% endif %}
+    static_configs:
+      - targets: {{ job.targets | to_json }}
+{% endfor %}

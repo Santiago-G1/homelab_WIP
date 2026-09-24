@@ -32,13 +32,13 @@ The infrastructure is segmented into distinct layers managed via automated pipel
 - **Devops (192.168.10.11):** IaC repository, Terraform + Ansible control node
 
 ### Network Services
-- **Adguard (192.168.10.3):** Adguard Home (Port 81)
-- **Nginx Proxy Manager (192.168.10.4):** NPM (Port 81)
+- **Blocky (192.168.10.3):** DNS resolver and ad-blocker, API/DoH/metrics on port 4000
+- **Caddy (192.168.10.4):** reverse proxy for `*.domain.com` (ports 80/443, config in `docker-compose/network-services/caddy`)
 - **Tailscale (192.168.10.5):** Tailscale mesh VPN node
 - **Cloudflare (192.168.10.6):** Cloudflare Tunnel (Handles external exposure for internal services like Navidrome)
 
 ### Monitoring Services
-- **Monitor (192.168.10.10):** Prometheus (9090), Grafana (8080)
+- **Monitor (192.168.10.10):** Prometheus (9090), Grafana (3000)
 
 ### Media Services
 - **Arrsuite (192.168.10.20):** qBittorrent (8080), Radarr (7878), Sonarr (8989), Prowlarr (9696), Bazarr (6767), Seerr (5055), Flaresolverr (8191), Slskd (5030), Calibre (8082)

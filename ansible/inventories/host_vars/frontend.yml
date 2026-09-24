@@ -1,0 +1,23 @@
+---
+# /tank/media is bind-mounted read-only at /mnt/media on this container.
+frontend_env:
+  GLOBAL_PUID: "{{ vault_global_puid }}"
+  GLOBAL_PGID: "{{ vault_global_pgid }}"
+  NAVIDROME_PUID: "{{ vault_navidrome_puid }}"
+  NAVIDROME_PGID: "{{ vault_navidrome_pgid }}"
+
+stacks:
+  - { name: jellyfin,  src: media-services/frontend/jellyfin,  env: "{{ frontend_env }}" }
+  - { name: komga,     src: media-services/frontend/komga,     env: "{{ frontend_env }}" }
+  - name: navidrome
+    src: media-services/frontend/navidrome
+    env: "{{ frontend_env }}"
+    # The official image does not chown its data dir, so create it as the
+    # matching container uid (see the ACLs on /tank/media/music).
+    dirs:
+      - { path: config, owner: "1010", group: "1010" }
+
+health_checks:
+  - { name: jellyfin, url: "http://127.0.0.1:8096/health" }
+  - { name: komga, url: "http://127.0.0.1:25600/" }
+  - { name: navidrome, url: "http://127.0.0.1:4533/" }

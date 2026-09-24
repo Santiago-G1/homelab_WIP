@@ -1,0 +1,42 @@
+---
+- name: Wait until the container answers over SSH
+  ansible.builtin.wait_for_connection:
+    timeout: 60
+
+- name: Point /etc/localtime at the configured timezone
+  ansible.builtin.file:
+    src: "/usr/share/zoneinfo/{{ timezone }}"
+    dest: /etc/localtime
+    state: link
+    force: true
+
+- name: Record the timezone in /etc/timezone
+  ansible.builtin.copy:
+    content: "{{ timezone }}\n"
+    dest: /etc/timezone
+    mode: "0644"
+
+- name: Install base packages
+  ansible.builtin.apt:
+    name: "{{ common_packages }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Authorize the admin SSH keys
+  ansible.builtin.authorized_key:
+    user: root
+    key: "{{ item }}"
+    state: present
+  loop: "{{ admin_authorized_keys }}"
+
+# Hardening drop-in. Keys are installed above first, so this cannot lock us out.
+- name: Harden the SSH daemon
+  ansible.builtin.copy:
+    dest: /etc/ssh/sshd_config.d/99-hardening.conf
+    mode: "0644"
+    content: |
+      PasswordAuthentication no
+      PermitRootLogin prohibit-password
+      X11Forwarding no
+  notify: restart ssh

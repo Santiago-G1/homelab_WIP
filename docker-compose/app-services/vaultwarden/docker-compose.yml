@@ -9,5 +9,8 @@ services:
     # profiles: ["core", "all"]
     environment:
       - DOMAIN=https://password.${DOMAINNAME_HS}
+    # Reached by the reverse proxy on another container, so publish the port.
+    ports:
+      - "8000:80"
     volumes:
       - ./config:/data

@@ -1,0 +1,15 @@
+services:
+  blocky:
+    image: spx01/blocky:latest
+    container_name: blocky
+    restart: unless-stopped
+    ports:
+      - "53:53/tcp"   # DNS
+      - "53:53/udp"
+      - "80:80"       # REST API, DoH (/dns-query) and metrics
+      - "4000:4000"   # same, on a second port for the reverse proxy
+    volumes:
+      - ./config.yml:/app/config.yml:ro
+      - ./querylog:/app/querylog
+    environment:
+      - TZ=Etc/UTC

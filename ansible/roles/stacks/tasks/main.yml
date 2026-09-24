@@ -1,0 +1,22 @@
+---
+- name: Ensure the stack root exists
+  ansible.builtin.file:
+    path: "{{ stacks_root }}"
+    state: directory
+    mode: "0755"
+
+# Compose projects that declare an `external` network need it to exist first.
+- name: Ensure external Docker networks exist
+  ansible.builtin.command:
+    cmd: "docker network create {{ item }}"
+  loop: "{{ docker_networks | default([]) }}"
+  register: network_create
+  changed_when: network_create.rc == 0
+  failed_when: network_create.rc != 0 and 'already exists' not in network_create.stderr
+
+- name: Deploy every stack declared for this host
+  ansible.builtin.include_tasks: stack.yml
+  loop: "{{ stacks | default([]) }}"
+  loop_control:
+    loop_var: stack
+    label: "{{ stack.name }}"

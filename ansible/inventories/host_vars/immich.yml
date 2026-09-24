@@ -1,0 +1,16 @@
+---
+stacks:
+  - name: immich
+    src: media-services/immich
+    files:
+      - { template: immich-override.yml.j2, dest: docker-compose.override.yml }
+    env:
+      IMMICH_VERSION: "{{ vault_immich_version }}"
+      UPLOAD_LOCATION: "{{ vault_immich_upload_location }}"
+      DB_DATA_LOCATION: "{{ vault_immich_db_data_location }}"
+      DB_USERNAME: "{{ vault_immich_db_username }}"
+      DB_PASSWORD: "{{ vault_immich_db_password }}"
+      DB_DATABASE_NAME: "{{ vault_immich_db_database_name }}"
+
+health_checks:
+  - { name: immich-server, url: "http://127.0.0.1:2283/api/server/ping" }

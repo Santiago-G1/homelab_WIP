@@ -1,0 +1,56 @@
+---
+# End-to-end check: every declared stack must have running containers and its
+# HTTP endpoints must answer.
+- name: Verify the deployed stacks
+  hosts: docker_hosts
+  gather_facts: false
+  tasks:
+    - name: Docker daemon answers
+      ansible.builtin.command: docker info --format '{{ "{{.ServerVersion}}" }}'
+      changed_when: false
+
+    - name: Every declared stack has running containers
+      ansible.builtin.command:
+        cmd: docker compose ps -q
+        chdir: "{{ stacks_root }}/{{ stack.name }}"
+      loop: "{{ stacks | default([]) }}"
+      loop_control:
+        loop_var: stack
+        label: "{{ stack.name }}"
+      register: stack_ps
+      changed_when: false
+      failed_when: stack_ps.stdout | length == 0
+
+    - name: No container is left in a failed state
+      ansible.builtin.shell: |
+        docker ps -a --filter status=exited --filter status=dead --format '{{ "{{.Names}}" }}' | wc -l
+      register: failed_containers
+      changed_when: false
+      failed_when: failed_containers.stdout | int != 0
+
+    # The reverse proxy needs a real hostname for SNI, so it gets its own check.
+    - name: Reverse proxy routes answer
+      ansible.builtin.command:
+        cmd: >-
+          curl -sk --resolve {{ item.host }}:443:127.0.0.1 -o /dev/null
+          -w '%{http_code}' https://{{ item.host }}{{ item.path | default('/') }}
+      loop: "{{ proxy_checks | default([]) }}"
+      loop_control:
+        label: "{{ item.host }}"
+      register: proxy_result
+      changed_when: false
+      failed_when: >-
+        proxy_result.rc != 0 or (proxy_result.stdout | trim) not in
+        ['200', '301', '302', '303', '307', '308', '401', '403']
+
+    - name: HTTP endpoints answer
+      ansible.builtin.uri:
+        url: "{{ item.url }}"
+        status_code: [200, 301, 302, 303, 307, 308, 401, 403]
+        follow_redirects: none
+        headers: "{{ item.headers | default({}) }}"
+        validate_certs: "{{ item.validate_certs | default(true) }}"
+      loop: "{{ health_checks | default([]) }}"
+      loop_control:
+        label: "{{ item.name }}"
+      changed_when: false

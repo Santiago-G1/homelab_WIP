@@ -3,14 +3,14 @@ services:
     image: gotson/komga:latest
     container_name: komga
     env_file:
-      - ../.env
+      - .env
     environment:
       - PUID=${GLOBAL_PUID}
       - PGID=${GLOBAL_PGID}
       - TZ=Etc/UTC
     volumes:
       - ./config:/config
-      - /mnt/data/comics:/data
+      - /mnt/media/comics:/data
     ports:
       - 25600:25600
     restart: unless-stopped
