@@ -38,7 +38,7 @@ The infrastructure is segmented into distinct layers managed via automated pipel
 - **Cloudflare (192.168.10.6):** Cloudflare Tunnel (Handles external exposure for internal services like Navidrome)
 
 ### Monitoring Services
-- **Monitor (192.168.10.10):** Prometheus (9090), Grafana (3000), Uptime Kuma (3001), Gotify (80)
+- **Monitor (192.168.10.10):** Prometheus (9090), Grafana (3000)
 
 ### Media Services
 - **Arrsuite (192.168.10.20):** qBittorrent (8080), Radarr (7878), Sonarr (8989), Prowlarr (9696), Bazarr (6767), Seerr (5055), Flaresolverr (8191), Slskd (5030), Calibre (8082)

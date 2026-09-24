@@ -11,5 +11,3 @@ proxy_checks:
   - { host: immich.domain.com }
   - { host: adguard.domain.com, path: /metrics } # Blocky has no UI
   - { host: grafana.domain.com }
-  - { host: uptime.domain.com }
-  - { host: alert.domain.com }

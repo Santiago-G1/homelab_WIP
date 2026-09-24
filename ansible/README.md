@@ -79,17 +79,14 @@ ansible-vault edit inventories/group_vars/all/vault.yml
 - Every container runs `node_exporter` (role `node_exporter`); the scrape targets
   are derived from the inventory (`node_exporter_targets`).
 - `host_vars/monitoring.yml` declares the jobs (node exporter, Blocky DNS metrics
-  on `192.168.10.3:4000`, Prometheus itself) and the stacks Prometheus, Grafana,
-  Uptime Kuma and Gotify.
+  on `192.168.10.3:4000`, Prometheus itself) and the Prometheus and Grafana
+  stacks.
 - `prometheus/rules/homelab.yml` holds three alert rules (host down, low disk,
   high memory). Grafana is provisioned with the Prometheus datasource and the
   `Homelab overview` dashboard, both versioned in the repo.
 
-Manual steps that cannot be automated (they need a human to create a token):
+Alerts are evaluated by Prometheus and shown in Prometheus and Grafana; there
+is no notification channel configured on purpose.
 
-1. Uptime Kuma (`https://uptime.domain.com`): create the admin user and add
-   the monitors you care about.
-2. Gotify (`https://alert.domain.com`): log in with the generated
-   `vault_gotify_admin_password` (`ansible-vault view
-   inventories/group_vars/all/vault.yml`) and create an application token.
-3. In Uptime Kuma, add a Gotify notification using that token.
+The Grafana admin password is the image default (`admin`/`admin`) until the first
+login changes it.
