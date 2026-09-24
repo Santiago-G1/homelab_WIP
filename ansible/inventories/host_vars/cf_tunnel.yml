@@ -1,0 +1,6 @@
+---
+stacks:
+  - name: cloudflared
+    src: network-services/cloudflared
+    env:
+      CLOUDFLARE_TUNNEL_TOKEN: "{{ vault_cloudflare_tunnel_token }}"

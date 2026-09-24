@@ -1,0 +1,4 @@
+---
+# The container acts as a subnet router, so the whole lab is reachable from the
+# tailnet. Approve the route once in the Tailscale admin console.
+tailscale_advertise_routes: "192.168.10.0/24"

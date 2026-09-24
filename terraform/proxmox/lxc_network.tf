@@ -29,6 +29,12 @@ module "tailscale" {
   memory     = 512
   swap       = 512
   keyctl     = true
+
+  # Tailscale is wireguard based and needs the TUN device; the original
+  # container had the same passthrough as raw lxc.mount.entry lines.
+  device_passthrough = [
+    { path = "/dev/net/tun" },
+  ]
 }
 
 module "cf_tunnel" {

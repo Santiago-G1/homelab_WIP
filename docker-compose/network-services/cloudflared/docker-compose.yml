@@ -1,0 +1,12 @@
+services:
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    restart: unless-stopped
+    # Remotely managed tunnel: the ingress rules live in the Cloudflare
+    # dashboard, the token only authenticates this connector.
+    command: tunnel --no-autoupdate run
+    environment:
+      # Read from the environment so the token never shows up in the process
+      # arguments.
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN:?CLOUDFLARE_TUNNEL_TOKEN is required}

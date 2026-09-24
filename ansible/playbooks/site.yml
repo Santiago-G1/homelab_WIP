@@ -19,3 +19,9 @@
   hosts: management
   roles:
     - node_exporter
+
+# The VPN container runs the daemon natively, not as a Compose stack.
+- name: Tailscale subnet router
+  hosts: vpn
+  roles:
+    - tailscale
