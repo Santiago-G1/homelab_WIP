@@ -1,12 +1,11 @@
 terraform {
   required_providers {
     proxmox = {
-      source  = "Telmate/proxmox"
-      version = "~> 2.9"
+      source  = "bpg/proxmox"
+      version = "~> 0.78.0"
     }
   }
 }
-
 variable "proxmox_api_url" {
   description = "URL PROXMOX API"
   type        = string
@@ -24,8 +23,17 @@ variable "proxmox_api_token_secret" {
 }
 
 provider "proxmox" {
-  pm_api_url          = var.proxmox_api_url
-  pm_api_token_id     = var.proxmox_api_token_id
-  pm_api_token_secret = var.proxmox_api_token_secret
-  pm_tls_insecure     = true
+  endpoint  = var.proxmox_api_url
+  api_token = "${var.proxmox_api_token_id}=${var.proxmox_api_token_secret}"
+  insecure  = true
+
+  ssh {
+    agent    = true
+    username = "root"
+    node {
+      name    = "pve"
+      address = "192.168.10.2" #change for your pve ip
+    }
+  }
 }
+

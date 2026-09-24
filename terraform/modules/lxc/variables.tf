@@ -93,9 +93,9 @@ variable "keyctl" {
 }
 
 variable "ssh_public_keys" {
-  description = "Claves SSH públicas a inyectar (vacío = ninguna)"
-  type        = string
-  default     = null
+  description = "Claves SSH públicas a inyectar"
+  type        = list(string)
+  default     = []
 }
 
 variable "mount_points" {

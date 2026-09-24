@@ -1,53 +1,71 @@
 terraform {
   required_providers {
     proxmox = {
-      source = "Telmate/proxmox"
+      source  = "bpg/proxmox"
+      version = "~> 0.78.0"
     }
   }
 }
 
-resource "proxmox_lxc" "multiple_mountpoints" {
-  target_node     = var.node
-  hostname        = var.hostname
-  vmid            = var.vm_id
-  ostemplate      = var.template
-  unprivileged    = var.unprivileged
-  ostype          = "debian"
-  cores           = var.cpu_cores
-  memory          = var.memory
-  swap            = var.swap
-  ssh_public_keys = var.ssh_public_keys
-  nameserver      = join(" ", var.default_dns)
+resource "proxmox_virtual_environment_container" "multiple_mountpoints" {
+  node_name    = var.node
+  vm_id        = var.vm_id
+  unprivileged = var.unprivileged
+
+  cpu {
+    cores = var.cpu_cores
+  }
+
+  memory {
+    dedicated = var.memory
+    swap      = var.swap
+  }
 
   features {
     nesting = var.nesting
     keyctl  = var.keyctl
   }
 
-  rootfs {
-    storage = var.disk_datastore
-    size    = "${var.disk_size}G"
+  disk {
+    datastore_id = var.disk_datastore
+    size         = var.disk_size
   }
 
-  # Bind mounts desde el host. En el provider, para un bind mount
-  # 'storage' y 'volume' deben ser la misma ruta del host, y 'size' es
-  # obligatorio aunque Proxmox lo ignore.
-  dynamic "mountpoint" {
-    for_each = { for idx, mp in var.mount_points : tostring(idx) => mp }
-    content {
-      key     = mountpoint.key
-      slot    = tonumber(mountpoint.key)
-      storage = mountpoint.value.volume
-      volume  = mountpoint.value.volume
-      mp      = mountpoint.value.mount_path
-      size    = mountpoint.value.size
+  operating_system {
+    template_file_id = var.template
+    type             = "debian"
+  }
+
+  initialization {
+    hostname = var.hostname
+
+    dns {
+      servers = var.default_dns
+    }
+
+    user_account {
+      keys = var.ssh_public_keys
+    }
+
+    ip_config {
+      ipv4 {
+        address = "${var.ip_address}/24"
+        gateway = var.gateway
+      }
     }
   }
 
-  network {
+  dynamic "mount_point" {
+    for_each = var.mount_points
+
+    content {
+      volume = mount_point.value.volume
+      path   = mount_point.value.mount_path
+    }
+  }
+
+  network_interface {
     name   = "eth0"
     bridge = var.bridge
-    ip     = "${var.ip_address}/24"
-    gw     = var.gateway
   }
 }
