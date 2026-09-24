@@ -3,18 +3,20 @@ services:
     image: lscr.io/linuxserver/jellyfin:latest
     container_name: jellyfin
     env_file:
-      - ../.env
+      - .env
     environment:
       - PUID=${GLOBAL_PUID}
       - PGID=${GLOBAL_PGID}
       - TZ=Etc/UTC
     volumes:
       - ./config:/config
-      - /mnt/data/series:/data/tvshows
-      - /mnt/data/movies:/data/movies
+      - /mnt/media/series:/data/tvshows
+      - /mnt/media/movies:/data/movies
     ports:
       - 8096:8096
-    devices:
-      - /dev/dri/renderD128:/dev/dri/renderD128
-      - /dev/dri/card1:/dev/dri/card1
+    # No /dev/dri passthrough: the PVE host currently exposes no render device,
+    # so hardware transcoding is disabled and Jellyfin falls back to the CPU.
+    # devices:
+    #   - /dev/dri/renderD128:/dev/dri/renderD128
+    #   - /dev/dri/card1:/dev/dri/card1
     restart: unless-stopped
