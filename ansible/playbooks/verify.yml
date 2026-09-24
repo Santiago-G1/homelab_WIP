@@ -33,7 +33,7 @@
       ansible.builtin.command:
         cmd: >-
           curl -sk --resolve {{ item.host }}:443:127.0.0.1 -o /dev/null
-          -w '%{http_code}' https://{{ item.host }}/
+          -w '%{http_code}' https://{{ item.host }}{{ item.path | default('/') }}
       loop: "{{ proxy_checks | default([]) }}"
       loop_control:
         label: "{{ item.host }}"

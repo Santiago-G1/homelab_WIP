@@ -1,0 +1,32 @@
+groups:
+  - name: homelab
+    rules:
+      - alert: HostDown
+        expr: up == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.instance }} is down"
+          description: "Prometheus has not been able to scrape {{ $labels.job }} on {{ $labels.instance }} for 5 minutes."
+
+      - alert: DiskSpaceLow
+        expr: >-
+          (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs"}
+          / node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs"}) < 0.10
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low disk space on {{ $labels.instance }} ({{ $labels.mountpoint }})"
+          description: "Less than 10% of the filesystem is free."
+
+      - alert: MemoryHigh
+        expr: >-
+          (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) > 0.90
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage on {{ $labels.instance }}"
+          description: "More than 90% of the memory is in use."

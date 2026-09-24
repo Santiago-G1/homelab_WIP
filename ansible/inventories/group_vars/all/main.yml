@@ -34,6 +34,9 @@ docker_daemon_options:
     max-size: 10m
     max-file: "3"
 
-# Prometheus scrape targets rendered into prometheus.yml.
-prometheus_hosts:
-  - { job: prometheus, targets: "localhost:9090" }
+# Every container runs node_exporter; Prometheus scrapes them on port 9100.
+node_exporter_targets: >-
+  {{ (groups['lxc'] + groups['management'])
+     | map('extract', hostvars, 'ansible_host')
+     | map('regex_replace', '$', ':9100')
+     | list }}

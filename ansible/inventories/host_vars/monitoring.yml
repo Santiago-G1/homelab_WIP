@@ -1,4 +1,9 @@
 ---
+prometheus_jobs:
+  - { job: prometheus,    targets: ["localhost:9090"] }
+  - { job: node_exporter, targets: "{{ node_exporter_targets }}" }
+  - { job: blocky,        targets: ["192.168.10.3:4000"] }
+
 stacks:
   - name: prometheus
     src: monitoring-services/prometheus
@@ -7,8 +12,11 @@ stacks:
     dirs:
       # The prometheus image runs as nobody and needs a writable TSDB dir.
       - { path: data, owner: "65534", group: "65534" }
+
   - name: grafana
     src: monitoring-services/grafana
+    files:
+      - { template: grafana-datasource.yml.j2, dest: provisioning/datasources/prometheus.yml }
     dirs:
       # The grafana image runs as uid 472 and does not chown its data dir.
       - { path: config, owner: "472", group: "472" }
@@ -17,6 +25,16 @@ stacks:
       GF_DATABASE_USER: "{{ vault_gf_database_user }}"
       GF_DATABASE_PASSWORD: "{{ vault_gf_database_password }}"
 
+  - name: uptime-kuma
+    src: monitoring-services/uptime-kuma
+
+  - name: gotify
+    src: monitoring-services/gotify
+    env:
+      GOTIFY_ADMIN_PASSWORD: "{{ vault_gotify_admin_password }}"
+
 health_checks:
-  - { name: prometheus, url: "http://127.0.0.1:9090/-/healthy" }
-  - { name: grafana, url: "http://127.0.0.1:3000/api/health" }
+  - { name: prometheus,  url: "http://127.0.0.1:9090/-/healthy" }
+  - { name: grafana,     url: "http://127.0.0.1:3000/api/health" }
+  - { name: uptime-kuma, url: "http://127.0.0.1:3001/" }
+  - { name: gotify,      url: "http://127.0.0.1:80/health" }

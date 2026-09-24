@@ -5,6 +5,7 @@ services:
     restart: unless-stopped
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./rules:/etc/prometheus/rules:ro
       - ./data:/prometheus
     networks:
       - monitoring

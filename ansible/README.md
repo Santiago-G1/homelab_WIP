@@ -13,7 +13,8 @@ Docker Compose projects from `docker-compose/` are deployed to `/opt/docker/<sta
 | `inventories/host_vars/<host>.yml` | Stacks deployed on that container, with their env and data dirs. |
 | `roles/common` | Timezone, base packages, admin SSH keys, sshd hardening. |
 | `roles/docker` | Docker Engine from the official Debian repository. |
-| `roles/stacks` | Copies a Compose project, renders `.env`, creates data dirs, brings it up. |
+| `roles/stacks` | Syncs a Compose project, renders `.env`, creates data dirs, brings it up. |
+| `roles/node_exporter` | Prometheus node exporter as a systemd service (binary release). |
 | `playbooks/bootstrap.yml` | Installs Python on freshly created containers. |
 | `playbooks/site.yml` | Base configuration, Docker and every declared stack. |
 | `playbooks/verify.yml` | End-to-end check: running containers and HTTP endpoints. |
@@ -41,6 +42,18 @@ Docker Compose projects from `docker-compose/` are deployed to `/opt/docker/<sta
 3. **Vault password** in `ansible/.vault_pass` (gitignored). Without it the
    secrets in `vault.yml` cannot be decrypted.
 
+4. **rsync on the control node** (the `synchronize` module pushes the Compose
+   projects with it).
+
+5. **PVE firewall.** Containers with `firewall=1` (devops) only accept traffic
+   from the `admindevices` ipset, so the monitoring container is listed there to
+   let Prometheus scrape it:
+
+   ```
+   [IPSET admindevices]
+   192.168.10.10 # monitoring (Prometheus scrapes the rest)
+   ```
+
 ## Usage
 
 ```bash
@@ -60,3 +73,23 @@ into each stack `.env` at deploy time, so no plaintext secret is committed:
 ```bash
 ansible-vault edit inventories/group_vars/all/vault.yml
 ```
+
+## Monitoring
+
+- Every container runs `node_exporter` (role `node_exporter`); the scrape targets
+  are derived from the inventory (`node_exporter_targets`).
+- `host_vars/monitoring.yml` declares the jobs (node exporter, Blocky DNS metrics
+  on `192.168.10.3:4000`, Prometheus itself) and the stacks Prometheus, Grafana,
+  Uptime Kuma and Gotify.
+- `prometheus/rules/homelab.yml` holds three alert rules (host down, low disk,
+  high memory). Grafana is provisioned with the Prometheus datasource and the
+  `Homelab overview` dashboard, both versioned in the repo.
+
+Manual steps that cannot be automated (they need a human to create a token):
+
+1. Uptime Kuma (`https://uptime.domain.com`): create the admin user and add
+   the monitors you care about.
+2. Gotify (`https://alert.domain.com`): log in with the generated
+   `vault_gotify_admin_password` (`ansible-vault view
+   inventories/group_vars/all/vault.yml`) and create an application token.
+3. In Uptime Kuma, add a Gotify notification using that token.

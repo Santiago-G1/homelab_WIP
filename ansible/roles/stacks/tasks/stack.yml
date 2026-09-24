@@ -22,6 +22,7 @@
       - "--no-perms"
       # Runtime dirs change while the stack runs; ignore their mtimes.
       - "--omit-dir-times"
+  register: stack_sync
 
 - name: "{{ stack.name }} | create data directories"
   ansible.builtin.file:
@@ -49,6 +50,7 @@
   loop: "{{ stack.files | default([]) }}"
   loop_control:
     label: "{{ item.dest }}"
+  register: stack_files
 
 - name: "{{ stack.name }} | bring the stack up"
   ansible.builtin.command:
@@ -58,3 +60,12 @@
   changed_when: >-
     'Started' in compose_up.stdout or 'Created' in compose_up.stdout
     or 'Recreated' in compose_up.stdout
+
+# Configuration files are bind mounted, so `compose up` alone would not pick up
+# a change; restart the containers when one of them was rewritten.
+- name: "{{ stack.name }} | restart after configuration changes"
+  ansible.builtin.command:
+    cmd: docker compose restart
+    chdir: "{{ stacks_root }}/{{ stack.name }}"
+  when: stack_files.changed | default(false) or stack_sync.changed | default(false)
+  changed_when: true

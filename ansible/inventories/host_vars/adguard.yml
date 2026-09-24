@@ -1,7 +1,7 @@
 ---
 stacks:
-  - name: adguardhome
-    src: network-services/adguardhome
-
-health_checks:
-  - { name: adguardhome, url: "http://127.0.0.1:3000/" }
+  - name: blocky
+    src: network-services/blocky
+    dirs:
+      # The blocky image runs as uid 100 and stores its query log here.
+      - { path: querylog, owner: "100", group: "101" }
