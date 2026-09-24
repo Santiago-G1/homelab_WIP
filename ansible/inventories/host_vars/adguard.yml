@@ -1,0 +1,7 @@
+---
+stacks:
+  - name: adguardhome
+    src: network-services/adguardhome
+
+health_checks:
+  - { name: adguardhome, url: "http://127.0.0.1:3000/" }

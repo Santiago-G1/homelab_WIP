@@ -1,0 +1,11 @@
+---
+stacks:
+  - name: nginx-proxy
+    src: network-services/nginx-proxy
+    env:
+      NPM_DB_USER: "{{ vault_npm_db_user }}"
+      NPM_DB_PASSWORD: "{{ vault_npm_db_password }}"
+      NPM_DB_ROOT_PASSWORD: "{{ vault_npm_db_root_password }}"
+
+health_checks:
+  - { name: nginx-proxy-manager, url: "http://127.0.0.1:81/" }

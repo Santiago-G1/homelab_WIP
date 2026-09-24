@@ -1,0 +1,6 @@
+# Managed by Ansible (roles/stacks).
+# /tank/immich already holds the library and its ACLs grant uid 999, which is
+# the uid the original installation used, so run the server with that uid.
+services:
+  immich-server:
+    user: "999:991"

@@ -1,0 +1,17 @@
+---
+# First contact with a fresh container: the PVE Debian template has no Python
+# for Ansible to use, so bootstrap it with raw SSH.
+- name: Bootstrap Python on freshly created containers
+  hosts: lxc
+  gather_facts: false
+  tasks:
+    - name: Check whether Python 3 is available
+      ansible.builtin.raw: python3 -c 'print("ok")'
+      register: python_check
+      changed_when: false
+      failed_when: false
+
+    - name: Install Python 3 when missing
+      ansible.builtin.raw: apt-get update -qq && apt-get install -y -qq python3
+      when: python_check.rc != 0
+      changed_when: true

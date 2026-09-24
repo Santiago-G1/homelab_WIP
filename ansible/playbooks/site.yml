@@ -1,0 +1,13 @@
+---
+# Base configuration for every container.
+- name: Base configuration
+  hosts: lxc
+  roles:
+    - common
+
+# Docker Engine plus every Compose project declared in host_vars/.
+- name: Docker hosts
+  hosts: docker_hosts
+  roles:
+    - docker
+    - stacks

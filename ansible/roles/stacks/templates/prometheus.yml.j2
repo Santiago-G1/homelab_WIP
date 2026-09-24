@@ -1,0 +1,11 @@
+# Managed by Ansible (roles/stacks).
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+
+scrape_configs:
+{% for host in prometheus_hosts %}
+  - job_name: {{ host.job }}
+    static_configs:
+      - targets: ["{{ host.targets }}"]
+{% endfor %}

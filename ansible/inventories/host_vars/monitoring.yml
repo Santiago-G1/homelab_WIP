@@ -1,0 +1,22 @@
+---
+stacks:
+  - name: prometheus
+    src: monitoring-services/prometheus
+    files:
+      - { template: prometheus.yml.j2, dest: prometheus.yml }
+    dirs:
+      # The prometheus image runs as nobody and needs a writable TSDB dir.
+      - { path: data, owner: "65534", group: "65534" }
+  - name: grafana
+    src: monitoring-services/grafana
+    dirs:
+      # The grafana image runs as uid 472 and does not chown its data dir.
+      - { path: config, owner: "472", group: "472" }
+    env:
+      GF_DATABASE_NAME: "{{ vault_gf_database_name }}"
+      GF_DATABASE_USER: "{{ vault_gf_database_user }}"
+      GF_DATABASE_PASSWORD: "{{ vault_gf_database_password }}"
+
+health_checks:
+  - { name: prometheus, url: "http://127.0.0.1:9090/-/healthy" }
+  - { name: grafana, url: "http://127.0.0.1:3000/api/health" }

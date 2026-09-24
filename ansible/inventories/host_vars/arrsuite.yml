@@ -1,0 +1,36 @@
+---
+# Every *arr stack joins this network; soulsync declares it, so it goes first.
+docker_networks:
+  - soulsync-network
+
+stacks:
+  - { name: soulsync,     src: media-services/arrsuite/soulsync }
+  - { name: bazarr,       src: media-services/arrsuite/bazarr }
+  - { name: calibre,      src: media-services/arrsuite/calibre }
+  - { name: flaresolverr, src: media-services/arrsuite/flaresolverr }
+  - { name: prowlarr,     src: media-services/arrsuite/prowlarr }
+  - { name: qbittorrent,  src: media-services/arrsuite/qbittorrent }
+  - { name: radarr,       src: media-services/arrsuite/radarr }
+  - name: seerr
+    src: media-services/arrsuite/seerr
+    dirs:
+      # seerr mounts ./data and runs as node (uid 1000); it does not chown it.
+      - { path: data, owner: "1000", group: "1000" }
+  - { name: sonarr,       src: media-services/arrsuite/sonarr }
+  - name: slskd
+    src: media-services/arrsuite/slskd
+    env:
+      SLSKD_USERNAME: "{{ vault_slskd_username }}"
+      SLSKD_PASSWORD: "{{ vault_slskd_password }}"
+      SLSKD_API_KEY: "{{ vault_slskd_api_key }}"
+
+health_checks:
+  - { name: soulsync, url: "http://127.0.0.1:8008/" }
+  - { name: bazarr, url: "http://127.0.0.1:6767/" }
+  - { name: prowlarr, url: "http://127.0.0.1:9696/" }
+  - { name: radarr, url: "http://127.0.0.1:7878/" }
+  - { name: sonarr, url: "http://127.0.0.1:8989/" }
+  - { name: qbittorrent, url: "http://127.0.0.1:8080/" }
+  - { name: seerr, url: "http://127.0.0.1:5055/" }
+  - { name: slskd, url: "http://127.0.0.1:5030/" }
+  - { name: calibre, url: "http://127.0.0.1:8082/" }

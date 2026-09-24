@@ -1,0 +1,39 @@
+---
+# Shared settings for every managed host.
+
+timezone: America/Bogota
+
+# Where each Docker Compose project is deployed on the target host.
+stacks_root: /opt/docker
+compose_src_root: "{{ inventory_dir }}/../../docker-compose"
+
+# The control node injects its own key so every container stays reachable.
+admin_authorized_keys:
+  - "{{ lookup('file', '/root/.ssh/id_ed25519.pub') }}"
+
+common_packages:
+  - ca-certificates
+  - curl
+  - gnupg
+  - jq
+  - unzip
+  - rsync
+  - vim
+
+docker_packages:
+  - docker-ce
+  - docker-ce-cli
+  - containerd.io
+  - docker-buildx-plugin
+  - docker-compose-plugin
+
+docker_daemon_options:
+  # Keep container logs from filling the thin LVM pool.
+  log-driver: json-file
+  log-opts:
+    max-size: 10m
+    max-file: "3"
+
+# Prometheus scrape targets rendered into prometheus.yml.
+prometheus_hosts:
+  - { job: prometheus, targets: "localhost:9090" }

@@ -1,0 +1,60 @@
+---
+- name: "{{ stack.name }} | create the project directory"
+  ansible.builtin.file:
+    path: "{{ stacks_root }}/{{ stack.name }}"
+    state: directory
+    mode: "0755"
+
+# rsync (not copy) so the rendered .env is never overwritten by the repo's
+# local .env, which would make the role flap between the two files.
+- name: "{{ stack.name }} | sync the Compose project"
+  ansible.posix.synchronize:
+    src: "{{ compose_src_root }}/{{ stack.src }}/"
+    dest: "{{ stacks_root }}/{{ stack.name }}/"
+    delete: false
+    rsync_opts:
+      - "--exclude=.env"
+      - "--exclude=.env.template"
+      # Ownership and modes of runtime dirs are set by the `dirs` task below;
+      # letting rsync manage them would fight over them on every run.
+      - "--no-owner"
+      - "--no-group"
+      - "--no-perms"
+      # Runtime dirs change while the stack runs; ignore their mtimes.
+      - "--omit-dir-times"
+
+- name: "{{ stack.name }} | create data directories"
+  ansible.builtin.file:
+    path: "{{ stacks_root }}/{{ stack.name }}/{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner | default('root') }}"
+    group: "{{ item.group | default('root') }}"
+    mode: "{{ item.mode | default('0755') }}"
+  loop: "{{ stack.dirs | default([]) }}"
+  loop_control:
+    label: "{{ item.path }}"
+
+- name: "{{ stack.name }} | render .env"
+  ansible.builtin.template:
+    src: env.j2
+    dest: "{{ stacks_root }}/{{ stack.name }}/.env"
+    mode: "0600"
+  when: stack.env is defined
+
+- name: "{{ stack.name }} | render extra configuration files"
+  ansible.builtin.template:
+    src: "{{ item.template }}"
+    dest: "{{ stacks_root }}/{{ stack.name }}/{{ item.dest }}"
+    mode: "{{ item.mode | default('0644') }}"
+  loop: "{{ stack.files | default([]) }}"
+  loop_control:
+    label: "{{ item.dest }}"
+
+- name: "{{ stack.name }} | bring the stack up"
+  ansible.builtin.command:
+    cmd: "docker compose up -d --remove-orphans"
+    chdir: "{{ stacks_root }}/{{ stack.name }}"
+  register: compose_up
+  changed_when: >-
+    'Started' in compose_up.stdout or 'Created' in compose_up.stdout
+    or 'Recreated' in compose_up.stdout

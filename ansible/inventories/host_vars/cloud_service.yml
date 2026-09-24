@@ -1,0 +1,29 @@
+---
+stacks:
+  - name: filebrowser
+    src: app-services/cloud/filebrowser
+    dirs:
+      # filebrowser runs as uid 1000 and needs its data dir writable.
+      - { path: config, owner: "1000", group: "1000" }
+    env:
+      CLOUD_MOUNT: "{{ vault_cloud_mount }}"
+      FILEBROWSER_ADMIN_PASSWORD: "{{ vault_filebrowser_admin_password }}"
+      ONLYOFFICE_JWT_SECRET: "{{ vault_onlyoffice_jwt_secret }}"
+  - name: samba
+    src: app-services/cloud/samba
+    env:
+      CLOUD_MOUNT: "{{ vault_cloud_mount }}"
+      LLM_MOUNT: "{{ vault_llm_mount }}"
+    files:
+      - { template: samba-users.conf.j2, dest: users.conf, mode: "0600" }
+  - name: syncthing
+    src: app-services/cloud/syncthing
+    env:
+      SYNC_MOUNT: "{{ vault_sync_mount }}"
+      GLOBAL_PUID: "{{ vault_global_puid }}"
+      GLOBAL_PGID: "{{ vault_global_pgid }}"
+
+health_checks:
+  - { name: filebrowser, url: "http://127.0.0.1:80/" }
+  - { name: onlyoffice, url: "http://127.0.0.1:8080/healthcheck" }
+  - { name: syncthing, url: "http://127.0.0.1:8384/" }

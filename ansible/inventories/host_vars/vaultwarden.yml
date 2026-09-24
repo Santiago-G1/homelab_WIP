@@ -1,0 +1,9 @@
+---
+stacks:
+  - name: vaultwarden
+    src: app-services/vaultwarden
+    env:
+      DOMAINNAME_HS: "{{ vault_domainname_hs }}"
+
+health_checks:
+  - { name: vaultwarden, url: "http://127.0.0.1:8000/" }

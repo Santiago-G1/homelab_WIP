@@ -1,0 +1,7 @@
+---
+stacks:
+  - name: radicale
+    src: app-services/radicale
+
+health_checks:
+  - { name: radicale, url: "http://127.0.0.1:5232/" }
