@@ -1,3 +1,3 @@
-proxmox_api_url          = "https://192.168.xx.x:8006/api2/json"
-proxmox_api_token_id     = "user@pam!api-token-name"
-proxmox_api_token_secret = "TOKEN-SECRET"
+proxmox_api_url  = "https://192.168.xx.x:8006/api2/json"
+proxmox_username = "root@pam"
+proxmox_password = "PVE-ROOT-PASSWORD"
