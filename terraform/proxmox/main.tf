@@ -7,17 +7,17 @@ terraform {
   }
 }
 variable "proxmox_api_url" {
-  description = "URL PROXMOX API"
+  description = "Proxmox API URL"
   type        = string
 }
 
 variable "proxmox_api_token_id" {
-  description = "ID token API"
+  description = "API token ID"
   type        = string
 }
 
 variable "proxmox_api_token_secret" {
-  description = "API SECRET"
+  description = "API token secret"
   type        = string
   sensitive   = true
 }

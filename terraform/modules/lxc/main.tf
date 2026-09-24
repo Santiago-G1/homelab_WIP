@@ -26,6 +26,20 @@ resource "proxmox_virtual_environment_container" "multiple_mountpoints" {
     keyctl  = var.keyctl
   }
 
+  # Host devices passed through to the container (e.g. NVIDIA GPU, /dev/net/tun).
+  # Proxmox writes them as devN: <path> in the container config.
+  dynamic "device_passthrough" {
+    for_each = var.device_passthrough
+
+    content {
+      path       = device_passthrough.value.path
+      mode       = device_passthrough.value.mode
+      uid        = device_passthrough.value.uid
+      gid        = device_passthrough.value.gid
+      deny_write = device_passthrough.value.deny_write
+    }
+  }
+
   disk {
     datastore_id = var.disk_datastore
     size         = var.disk_size
@@ -59,8 +73,9 @@ resource "proxmox_virtual_environment_container" "multiple_mountpoints" {
     for_each = var.mount_points
 
     content {
-      volume = mount_point.value.volume
-      path   = mount_point.value.mount_path
+      volume    = mount_point.value.volume
+      path      = mount_point.value.mount_path
+      read_only = mount_point.value.read_only
     }
   }
 
