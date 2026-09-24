@@ -1,11 +1,12 @@
 ---
 stacks:
-  - name: nginx-proxy
-    src: network-services/nginx-proxy
-    env:
-      NPM_DB_USER: "{{ vault_npm_db_user }}"
-      NPM_DB_PASSWORD: "{{ vault_npm_db_password }}"
-      NPM_DB_ROOT_PASSWORD: "{{ vault_npm_db_root_password }}"
+  - name: caddy
+    src: network-services/caddy
 
-health_checks:
-  - { name: nginx-proxy-manager, url: "http://127.0.0.1:81/" }
+# Reached through the proxy with real SNI, so these prove the route table works.
+proxy_checks:
+  - { host: music.domain.com }
+  - { host: password.domain.com }
+  - { host: torrent.domain.com }
+  - { host: immich.domain.com }
+  - { host: adguard.domain.com }
