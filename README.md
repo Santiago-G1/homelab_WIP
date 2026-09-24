@@ -15,7 +15,7 @@ The primary objective of this repository is to Automate my homelab in case i mak
 ![Architecture Diagram](/docs/homelab-visual.drawio.svg#gh-light-mode-only)
 ![Architecture Diagram](/docs/homelab-visual.drawio.svg#gh-dark-mode-only)
 
-## Hardware path:
+## Hardware:
 - **WAN:** Starlink Standard 4 (Bypass Mode)
 - **Routing:** Cudy WR3000 (192.168.10.1)
 - **Switching:** Mercury 1Gbps 5-port switch
