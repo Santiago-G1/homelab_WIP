@@ -25,6 +25,9 @@
 		radarr.domain.com 192.168.10.20:7878
 		sonarr.domain.com 192.168.10.20:8989
 		soulsync.domain.com 192.168.10.20:8008
+		# Filebrowser, on the cloud container: this is what the old
+		# cloud.domain.com DNS record pointed at.
+		cloud.domain.com 192.168.10.25:80
 		torrent.domain.com 192.168.10.20:8080
 		movies.domain.com 192.168.10.21:8096
 		komga.domain.com 192.168.10.21:25600

@@ -16,7 +16,7 @@ module "arrsuite" {
 module "immich" {
   source     = "../modules/lxc"
   hostname   = "immich"
-  vm_id      = 126
+  vm_id      = 122
   ip_address = "192.168.10.22"
   cpu_cores  = 4
   memory     = 6144
@@ -32,7 +32,7 @@ module "immich" {
 module "frontend" {
   source     = "../modules/lxc"
   hostname   = "frontend"
-  vm_id      = 123
+  vm_id      = 121
   ip_address = "192.168.10.21"
   cpu_cores  = 2
   memory     = 4096
