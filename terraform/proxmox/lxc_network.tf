@@ -34,7 +34,7 @@ module "tailscale" {
 module "cf_tunnel" {
   source     = "../modules/lxc"
   hostname   = "cf-tunnel"
-  vm_id      = 107
+  vm_id      = 106
   ip_address = "192.168.10.6"
   cpu_cores  = 1
   memory     = 1024
