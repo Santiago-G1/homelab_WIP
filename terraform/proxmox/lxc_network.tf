@@ -1,6 +1,6 @@
 module "blocky" {
   source      = "../modules/lxc"
-  hostname    = "adguard"
+  hostname    = "blocky"
   vm_id       = 103
   ip_address  = "192.168.10.3"
   cpu_cores   = 2
@@ -12,7 +12,7 @@ module "blocky" {
 
 module "caddy" {
   source     = "../modules/lxc"
-  hostname   = "npm"
+  hostname   = "caddy"
   vm_id      = 104
   ip_address = "192.168.10.4"
   cpu_cores  = 2
