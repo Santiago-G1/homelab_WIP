@@ -19,7 +19,7 @@ common_packages:
   - unzip
   - rsync
   - vim
-
+  - tree
 docker_packages:
   - docker-ce
   - docker-ce-cli

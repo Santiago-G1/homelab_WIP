@@ -1,6 +1,6 @@
-module "adguard" {
+module "blocky" {
   source      = "../modules/lxc"
-  hostname    = "adguard"
+  hostname    = "blocky"
   vm_id       = 103
   ip_address  = "192.168.10.3"
   cpu_cores   = 2
@@ -10,9 +10,9 @@ module "adguard" {
   default_dns = ["1.1.1.1"]
 }
 
-module "npm" {
+module "caddy" {
   source     = "../modules/lxc"
-  hostname   = "npm"
+  hostname   = "caddy"
   vm_id      = 104
   ip_address = "192.168.10.4"
   cpu_cores  = 2
