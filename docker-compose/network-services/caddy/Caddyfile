@@ -34,6 +34,7 @@
 		password.domain.com 192.168.10.23:8000
 		sync.domain.com 192.168.10.25:8384
 		grafana.domain.com 192.168.10.10:3000
+                calendar.domain.com 192.168.10.24:5232
 	}
 
 	reverse_proxy {backend}
