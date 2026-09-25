@@ -16,17 +16,15 @@
 (routes) {
 	map {host} {backend} {
 		# Blocky has no web UI; this serves its API, DoH (/dns-query) and metrics.
-		adguard.domain.com 192.168.10.3:4000
+		blocky.domain.com 192.168.10.3:4000
 		bazarr.domain.com 192.168.10.20:6767
 		calibre.domain.com 192.168.10.20:8082
-		downloadmovies.domain.com 192.168.10.20:5055
-		downloadmusic.domain.com 192.168.10.20:5030
+		seerr.domain.com 192.168.10.20:5055
+		slskd.domain.com 192.168.10.20:5030
 		prowlarr.domain.com 192.168.10.20:9696
 		radarr.domain.com 192.168.10.20:7878
 		sonarr.domain.com 192.168.10.20:8989
 		soulsync.domain.com 192.168.10.20:8008
-		# Filebrowser, on the cloud container: this is what the old
-		# cloud.domain.com DNS record pointed at.
 		cloud.domain.com 192.168.10.25:80
 		torrent.domain.com 192.168.10.20:8080
 		movies.domain.com 192.168.10.21:8096
@@ -51,7 +49,7 @@ https://*.domain.com {
 }
 
 http://*.domain.com {
-	import routes
+	redir https://{host}{uri} permanent
 }
 
 # Served by another host or not deployed yet: redlib, asic (HiveOn Hub).
