@@ -1,4 +1,4 @@
-module "adguard" {
+module "blocky" {
   source      = "../modules/lxc"
   hostname    = "adguard"
   vm_id       = 103
@@ -10,7 +10,7 @@ module "adguard" {
   default_dns = ["1.1.1.1"]
 }
 
-module "npm" {
+module "caddy" {
   source     = "../modules/lxc"
   hostname   = "npm"
   vm_id      = 104
