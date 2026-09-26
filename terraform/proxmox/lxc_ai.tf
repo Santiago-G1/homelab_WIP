@@ -1,4 +1,4 @@
-# AI stack (ComfyUI / llama-swap / LiteLLM / SillyTavern) -> the "llm" container.
+# AI stack (ComfyUI / LiteLLM) -> the "llm" container.
 # The GPU is passed through with device_passthrough; the NVIDIA driver lives inside the container.
 module "ai" {
   source     = "../modules/lxc"
@@ -10,8 +10,6 @@ module "ai" {
   swap       = 9192
   disk_size  = 78
 
-  # NVIDIA P102-100 (10 GB). If the unprivileged container cannot open the
-  # devices, add the host group id (e.g. gid = 44).
   device_passthrough = [
     { path = "/dev/nvidia0" },
     { path = "/dev/nvidiactl" },
