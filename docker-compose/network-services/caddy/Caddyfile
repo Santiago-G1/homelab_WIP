@@ -1,9 +1,5 @@
-# Reverse proxy for the homelab services (replaces Nginx Proxy Manager).
-#
 # The route table lives in the (routes) snippet below: one line per hostname
-# from the DNS plan, pointing at the container that runs the service. Both the
-# HTTPS site and the plain HTTP site
-# import it, so the Cloudflare tunnel can use either origin.
+
 {
 	email admin@domain.com
 	# Site addresses are declared explicitly, so no redirect server is created.
@@ -24,7 +20,6 @@
 		prowlarr.domain.com 192.168.10.20:9696
 		radarr.domain.com 192.168.10.20:7878
 		sonarr.domain.com 192.168.10.20:8989
-		soulsync.domain.com 192.168.10.20:8008
 		cloud.domain.com 192.168.10.25:80
 		torrent.domain.com 192.168.10.20:8080
 		movies.domain.com 192.168.10.21:8096
@@ -34,9 +29,13 @@
 		password.domain.com 192.168.10.23:8000
 		sync.domain.com 192.168.10.25:8384
 		grafana.domain.com 192.168.10.10:3000
-                calendar.domain.com 192.168.10.24:5232
+        calendar.domain.com 192.168.10.24:5232
+		
+		#work in progress
+		#litellm.domain.com 192.168.10.26:4000
+		#comfyui.domain.com 192.168.10.26:8188
+		#openwebui.domain.com 192.168.10.26:3000
 	}
-
 	reverse_proxy {backend}
 }
 
@@ -53,6 +52,4 @@ http://*.domain.com {
 	redir https://{host}{uri} permanent
 }
 
-# Served by another host or not deployed yet: redlib, asic (HiveOn Hub).
-# Kept internal on purpose: prometheus -> 192.168.10.10:9090,
-# files -> 192.168.10.25:80 (Filebrowser), calendar -> 192.168.10.24:5232.
+
