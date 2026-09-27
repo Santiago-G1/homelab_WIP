@@ -2,11 +2,7 @@ services:
   komga:
     image: gotson/komga:latest
     container_name: komga
-    env_file:
-      - .env
     environment:
-      - PUID=${GLOBAL_PUID}
-      - PGID=${GLOBAL_PGID}
       - TZ=Etc/UTC
     volumes:
       - ./config:/config

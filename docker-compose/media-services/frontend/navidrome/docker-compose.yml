@@ -1,13 +1,7 @@
 services:
   navidrome:
-    # LinuxServer does not publish Navidrome; this is the official image.
     image: deluan/navidrome:latest
     container_name: navidrome
-    # The container mounts /tank/media/music read-only; the host ACLs grant
-    # uid 1010 (this PUID) access to the music tree.
-    user: "${NAVIDROME_PUID}:${NAVIDROME_PGID}"
-    env_file:
-      - .env
     environment:
       - ND_MUSICFOLDER=/music
       - ND_DATAFOLDER=/data
