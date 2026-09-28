@@ -3,9 +3,9 @@ services:
     image: slskd/slskd:latest
     container_name: slskd
     environment:
-      - PUID=1010
-      - PGID=1010
       - TZ=Etc/UTC
+      - PUID=1000
+      - PGID=1000   
       - SLSKD_REMOTE_CONFIGURATION=true
       - SLSKD_API_KEY=${SLSKD_API_KEY:?SLSKD_API_KEY is required}
       - SLSKD_SLSK_USERNAME=${SLSKD_USERNAME:?SLSKD_USERNAME is required}

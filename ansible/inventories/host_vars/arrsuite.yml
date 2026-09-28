@@ -1,10 +1,9 @@
 ---
-# Every *arr stack joins this network; soulsync declares it, so it goes first.
+# Every *arr stack joins this network ansible create it directly
 docker_networks:
   - soulsync-network
 
 stacks:
-  - { name: soulsync,     src: media-services/arrsuite/soulsync }
   - { name: bazarr,       src: media-services/arrsuite/bazarr }
   - { name: calibre,      src: media-services/arrsuite/calibre }
   - { name: flaresolverr, src: media-services/arrsuite/flaresolverr }
@@ -25,7 +24,6 @@ stacks:
       SLSKD_API_KEY: "{{ vault_slskd_api_key }}"
 
 health_checks:
-  - { name: soulsync, url: "http://127.0.0.1:8008/" }
   - { name: bazarr, url: "http://127.0.0.1:6767/" }
   - { name: prowlarr, url: "http://127.0.0.1:9696/" }
   - { name: radarr, url: "http://127.0.0.1:7878/" }
