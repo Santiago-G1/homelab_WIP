@@ -2,6 +2,10 @@
 stacks:
   - name: blocky
     src: network-services/blocky
+    env:
+      DOMAINNAME_HS: "{{ vault_domainname_hs }}"
+    files:
+      - { template: blocky-config.yml.j2, dest: config.yml }
     dirs:
       # The blocky image runs as uid 100 and stores its query log here.
       - { path: querylog, owner: "100", group: "101" }

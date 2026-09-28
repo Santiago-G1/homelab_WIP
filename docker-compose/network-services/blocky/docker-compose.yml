@@ -13,3 +13,4 @@ services:
       - ./querylog:/app/querylog
     environment:
       - TZ=Etc/UTC
+      - DOMAINNAME_HS=${DOMAINNAME_HS:?DOMAINNAME_HS is required}
