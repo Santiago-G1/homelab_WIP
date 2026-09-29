@@ -20,9 +20,6 @@ stacks:
     src: app-services/cloud/syncthing
     env:
       SYNC_MOUNT: "{{ vault_sync_mount }}"
-      GLOBAL_PUID: "{{ vault_global_puid }}"
-      GLOBAL_PGID: "{{ vault_global_pgid }}"
-
 health_checks:
   - { name: filebrowser, url: "http://127.0.0.1:80/" }
   - { name: onlyoffice, url: "http://127.0.0.1:8080/healthcheck" }
