@@ -1,0 +1,107 @@
+---
+- name: Build dependencies
+  ansible.builtin.apt:
+    name: [build-essential, cmake, git, clang, lld, llvm, libomp-dev, libcurl4-openssl-dev, gnupg]
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Add the CUDA repository keyring
+  ansible.builtin.apt:
+    deb: "https://developer.download.nvidia.com/compute/cuda/repos/{{ cuda_repo_distro }}/x86_64/cuda-keyring_1.1-1_all.deb"
+    state: present
+
+# Toolkit only (nvcc + headers); the driver comes from roles/nvidia.
+- name: Install the CUDA toolkit
+  ansible.builtin.apt:
+    name: "{{ cuda_toolkit_package }}"
+    state: present
+    update_cache: true
+
+- name: Service user
+  ansible.builtin.user:
+    name: llama
+    system: true
+    shell: /usr/sbin/nologin
+    groups: video
+    append: true
+    create_home: false
+
+- name: Clone llama.cpp
+  ansible.builtin.git:
+    repo: https://github.com/ggml-org/llama.cpp
+    dest: /opt/llama.cpp
+    version: "{{ llamacpp_version }}"
+    force: true
+  register: llamacpp_src
+
+# Changing any build flag triggers a rebuild.
+- name: Record the build flags
+  ansible.builtin.copy:
+    content: "{{ llamacpp_cmake_args | join('\n') }}\n{{ llamacpp_build_targets | join(' ') }}\n"
+    dest: /opt/llama.cpp/.ansible-build-flags
+    mode: "0644"
+  register: llamacpp_flags
+
+- name: Check whether the binary exists
+  ansible.builtin.stat:
+    path: /opt/llama.cpp/build/bin/llama-server
+  register: llamacpp_bin
+
+- name: Set the rebuild condition
+  ansible.builtin.set_fact:
+    llamacpp_rebuild: "{{ llamacpp_src.changed or llamacpp_flags.changed or not llamacpp_bin.stat.exists }}"
+
+- name: Configure the build
+  ansible.builtin.command:
+    argv: "{{ ['cmake', '-B', 'build'] + llamacpp_cmake_args }}"
+    chdir: /opt/llama.cpp
+  environment:
+    PATH: "{{ llamacpp_cuda_root }}/bin:{{ ansible_env.PATH }}"
+  when: llamacpp_rebuild
+  changed_when: true
+
+# nvcc is memory hungry and the container has 12 GB: keep the job count low.
+- name: Compile
+  ansible.builtin.command:
+    argv: >-
+      {{ ['cmake', '--build', 'build', '-j' ~ llamacpp_build_jobs, '--target']
+         + llamacpp_build_targets }}
+    chdir: /opt/llama.cpp
+  environment:
+    PATH: "{{ llamacpp_cuda_root }}/bin:{{ ansible_env.PATH }}"
+  when: llamacpp_rebuild
+  changed_when: true
+  notify: restart llama-server
+
+- name: Preset directory
+  ansible.builtin.file:
+    path: "{{ llamacpp_preset_file | dirname }}"
+    state: directory
+    mode: "0755"
+
+- name: Render the router preset
+  ansible.builtin.template:
+    src: models.ini.j2
+    dest: "{{ llamacpp_preset_file }}"
+    mode: "0644"
+  notify: restart llama-server
+
+- name: Install the systemd unit
+  ansible.builtin.template:
+    src: llama-server.service.j2
+    dest: /etc/systemd/system/llama-server.service
+    mode: "0644"
+  notify: restart llama-server
+
+- name: Enable and start llama-server
+  ansible.builtin.systemd:
+    name: llama-server
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Wait for llama-server to listen
+  ansible.builtin.wait_for:
+    port: "{{ llamacpp_port }}"
+    timeout: 60

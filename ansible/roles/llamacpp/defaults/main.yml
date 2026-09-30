@@ -1,0 +1,50 @@
+---
+llamacpp_version: master
+llamacpp_port: 8080
+llamacpp_models_dir: /mnt/data/models
+llamacpp_models_max: 1
+llamacpp_preset_file: /etc/llama/models.ini
+llamacpp_global_args:
+  n-gpu-layers: 99
+  c: 8192
+  flash-attn: "on"
+llamacpp_model_overrides: {}
+
+cuda_toolkit_package: cuda-toolkit-12-9
+cuda_repo_distro: debian12
+
+# Build
+llamacpp_cuda_root: /usr/local/cuda-12.9
+llamacpp_cuda_arch: "60-real"          # Tesla P100 = 60
+llamacpp_cuda_force_mmq: "OFF"         # P100 (sm_60) has no dp4a; test ON with llama-bench
+llamacpp_cpu_flags: "-march=ivybridge -mtune=ivybridge -O3 -fopenmp -pipe -funroll-loops"
+llamacpp_build_jobs: 4
+llamacpp_build_targets: [llama-server, llama-bench, llama-cli]
+llamacpp_cmake_args:
+  - -DCMAKE_BUILD_TYPE=Release
+  - -DCMAKE_C_COMPILER=clang
+  - -DCMAKE_CXX_COMPILER=clang++
+  - "-DCMAKE_C_FLAGS={{ llamacpp_cpu_flags }}"
+  - "-DCMAKE_CXX_FLAGS={{ llamacpp_cpu_flags }}"
+  - -DCMAKE_EXE_LINKER_FLAGS=-fopenmp
+  - -DCMAKE_SHARED_LINKER_FLAGS=-fopenmp
+  - -DGGML_NATIVE=OFF
+  - -DGGML_LTO=ON
+  - -DGGML_AVX=ON
+  - -DGGML_AVX2=OFF
+  - -DGGML_FMA=OFF
+  - -DGGML_F16C=ON
+  - -DGGML_BMI2=OFF
+  - -DGGML_AVX_VNNI=OFF
+  - -DGGML_AVX512=OFF
+  - -DGGML_LLAMAFILE=ON
+  - -DGGML_OPENMP=ON
+  - -DGGML_CUDA=ON
+  - "-DCMAKE_CUDA_ARCHITECTURES={{ llamacpp_cuda_arch }}"
+  - "-DCUDAToolkit_ROOT={{ llamacpp_cuda_root }}"
+  - "-DCMAKE_CUDA_COMPILER={{ llamacpp_cuda_root }}/bin/nvcc"
+  - "-DGGML_CUDA_FORCE_MMQ={{ llamacpp_cuda_force_mmq }}"
+  - -DGGML_CUDA_FA=ON
+  - -DGGML_CUDA_GRAPHS=ON
+  - -DCMAKE_CUDA_HOST_COMPILER=/usr/bin/g++
+  - -DGGML_CCACHE=OFF

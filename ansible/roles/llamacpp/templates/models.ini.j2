@@ -1,0 +1,14 @@
+# Managed by Ansible (roles/llamacpp).
+version = 1
+
+[*]
+{% for k, v in llamacpp_global_args.items() %}
+{{ k }} = {{ v }}
+{% endfor %}
+{% for model, opts in llamacpp_model_overrides.items() %}
+
+[{{ model }}]
+{% for k, v in opts.items() %}
+{{ k }} = {{ v }}
+{% endfor %}
+{% endfor %}
