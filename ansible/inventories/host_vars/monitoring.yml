@@ -4,8 +4,6 @@ prometheus_jobs:
   - { job: node_exporter, targets: "{{ node_exporter_targets }}" }
   - { job: blocky,        targets: ["192.168.10.3:4000"] }
   - { job: llama,         targets: ["192.168.10.26:8080"] }  # llama-server --metrics
-  - { job: llama,         targets: ["192.168.10.26:8080"] }  # llama-server --metrics
-  - { job: llama,         targets: ["192.168.10.26:8080"] }  # llama-server --metrics
 
 stacks:
   - name: prometheus
