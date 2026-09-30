@@ -1,0 +1,32 @@
+---
+# Tesla P100 (Pascal GP100, compute 6.0). No Docker on this host: see
+# roles/nvidia and roles/llamacpp. llama-server runs in router mode: it loads
+# whichever .gguf in llamacpp_models_dir the request names.
+
+# Must be IDENTICAL to the driver on the Proxmox host
+# (nvidia-smi --query-gpu=driver_version --format=csv,noheader there).
+# R580 is the last branch that supports Pascal.
+nvidia_driver_version: "580.178.04"
+
+# CUDA 12.9 is the last toolkit that can target Pascal; 13.x cannot.
+cuda_toolkit_package: cuda-toolkit-12-9
+cuda_repo_distro: debian12
+llamacpp_cuda_root: /usr/local/cuda-12.9
+llamacpp_cuda_arch: "60-real"    # Tesla P100
+
+llamacpp_version: master         # pin a tag (bXXXX) for reproducible builds
+llamacpp_port: 8080
+llamacpp_build_jobs: 4
+
+llamacpp_models_dir: /mnt/data/models   # /tank/cloud/llm on the host
+llamacpp_models_max: 1                  # one model at a time (P100 VRAM)
+llamacpp_preset_file: /etc/llama/models.ini
+
+llamacpp_global_args:
+  n-gpu-layers: 99
+  c: 8192
+  flash-attn: "on"
+
+# Per-model overrides; the key is the model name the router lists.
+llamacpp_model_overrides: {}
+llamacpp_cuda_force_mmq: "ON"
