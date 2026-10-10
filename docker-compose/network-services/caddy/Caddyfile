@@ -31,8 +31,9 @@
 		grafana.{$DOMAINNAME_HS}   192.168.10.10:3000
                 calendar.{$DOMAINNAME_HS}  192.168.10.24:5232
 		
+		litellm.{$DOMAINNAME_HS}   192.168.10.26:4000
+
 		#work in progress
-		#litellm.{$DOMAINNAME_HS} 192.168.10.26:4000
 		#comfyui.{$DOMAINNAME_HS} 192.168.10.26:8188
 		#openwebui.{$DOMAINNAME_HS} 192.168.10.26:3000
 	}
