@@ -34,8 +34,35 @@ llamacpp_global_args:
   c: 8192
   flash-attn: "on"
 
-# Per-model overrides; the key is the model name the router lists.
-llamacpp_model_overrides: {}
+# Per-model overrides; the key is the model name the router lists. Measured on
+# this P100 (16 GB) with the whole model on the GPU and the KV cache at q8_0:
+#
+#   ctx 65536 + MTP -> 15.2 GiB VRAM, 13.3 t/s generation, 23 t/s prompt
+#   ctx 57344       -> 14.8 GiB,      14.1 t/s
+#   ctx 65536 (no MTP) -> 13.2 GiB,   10.9 t/s
+#
+# The model alone is 10.6 GiB, so VRAM is what caps the context: 64K is the
+# largest that loads, hence the context is pinned there and the KV cache is
+# quantized to q8_0 (including the MTP draft) to buy the room for it.
+llamacpp_model_overrides:
+  Qwen3.8-27B-GSQ-RCO-IQ3_S-mtp:
+    n-gpu-layers: 99
+    ctx-size: 65536
+    cache-type-k: q8_0
+    cache-type-v: q8_0
+    flash-attn: "on"
+    # --fit only shrinks arguments it owns and n-gpu-layers is pinned here, so it
+    # aborts on this model instead of failing an allocation mid-request.
+    fit: "off"
+    parallel: 1
+    batch-size: 2048
+    ubatch-size: 512
+    # Multi-token prediction: this .gguf ships the MTP layer (~+29% generation).
+    spec-type: draft-mtp
+    spec-draft-n-max: 3
+    spec-draft-ngl: 99
+    spec-draft-type-k: q8_0
+    spec-draft-type-v: q8_0
 
 # sm_60 has no dp4a: the runtime heuristic already picks MMQ for MoE (faster
 # without dp4a) and cuBLAS for dense models. Forcing MMQ here would slow the
