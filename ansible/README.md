@@ -21,10 +21,16 @@ Docker Compose projects from `docker-compose/` are deployed to `/opt/docker/<sta
 
 ## Prerequisites
 
-1. **SSH access.** Terraform cannot manage the container SSH keys
-   (`initialization.user_account.keys` is ForceNew, so changing it would recreate
-   running containers). After creating or recreating a container, bootstrap the
-   control node key once from the Proxmox host:
+1. **SSH access.** `terraform/modules/lxc` authorizes the control node's own
+   public key on every container it creates (`admin_public_key_path`, by default
+   `/root/.ssh/id_ed25519.pub` on the machine running Terraform), so a fresh
+   container is reachable by Ansible without any manual step. The provider marks
+   `initialization.user_account.keys` as ForceNew, so the module seeds it only at
+   creation time and ignores later changes; on running containers the key list is
+   managed by `admin_authorized_keys` in `group_vars/all/main.yml`.
+
+   Containers created before that key existed (or by a machine that has no such
+   key) still need the one-off bootstrap from the Proxmox host:
 
    ```bash
    pct exec <vmid> -- bash -c "mkdir -p /root/.ssh && echo '<devops pubkey>' >> /root/.ssh/authorized_keys"
