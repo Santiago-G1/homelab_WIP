@@ -1,7 +1,8 @@
 ---
-# Tesla P100 (Pascal GP100, compute 6.0). No Docker on this host: see
-# roles/nvidia and roles/llamacpp. llama-server runs in router mode: it loads
-# whichever .gguf in llamacpp_models_dir the request names.
+# Tesla P100 (Pascal GP100, compute 6.0). llama.cpp is built and runs bare metal
+# here (roles/nvidia + roles/llamacpp), in router mode: it loads whichever .gguf
+# in llamacpp_models_dir the request names. The LiteLLM proxy next to it is a
+# Compose stack (roles/stacks), so this host is a docker_host as well.
 
 # Must be IDENTICAL to the driver on the Proxmox host
 # (nvidia-smi --query-gpu=driver_version --format=csv,noheader there).
@@ -40,3 +41,34 @@ llamacpp_model_overrides: {}
 # without dp4a) and cuBLAS for dense models. Forcing MMQ here would slow the
 # dense ones down.
 llamacpp_cuda_force_mmq: "OFF"
+
+# LiteLLM publishes the OpenAI API on :4000 (with a Postgres usage database) and
+# proxies the router above, so clients get one endpoint with API keys and
+# accounting. The router itself needs no credentials: this dummy key is only
+# what the OpenAI client library insists on.
+litellm_api_base: "http://{{ ansible_host }}:{{ llamacpp_port }}/v1"
+litellm_backend_api_key: "sk-llamacpp"
+
+# Listed in LiteLLM's /v1/models; anything else still works through the
+# wildcard entry the template renders (see roles/stacks/templates).
+litellm_models:
+  - Qwen3.5-9B-UD-Q4_K_XL
+  - Qwen3.6-35B-A3B-UD-IQ3_S
+  - Qwen3.8-27B-UD-IQ4_XS
+  - Qwen3.8-27B-GSQ-RCO-IQ3_S-mtp
+
+docker_networks:
+  - ai-stack
+
+stacks:
+  - name: litellm
+    src: ai-services/litellm
+    files:
+      - { template: litellm-config.yaml.j2, dest: config.yaml }
+    env:
+      LITELLM_DB_PASSWORD: "{{ vault_litellm_db_password }}"
+      LITELLM_MASTER_KEY: "{{ vault_litellm_master_key }}"
+      LITELLM_SALT_KEY: "{{ vault_litellm_salt_key }}"
+
+health_checks:
+  - { name: litellm, url: "http://127.0.0.1:4000/health/liveliness" }

@@ -49,7 +49,7 @@ The infrastructure is segmented into distinct layers managed via automated pipel
 - **Vaultwarden (192.168.10.23):** Vaultwarden (8000)
 - **Radicale (192.168.10.24):** Radicale (5232)
 - **Quantum Filebrowser (192.168.10.25):** Quantum Filebrowser (8080), Syncthing (8384)
-- **AI-Stack (192.168.10.26)** Llama-Swap (5001), Litellm (4000), Open-webui (3000), Comfyui (8188)
+- **AI-Stack (192.168.10.26):** llama.cpp server in router mode (8080), LiteLLM (4000)
 
 ---
 
