@@ -6,6 +6,24 @@
     update_cache: true
     cache_valid_time: 3600
 
+# apt on trixie verifies repository signatures with Sequoia, whose policy
+# stopped accepting SHA1 signatures on 2026-02-01, while NVIDIA still signs the
+# CUDA repository key with SHA1: without this, apt rejects the whole repository
+# and no CUDA package can be installed. See the file header for the tradeoff.
+# Sequoia only reads the policy from this path when it exists, and nothing else
+# creates the directory in a plain container.
+- name: Create the Sequoia policy directory
+  ansible.builtin.file:
+    path: /etc/crypto-policies/back-ends
+    state: directory
+    mode: "0755"
+
+- name: Allow the CUDA repository's SHA1-signed key in apt's Sequoia policy
+  ansible.builtin.copy:
+    src: apt-sequoia.config
+    dest: /etc/crypto-policies/back-ends/apt-sequoia.config
+    mode: "0644"
+
 - name: Add the CUDA repository keyring
   ansible.builtin.apt:
     deb: "https://developer.download.nvidia.com/compute/cuda/repos/{{ cuda_repo_distro }}/x86_64/cuda-keyring_1.1-1_all.deb"
@@ -17,6 +35,24 @@
     name: "{{ cuda_toolkit_package }}"
     state: present
     update_cache: true
+    # The CUDA repository lives behind an Akamai edge that the lab's DNS does
+    # not always resolve to a reachable answer, and apt fails the whole update
+    # when any configured repository is unreachable: keep the cached indexes.
+    cache_valid_time: 3600
+
+# CUDA 12.x declares sinpi/cospi/sinpif/cospif in crt/math_functions.h without an
+# exception specification, while glibc 2.41 (trixie) declares the same C23
+# functions noexcept(true). g++ and clang++ accept the redeclaration, but
+# nvcc's cudafe++ frontend refuses to compile any translation unit that includes
+# <math.h> ("exception specification is incompatible"), i.e. every CUDA file.
+# The CUDA declarations get the matching specification; requiring the closing
+# ";" in the pattern keeps the task idempotent, and a NVIDIA package upgrade
+# that restores the original header is re-patched on the next run.
+- name: Give the CUDA sinpi/cospi declarations glibc 2.41's exception specification
+  ansible.builtin.replace:
+    path: "{{ llamacpp_cuda_root }}/targets/x86_64-linux/include/crt/math_functions.h"
+    regexp: "(__device_builtin__ (?:double|float)\\s+(?:sinpi|cospi)f?\\((?:double|float) x\\))(;)"
+    replace: '\1 noexcept (true)\2'
 
 - name: Service user
   ansible.builtin.user:
@@ -48,9 +84,18 @@
     path: /opt/llama.cpp/build/bin/llama-server
   register: llamacpp_bin
 
+# A link interrupted by a crash leaves a truncated binary whose mtime is newer
+# than every object file, so make would keep treating it as up to date and the
+# service would fail to exec it ("Exec format error").
+- name: Drop a truncated llama-server binary
+  ansible.builtin.file:
+    path: /opt/llama.cpp/build/bin/llama-server
+    state: absent
+  when: llamacpp_bin.stat.exists and llamacpp_bin.stat.size | default(1) == 0
+
 - name: Set the rebuild condition
   ansible.builtin.set_fact:
-    llamacpp_rebuild: "{{ llamacpp_src.changed or llamacpp_flags.changed or not llamacpp_bin.stat.exists }}"
+    llamacpp_rebuild: "{{ llamacpp_src.changed or llamacpp_flags.changed or not llamacpp_bin.stat.exists or llamacpp_bin.stat.size | default(1) == 0 }}"
 
 - name: Configure the build
   ansible.builtin.command:

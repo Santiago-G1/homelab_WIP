@@ -6,12 +6,18 @@
 # Must be IDENTICAL to the driver on the Proxmox host
 # (nvidia-smi --query-gpu=driver_version --format=csv,noheader there).
 # R580 is the last branch that supports Pascal.
-nvidia_driver_version: "580.178.04"
+nvidia_driver_version: "580.159.04"
 
-# CUDA 12.9 is the last toolkit that can target Pascal; 13.x cannot.
-cuda_toolkit_package: cuda-toolkit-12-9
+# CUDA 12.x is the newest line that can target Pascal (13.x dropped compute
+# capability 6.x), and 12.8 is the version this rig's max-perf build was
+# validated with. Every 12.x release needs the crt/math_functions.h patch that
+# roles/llamacpp applies, because its sinpi/cospi declarations clash with
+# glibc 2.41's. The repositories are split per Debian release and debian13 only
+# ships the 13.x toolkit, so the Debian 12 repo is used even though the
+# container runs trixie.
+cuda_toolkit_package: cuda-toolkit-12-8
 cuda_repo_distro: debian12
-llamacpp_cuda_root: /usr/local/cuda-12.9
+llamacpp_cuda_root: /usr/local/cuda-12.8
 llamacpp_cuda_arch: "60-real"    # Tesla P100
 
 llamacpp_version: master         # pin a tag (bXXXX) for reproducible builds
@@ -29,4 +35,8 @@ llamacpp_global_args:
 
 # Per-model overrides; the key is the model name the router lists.
 llamacpp_model_overrides: {}
-llamacpp_cuda_force_mmq: "ON"
+
+# sm_60 has no dp4a: the runtime heuristic already picks MMQ for MoE (faster
+# without dp4a) and cuBLAS for dense models. Forcing MMQ here would slow the
+# dense ones down.
+llamacpp_cuda_force_mmq: "OFF"

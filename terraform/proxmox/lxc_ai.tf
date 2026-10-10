@@ -10,11 +10,14 @@ module "ai" {
   swap       = 9192
   disk_size  = 78
 
+  # PVE creates the device nodes root:root 0660, which the unprivileged
+  # llama-server user (member of the container's video group) cannot open.
+  # gid is the container-side id, so video = 44.
   device_passthrough = [
-    { path = "/dev/nvidia0" },
-    { path = "/dev/nvidiactl" },
-    { path = "/dev/nvidia-uvm" },
-    { path = "/dev/nvidia-uvm-tools" },
+    { path = "/dev/nvidia0", gid = 44 },
+    { path = "/dev/nvidiactl", gid = 44 },
+    { path = "/dev/nvidia-uvm", gid = 44 },
+    { path = "/dev/nvidia-uvm-tools", gid = 44 },
   ]
 
   mount_points = [

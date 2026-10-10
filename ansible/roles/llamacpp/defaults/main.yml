@@ -10,13 +10,13 @@ llamacpp_global_args:
   flash-attn: "on"
 llamacpp_model_overrides: {}
 
-cuda_toolkit_package: cuda-toolkit-12-9
+cuda_toolkit_package: cuda-toolkit-12-8   # needs the glibc 2.41 patch applied in tasks/main.yml
 cuda_repo_distro: debian12
 
 # Build
-llamacpp_cuda_root: /usr/local/cuda-12.9
+llamacpp_cuda_root: /usr/local/cuda-12.8
 llamacpp_cuda_arch: "60-real"          # Tesla P100 = 60
-llamacpp_cuda_force_mmq: "OFF"         # P100 (sm_60) has no dp4a; test ON with llama-bench
+llamacpp_cuda_force_mmq: "OFF"         # sm_60 has no dp4a: forcing MMQ only slows dense models down
 llamacpp_cpu_flags: "-march=ivybridge -mtune=ivybridge -O3 -fopenmp -pipe -funroll-loops"
 llamacpp_build_jobs: 4
 llamacpp_build_targets: [llama-server, llama-bench, llama-cli]
