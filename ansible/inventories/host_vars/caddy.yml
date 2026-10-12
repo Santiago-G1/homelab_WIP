@@ -10,7 +10,8 @@ stacks:
 proxy_checks:
   - { host: "music.{{vault_domainname_hs}}" }
   - { host: "password.{{vault_domainname_hs}}"}
-  - { host: "torrent. {{vault_domainname_hs}}" }
+  - { host: "torrent.{{vault_domainname_hs}}" }
   - { host: "immich.{{vault_domainname_hs}}" }
   - { host: "blocky.{{vault_domainname_hs}}", path: /metrics } # Blocky has no UI
   - { host: "grafana.{{vault_domainname_hs}}" }
+  - { host: "litellm.{{vault_domainname_hs}}", path: /health/liveliness }

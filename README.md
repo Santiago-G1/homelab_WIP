@@ -26,6 +26,27 @@ The infrastructure is segmented into distinct layers managed via automated pipel
 - **Provisioning Layer:** Proxmox VE managed via Terraform providers to spin up LXC containers dynamically.
 - **Configuration Layer:** Ansible playbooks handling base OS hardening, package installations, and Docker daemon setups.
 - **Application Layer:** Isolated Docker Compose deployments grouped logically by service types (e.g., Media/Arr suite, Frontend tools).
+
+### GPU transcoding (Intel iGPU)
+
+Jellyfin (`frontend`) and Immich transcode on the CPU's iGPU instead of the CPU cores. The PVE host exposes it as `/dev/dri/renderD128` (the Tesla P100 next to it is `renderD129`; confirm with `ls -l /dev/dri/by-path/`). `terraform/proxmox/lxc_media.tf` passes that node into both containers via `device_passthrough`, and each Compose project maps it into its service.
+
+Ivy Bridge is gen 7, so **H.264 is the only accelerated codec** (hardware decode and encode); HEVC, VP9 and AV1 fall back to software. Immich machine learning stays on the CPU too: OpenVINO needs gen 9 or newer.
+
+Two settings live inside the applications and cannot be shipped as config, so set them once after a fresh deployment (both persist across container rebuilds):
+
+- Jellyfin: Dashboard → Playback → Transcoding → Hardware acceleration = `VAAPI`, device `/dev/dri/renderD128` (stored in `jellyfin/config/encoding.xml`).
+- Immich: Administration → Settings → Video transcoding → Hardware acceleration = `VAAPI`, device `/dev/dri/renderD128` (stored in the database, so re-select it after restoring one).
+
+Verify with `ls -l /dev/dri/` inside the container, and by hardware-encoding a test frame with the ffmpeg both images bundle:
+
+```bash
+# inside the Jellyfin container (Immich exposes the same build as `ffmpeg`)
+/usr/lib/jellyfin-ffmpeg/ffmpeg -init_hw_device vaapi=va:/dev/dri/renderD128 \
+  -f lavfi -i testsrc=size=1280x720 -frames:v 30 -vf format=nv12,hwupload \
+  -c:v h264_vaapi -f null -
+```
+
 ---
 ## Deployed Services
 ### Management Services
@@ -49,7 +70,7 @@ The infrastructure is segmented into distinct layers managed via automated pipel
 - **Vaultwarden (192.168.10.23):** Vaultwarden (8000)
 - **Radicale (192.168.10.24):** Radicale (5232)
 - **Quantum Filebrowser (192.168.10.25):** Quantum Filebrowser (8080), Syncthing (8384)
-- **AI-Stack (192.168.10.26)** Llama-Swap (5001), Litellm (4000), Open-webui (3000), Comfyui (8188)
+- **AI-Stack (192.168.10.26):** llama.cpp server in router mode (8080), LiteLLM (4000)
 
 ---
 

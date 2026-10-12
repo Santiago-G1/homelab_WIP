@@ -1,0 +1,24 @@
+# Managed by Ansible (roles/llamacpp).
+[Unit]
+Description=llama.cpp server (router mode)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=llama
+Group=llama
+SupplementaryGroups=video
+CacheDirectory=llama
+Environment=LLAMA_CACHE=/var/cache/llama
+ExecStart=/opt/llama.cpp/build/bin/llama-server \
+  --models-dir {{ llamacpp_models_dir }} \
+  --models-preset {{ llamacpp_preset_file }} \
+  --models-max {{ llamacpp_models_max }} \
+  --host 0.0.0.0 --port {{ llamacpp_port }} \
+  --metrics
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

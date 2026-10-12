@@ -1,0 +1,24 @@
+# Managed by Ansible (roles/stacks). Rendered into the LiteLLM stack, which
+# proxies the llama.cpp router running on the same host: the router serves each
+# .gguf in its models directory under its own name, so a request is proxied 1:1.
+#
+# `litellm_models` (host_vars/llm.yml) lists the models to advertise, and every
+# new .gguf needs a line there. A wildcard route (openai/*) would avoid that,
+# but LiteLLM then advertises its whole built-in OpenAI catalogue in
+# /v1/models. Only the top level of llamacpp_models_dir is addressable: a .gguf
+# in a subdirectory is published as a directory entry, not as a model.
+model_list:
+{% for model in litellm_models %}
+  - model_name: "{{ model }}"
+    litellm_params:
+      model: "openai/{{ model }}"
+      api_base: "{{ litellm_api_base }}"
+      api_key: "{{ litellm_backend_api_key }}"
+{% endfor %}
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  database_url: os.environ/DATABASE_URL
+
+litellm_settings:
+  # The router rejects unknown sampling parameters instead of ignoring them.
+  drop_params: true

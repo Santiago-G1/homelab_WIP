@@ -1,0 +1,33 @@
+---
+# NVIDIA userspace driver for an LXC: the kernel module lives on the Proxmox
+# host and the /dev/nvidia* nodes are passed through by Terraform, so only the
+# libraries and nvidia-smi are installed here, at the host's exact version.
+- name: Install prerequisites
+  ansible.builtin.apt:
+    name: [curl, ca-certificates, kmod, pkg-config, libglvnd-dev]
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Check the installed NVIDIA userspace driver
+  ansible.builtin.command: nvidia-smi --query-gpu=driver_version --format=csv,noheader
+  register: nvidia_current
+  changed_when: false
+  failed_when: false
+
+- name: Download the NVIDIA datacenter driver installer
+  ansible.builtin.get_url:
+    url: "https://us.download.nvidia.com/tesla/{{ nvidia_driver_version }}/NVIDIA-Linux-x86_64-{{ nvidia_driver_version }}.run"
+    dest: "/tmp/NVIDIA-{{ nvidia_driver_version }}.run"
+    mode: "0755"
+  when: nvidia_driver_version not in nvidia_current.stdout
+
+- name: Install the driver (userspace only)
+  ansible.builtin.command:
+    cmd: "/tmp/NVIDIA-{{ nvidia_driver_version }}.run --no-kernel-module --no-drm --silent"
+  when: nvidia_driver_version not in nvidia_current.stdout
+  changed_when: true
+
+- name: Confirm the GPU is visible
+  ansible.builtin.command: nvidia-smi --query-gpu=name,driver_version --format=csv,noheader
+  changed_when: false

@@ -12,6 +12,9 @@ vault_immich_db_password: postgres
 vault_immich_db_username: postgres
 vault_immich_upload_location: /path/to/immich
 vault_immich_version: v3
+vault_litellm_db_password: change-me
+vault_litellm_master_key: sk-change-me
+vault_litellm_salt_key: change-me
 vault_llm_mount: /path/to/data
 vault_onlyoffice_jwt_secret: CHANGE-ME
 vault_samba_password: CHANGE-ME

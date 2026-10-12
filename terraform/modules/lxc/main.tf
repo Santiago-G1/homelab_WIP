@@ -7,6 +7,17 @@ terraform {
   }
 }
 
+# Keys authorized on a container when it is created, so the admin / Ansible
+# control node can reach it over SSH immediately. Read from the machine running
+# Terraform (the devops container), so no key material lives in the repository.
+locals {
+  admin_public_keys = (
+    var.admin_public_key_path != "" && fileexists(var.admin_public_key_path)
+    ? [trimspace(file(var.admin_public_key_path))]
+    : []
+  )
+}
+
 resource "proxmox_virtual_environment_container" "multiple_mountpoints" {
   node_name    = var.node
   vm_id        = var.vm_id
@@ -57,8 +68,9 @@ resource "proxmox_virtual_environment_container" "multiple_mountpoints" {
       servers = var.default_dns
     }
 
+    # null (the default) means "authorize the admin key"; an explicit list wins.
     user_account {
-      keys = var.ssh_public_keys
+      keys = var.ssh_public_keys != null ? var.ssh_public_keys : local.admin_public_keys
     }
 
     ip_config {
@@ -82,5 +94,13 @@ resource "proxmox_virtual_environment_container" "multiple_mountpoints" {
   network_interface {
     name   = "eth0"
     bridge = var.bridge
+  }
+
+  # The provider marks initialization.user_account.keys as ForceNew, so a change
+  # there would recreate the container: the keys are seeded only at creation
+  # time (drift on them is ignored on purpose). Use Ansible to change the
+  # authorized keys of a running container (roles/common: admin_authorized_keys).
+  lifecycle {
+    ignore_changes = [initialization[0].user_account[0].keys]
   }
 }
