@@ -10,9 +10,12 @@ services:
       - /mnt/media/movies:/data/movies
     ports:
       - 8096:8096
-    # No /dev/dri passthrough: the PVE host currently exposes no render device,
-    # so hardware transcoding is disabled and Jellyfin falls back to the CPU.
-    # devices:
-    #   - /dev/dri/renderD128:/dev/dri/renderD128
-    #   - /dev/dri/card1:/dev/dri/card1
+    # Intel iGPU (Ivy Bridge) render node, passed through to the LXC by
+    # terraform/proxmox/lxc_media.tf. It belongs to gid 44 (video) there, and
+    # the image runs Jellyfin as uid 911 (abc), which is not in that group.
+    # jellyfin-ffmpeg ships the i965 VAAPI driver this generation needs.
+    devices:
+      - /dev/dri/renderD128:/dev/dri/renderD128
+    group_add:
+      - "44"
     restart: unless-stopped

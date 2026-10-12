@@ -4,3 +4,8 @@
 services:
   immich-server:
     user: "999:991"
+    # Intel iGPU render node (VAAPI); terraform/proxmox/lxc_media.tf passes it
+    # through with this group. The accel setting itself lives in Immich's admin
+    # UI and is stored in the database.
+    devices:
+      - /dev/dri/renderD128:/dev/dri/renderD128
