@@ -55,6 +55,15 @@
         label: "{{ item.name }}"
       changed_when: false
 
+# The media hosts reach the same P100 through roles/nvidia.
+- name: Verify the GPU hosts
+  hosts: gpu
+  gather_facts: false
+  tasks:
+    - name: GPU is visible
+      ansible.builtin.command: nvidia-smi --query-gpu=name,driver_version --format=csv,noheader
+      changed_when: false
+
 # llama.cpp runs as a systemd service, not as a Compose stack.
 - name: Verify the AI host
   hosts: ai

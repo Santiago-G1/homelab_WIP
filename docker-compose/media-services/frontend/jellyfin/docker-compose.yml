@@ -8,13 +8,23 @@ services:
       - ./config:/config
       - /mnt/media/series:/data/tvshows
       - /mnt/media/movies:/data/movies
+      # NVENC/NVDEC userspace libs for jellyfin-ffmpeg. There is no
+      # nvidia-container-runtime inside the LXC, so bind-mount the driver
+      # libraries roles/nvidia installs.
+      - /usr/lib/x86_64-linux-gnu/libcuda.so.1:/usr/lib/x86_64-linux-gnu/libcuda.so.1:ro
+      - /usr/lib/x86_64-linux-gnu/libnvidia-encode.so.1:/usr/lib/x86_64-linux-gnu/libnvidia-encode.so.1:ro
+      - /usr/lib/x86_64-linux-gnu/libnvcuvid.so.1:/usr/lib/x86_64-linux-gnu/libnvcuvid.so.1:ro
+      - /usr/lib/x86_64-linux-gnu/libnvidia-ml.so.1:/usr/lib/x86_64-linux-gnu/libnvidia-ml.so.1:ro
     ports:
       - 8096:8096
-    # Intel iGPU (Ivy Bridge) render node, passed through to the LXC by
-    # terraform/proxmox/lxc_media.tf. It belongs to gid 44 (video) there, and
-    # the image runs Jellyfin as uid 911 (abc), which is not in that group.
-    # jellyfin-ffmpeg ships the i965 VAAPI driver this generation needs.
+    # Tesla P100 (NVENC/NVDEC) passed through by terraform/proxmox/lxc_media.tf,
+    # plus the Intel iGPU as VAAPI fallback. The nodes belong to gid 44 (video);
+    # the image runs Jellyfin as uid 911 (abc), hence group_add.
     devices:
+      - /dev/nvidia0:/dev/nvidia0
+      - /dev/nvidiactl:/dev/nvidiactl
+      - /dev/nvidia-uvm:/dev/nvidia-uvm
+      - /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools
       - /dev/dri/renderD128:/dev/dri/renderD128
     group_add:
       - "44"

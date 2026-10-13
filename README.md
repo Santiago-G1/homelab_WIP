@@ -27,25 +27,28 @@ The infrastructure is segmented into distinct layers managed via automated pipel
 - **Configuration Layer:** Ansible playbooks handling base OS hardening, package installations, and Docker daemon setups.
 - **Application Layer:** Isolated Docker Compose deployments grouped logically by service types (e.g., Media/Arr suite, Frontend tools).
 
-### GPU transcoding (Intel iGPU)
+### GPU transcoding (Tesla P100)
 
-Jellyfin (`frontend`) and Immich transcode on the CPU's iGPU instead of the CPU cores. The PVE host exposes it as `/dev/dri/renderD128` (the Tesla P100 next to it is `renderD129`; confirm with `ls -l /dev/dri/by-path/`). `terraform/proxmox/lxc_media.tf` passes that node into both containers via `device_passthrough`, and each Compose project maps it into its service.
+Jellyfin (`frontend`) and Immich transcode on the Tesla P100 (GP100), and Immich's machine learning runs on it through CUDA. `terraform/proxmox/lxc_media.tf` passes `/dev/nvidia*` into both containers, `roles/nvidia` installs the userspace driver that matches the PVE host, and each Compose project maps the nodes and bind-mounts the driver libraries (an LXC has no `nvidia-container-runtime`).
 
-Ivy Bridge is gen 7, so **H.264 is the only accelerated codec** (hardware decode and encode); HEVC, VP9 and AV1 fall back to software. Immich machine learning stays on the CPU too: OpenVINO needs gen 9 or newer.
+GP100 has three NVENC engines and NVDEC: **H.264 encode only**, but H.264/HEVC/VP9 decode. HEVC and VP9 sources are decoded in hardware and re-encoded to H.264; HEVC *output* still falls back to software. The Intel iGPU (`/dev/dri/renderD128`) stays passed through as the VAAPI fallback — it is gen 7, so H.264 only, like the P100's encoder.
+
+The P100 is shared with the AI container: the device nodes are passed to `immich` and `frontend` as well, and the nodes belong to gid 991 (Immich) and gid 44 (Jellyfin).
 
 Two settings live inside the applications and cannot be shipped as config, so set them once after a fresh deployment (both persist across container rebuilds):
 
-- Jellyfin: Dashboard → Playback → Transcoding → Hardware acceleration = `VAAPI`, device `/dev/dri/renderD128` (stored in `jellyfin/config/encoding.xml`).
-- Immich: Administration → Settings → Video transcoding → Hardware acceleration = `VAAPI`, device `/dev/dri/renderD128` (stored in the database, so re-select it after restoring one).
+- Jellyfin: Dashboard → Playback → Transcoding → Hardware acceleration = `NVIDIA NVENC` (stored in `jellyfin/config/encoding.xml`).
+- Immich: Administration → Settings → Video transcoding → Hardware acceleration = `NVENC` (stored in the database, so re-select it after restoring one). Machine learning needs no setting: the `-cuda` image uses the GPU when it is present.
 
-Verify with `ls -l /dev/dri/` inside the container, and by hardware-encoding a test frame with the ffmpeg both images bundle:
+Verify with `nvidia-smi` inside the containers and a test encode:
 
 ```bash
-# inside the Jellyfin container (Immich exposes the same build as `ffmpeg`)
-/usr/lib/jellyfin-ffmpeg/ffmpeg -init_hw_device vaapi=va:/dev/dri/renderD128 \
-  -f lavfi -i testsrc=size=1280x720 -frames:v 30 -vf format=nv12,hwupload \
-  -c:v h264_vaapi -f null -
+# inside the Jellyfin container (Immich ships the same ffmpeg build)
+/usr/lib/jellyfin-ffmpeg/ffmpeg -init_hw_device cuda \
+  -f lavfi -i testsrc=size=1280x720 -frames:v 30 -c:v h264_nvenc -f null -
 ```
+
+**VRAM is shared with llama.cpp.** The AI container keeps the P100 for `llama-server`; a loaded 27B model takes around 15 GiB of the 16 GiB, so Immich machine learning may not fit while a model is resident. Transcoding needs little VRAM and is not affected. Stop the model (or lower its context) before bulk ML jobs.
 
 ---
 ## Deployed Services

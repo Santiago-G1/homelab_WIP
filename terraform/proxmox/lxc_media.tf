@@ -28,11 +28,15 @@ module "immich" {
     { volume = "/tank/immich", mount_path = "/mnt/immich" },
   ]
 
-  # Intel iGPU render node for VAAPI transcoding. gid is the container-side id
-  # of the group immich-server runs as (999:991, see the Compose override), so
-  # the device is readable for it without widening the mode.
+  # Intel iGPU (VAAPI fallback) and Tesla P100 (NVENC/NVDEC + CUDA). gid is the
+  # container-side id of the group immich-server runs as (999:991, see the
+  # Compose override), so the nodes are readable without widening the mode.
   device_passthrough = [
     { path = "/dev/dri/renderD128", gid = 991 },
+    { path = "/dev/nvidia0", gid = 991 },
+    { path = "/dev/nvidiactl", gid = 991 },
+    { path = "/dev/nvidia-uvm", gid = 991 },
+    { path = "/dev/nvidia-uvm-tools", gid = 991 },
   ]
 }
 
@@ -50,10 +54,13 @@ module "frontend" {
     { volume = "/tank/media", mount_path = "/mnt/media" },
   ]
 
-  # Intel iGPU render node for Jellyfin VAAPI transcoding. Jellyfin runs as root
-  # inside the container, which owns the node; gid 44 (video) holds the group
-  # readable bit the render node already has on the host.
+  # Intel iGPU (VAAPI fallback) and Tesla P100 (NVENC/NVDEC) for Jellyfin.
+  # gid 44 (video) matches the group_add in the Compose file.
   device_passthrough = [
     { path = "/dev/dri/renderD128", gid = 44 },
+    { path = "/dev/nvidia0", gid = 44 },
+    { path = "/dev/nvidiactl", gid = 44 },
+    { path = "/dev/nvidia-uvm", gid = 44 },
+    { path = "/dev/nvidia-uvm-tools", gid = 44 },
   ]
 }
