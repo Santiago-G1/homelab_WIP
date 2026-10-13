@@ -67,14 +67,24 @@ ComfyUI.
 - `ghcr.io/immich-app/immich-machine-learning:v3-cuda` exists for the deployed
   `IMMICH_VERSION`.
 
-## Not applied
+## Deployment
 
-No `terraform apply` or `ansible-playbook site.yml` was run, and nothing was
-pushed. Applying this will update the Immich and Jellyfin LXC configs, install
-the NVIDIA userspace driver in them, recreate both stacks and pull the CUDA ML
-image (several GB).
+Applied on 2026-10-13 (not pushed):
+
+- `terraform apply`: in-place update of CT 121 and CT 122 (no destroy). Both
+  containers restarted to pick up the new device nodes.
+- `ansible-playbook playbooks/site.yml --limit frontend,immich`: NVIDIA userspace
+  driver installed, Jellyfin and Immich stacks recreated with the P100. A second
+  run is idempotent (`changed=0`).
+- `ansible-playbook playbooks/verify.yml --limit frontend,immich`: all green,
+  including the GPU check.
+- Verified inside the containers: `h264_nvenc` encode works in both `jellyfin`
+  and `immich_server`, and the ML container opens the P100 through `libcuda`
+  (`cuDeviceGetName`) with `CUDAExecutionProvider` available in onnxruntime.
 
 ## After deploying (one-time, in the UIs)
+
+Left to do in the applications (the devices and libraries are already wired):
 
 1. Jellyfin → Dashboard → Playback → Transcoding → Hardware acceleration = `NVIDIA NVENC`.
 2. Immich → Administration → Settings → Video transcoding → Hardware acceleration = `NVENC`.
