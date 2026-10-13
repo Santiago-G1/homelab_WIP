@@ -38,8 +38,10 @@ ComfyUI.
   ComfyUI stack. It was verified end-to-end (see below).
 - **Bind-mount the libraries from the LXC.** `roles/nvidia` already installs the
   exact userspace driver version, so mounting `libcuda`, `libnvidia-encode`,
-  `libnvcuvid` (and `libnvidia-ml`) keeps the userspace library and the host
-  kernel module in lockstep.
+  `libnvcuvid`, `libnvidia-ml` and `libnvidia-ptxjitcompiler` keeps the userspace
+  library and the host kernel module in lockstep. The PTX JIT compiler is needed
+  because ffmpeg's `scale_cuda` filter compiles its kernel at runtime (GP100 is
+  `sm_60`).
 - **Keep the iGPU.** The P100 encoder only does H.264, so the iGPU is a free
   fallback and removing it would be a one-way door. Immich and Jellyfin use a
   single backend at a time, so leaving the node mapped costs nothing.
@@ -82,12 +84,21 @@ Applied on 2026-10-13 (not pushed):
   and `immich_server`, and the ML container opens the P100 through `libcuda`
   (`cuDeviceGetName`) with `CUDAExecutionProvider` available in onnxruntime.
 
+During the first Jellyfin playback test, transcoding failed because the setting
+was still `vaapi` (VAAPI device creation failed). Switching to `nvenc` exposed a
+second issue: `scale_cuda` failed with `CUDA_ERROR_JIT_COMPILER_NOT_FOUND`, since
+`libnvidia-ptxjitcompiler.so.1` was not mounted. Added it to Jellyfin and
+`immich-server` (`8835862`); the full NVENC pipeline then transcoded the test
+movie (NVDEC decode + `scale_cuda` + `h264_nvenc`).
+
 ## After deploying (one-time, in the UIs)
 
 Left to do in the applications (the devices and libraries are already wired):
 
 1. Jellyfin → Dashboard → Playback → Transcoding → Hardware acceleration = `NVIDIA NVENC`.
+   *(done on the live host; stored in `jellyfin/config/encoding.xml`)*
 2. Immich → Administration → Settings → Video transcoding → Hardware acceleration = `NVENC`.
+   *(still pending)*
 
 ## Caveats
 
