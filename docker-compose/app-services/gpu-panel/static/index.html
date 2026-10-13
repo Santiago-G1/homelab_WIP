@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>domain.com · GPU Control</title>
+<style>
+  :root { --bg:#0e1116; --card:#171c24; --line:#252c38; --fg:#e6e9ef; --mut:#8b95a5;
+          --ok:#3fb950; --warn:#d29922; --bad:#f85149; --acc:#58a6ff; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg);
+         font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+  header { display:flex; align-items:center; gap:12px; padding:16px 22px;
+           border-bottom:1px solid var(--line); }
+  header h1 { margin:0; font-size:17px; font-weight:600; letter-spacing:.2px; }
+  header .dot { width:9px; height:9px; border-radius:50%; background:var(--ok); }
+  header .sub { color:var(--mut); margin-left:auto; font-variant-numeric:tabular-nums; }
+  main { padding:18px 22px 40px; max-width:1200px; margin:0 auto; }
+  h2 { font-size:12px; text-transform:uppercase; letter-spacing:.9px; color:var(--mut);
+       margin:22px 0 10px; font-weight:600; }
+  .grid { display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px; }
+  .card .k { color:var(--mut); font-size:12px; }
+  .card .v { font-size:20px; font-weight:600; margin-top:4px; font-variant-numeric:tabular-nums; }
+  .bar { height:7px; background:#0b0e13; border-radius:5px; overflow:hidden; margin-top:8px; }
+  .bar > i { display:block; height:100%; background:var(--acc); }
+  .two { display:grid; gap:12px; grid-template-columns:1fr 1fr; }
+  @media (max-width:760px){ .two { grid-template-columns:1fr; } }
+  table { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }
+  th,td { text-align:left; padding:7px 8px; border-bottom:1px solid var(--line); font-size:13px; }
+  th { color:var(--mut); font-weight:600; font-size:12px; }
+  button { background:#21262d; color:var(--fg); border:1px solid var(--line);
+           border-radius:7px; padding:7px 12px; cursor:pointer; font-size:13px; }
+  button:hover { border-color:#3b4351; }
+  button.pri { background:#1f6feb; border-color:#1f6feb; }
+  button.warn { background:#8b2c2c; border-color:#8b2c2c; }
+  button.on { background:#238636; border-color:#238636; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .pill { font-size:11px; padding:2px 8px; border-radius:20px; border:1px solid var(--line); color:var(--mut); }
+  .pill.ok { color:var(--ok); border-color:#1d3d24; }
+  .pill.off { color:var(--bad); border-color:#4a2323; }
+  input[type=range] { width:100%; }
+  #msg { position:fixed; right:18px; bottom:18px; background:#1f6feb; color:#fff;
+         padding:10px 14px; border-radius:8px; opacity:0; transition:opacity .2s; max-width:380px;
+         font-size:13px; }
+  #msg.show { opacity:1; }
+  #msg.err { background:#8b2c2c; }
+  .mono { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
+</style>
+</head>
+<body>
+<header>
+  <span class="dot" id="dot"></span>
+  <h1>domain.com · GPU Control</h1>
+  <span class="sub" id="gpu-name">cargando…</span>
+</header>
+<main>
+  <h2>Tarjeta</h2>
+  <div class="grid" id="gpu-cards"></div>
+
+  <h2>Power limit</h2>
+  <div class="card">
+    <div class="row" style="justify-content:space-between">
+      <span class="k">Límite actual: <b id="pl-now" class="mono">—</b></span>
+      <span class="k">Rango soportado: <span id="pl-range" class="mono">—</span></span>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <input type="range" id="pl" min="125" max="250" step="5" value="150">
+      <span class="mono" id="pl-val">150 W</span>
+      <button class="pri" onclick="setPower()">Aplicar</button>
+    </div>
+  </div>
+
+  <h2>Procesos en la GPU</h2>
+  <div class="card"><table><thead><tr><th>PID</th><th>Proceso</th><th>VRAM</th></tr></thead>
+    <tbody id="procs"><tr><td colspan="3" class="k">—</td></tr></tbody></table></div>
+
+  <h2>Consumidores</h2>
+  <div class="two">
+    <div class="card">
+      <div class="k">llama.cpp <span id="llama-pill" class="pill">—</span></div>
+      <div id="llama-list" style="margin:10px 0"></div>
+      <button class="warn" onclick="post('/api/llama/unload')">Descargar todos los modelos</button>
+    </div>
+    <div class="card">
+      <div class="k">Immich Machine Learning <span id="ml-pill" class="pill">—</span></div>
+      <div class="row" style="margin-top:10px">
+        <button class="on" onclick="post('/api/immich/ml/start')">Encender</button>
+        <button onclick="post('/api/immich/ml/restart')">Reiniciar</button>
+        <button class="warn" onclick="post('/api/immich/ml/stop')">Apagar</button>
+      </div>
+      <div class="k" style="margin-top:10px">Video transcoding (Immich): <b id="imm-ff" class="mono">—</b></div>
+    </div>
+  </div>
+
+  <h2>Modos de GPU</h2>
+  <div class="card">
+    <div class="row">
+      <button class="pri" onclick="mode('llm')">LLM (llama.cpp)</button>
+      <button class="pri" onclick="mode('media')">Medios (Immich + Jellyfin)</button>
+      <button onclick="mode('balanced')">Compartido</button>
+    </div>
+    <div class="k" style="margin-top:10px">
+      <b>LLM</b>: apaga Immich ML y deja los 16 GB para llama.cpp.
+      <b>Medios</b>: descarga los modelos de llama.cpp y enciende Immich ML.
+      <b>Compartido</b>: deja los dos disponibles (solo cabe si el modelo del LLM es pequeño).
+    </div>
+  </div>
+
+  <h2>Jellyfin</h2>
+  <div class="card">
+    <div class="k">Hardware acceleration actual: <b id="jf-accel" class="mono">—</b></div>
+    <div class="row" style="margin-top:10px">
+      <button class="on" onclick="post('/api/jellyfin/accel/nvenc')">NVIDIA NVENC</button>
+      <button onclick="post('/api/jellyfin/accel/vaapi')">VAAPI (iGPU)</button>
+      <button class="warn" onclick="post('/api/jellyfin/accel/none')">Apagado (CPU)</button>
+    </div>
+  </div>
+</main>
+<div id="msg"></div>
+
+<script>
+let timer;
+function msg(text, isErr) {
+  const el = document.getElementById('msg');
+  el.textContent = text; el.className = 'show' + (isErr ? ' err' : '');
+  clearTimeout(timer); timer = setTimeout(() => el.className = '', 4000);
+}
+async function api(path, opts) {
+  const r = await fetch(path, Object.assign({headers: {'Content-Type': 'application/json'}}, opts));
+  if (!r.ok) throw new Error((await r.text()) || r.statusText);
+  return r.headers.get('content-type')?.includes('json') ? r.json() : r.text();
+}
+async function post(path) {
+  try { const r = await api(path, {method: 'POST'}); msg('OK: ' + path); refresh(); return r; }
+  catch (e) { msg('Error: ' + e.message, true); }
+}
+async function mode(m) { return post('/api/mode/' + m); }
+async function setPower() {
+  const w = document.getElementById('pl').value;
+  try { await api('/api/power', {method:'POST', body: JSON.stringify({watts: Number(w)})});
+        msg('Power limit = ' + w + ' W'); refresh(); }
+  catch (e) { msg('Error: ' + e.message, true); }
+}
+function card(k, v, pct) {
+  return `<div class="card"><div class="k">${k}</div><div class="v">${v}</div>
+    ${pct !== undefined ? `<div class="bar"><i style="width:${pct}%"></i></div>` : ''}</div>`;
+}
+async function refresh() {
+  let s;
+  try { s = await api('/api/status'); }
+  catch (e) { document.getElementById('gpu-name').textContent = 'sin conexión'; return; }
+  const g = s.gpu || {};
+  const usedPct = Math.round(100 * g.mem_used / g.mem_total);
+  document.getElementById('gpu-name').textContent =
+    `${g.name} · driver ${g.driver}`;
+  document.getElementById('gpu-cards').innerHTML =
+    card('Uso', g.util + ' %', g.util) +
+    card('VRAM', `${(g.mem_used/1024).toFixed(1)} / ${(g.mem_total/1024).toFixed(1)} GiB`, usedPct) +
+    card('Temperatura', g.temp + ' °C') +
+    card('Potencia', `${g.power_draw} / ${g.power_limit} W`) +
+    card('Reloj SM / Mem', `${g.clk_sm} / ${g.clk_mem} MHz`);
+  document.getElementById('pl-now').textContent = g.power_limit + ' W';
+  document.getElementById('pl-range').textContent = `${g.power_min}–${g.power_max} W`;
+  const pl = document.getElementById('pl');
+  pl.min = g.power_min; pl.max = g.power_max;
+  document.getElementById('pl-val').textContent = pl.value + ' W';
+  document.getElementById('procs').innerHTML = (g.processes || []).length
+    ? g.processes.map(p => `<tr><td>${p.pid}</td><td class="mono">${p.name}</td><td>${p.mem_mib} MiB</td></tr>`).join('')
+    : '<tr><td colspan="3" class="k">—</td></tr>';
+
+  const llama = Array.isArray(s.llama) ? s.llama : [];
+  const loaded = llama.filter(m => m.status === 'loaded');
+  const lp = document.getElementById('llama-pill');
+  lp.textContent = loaded.length ? loaded.length + ' cargado(s)' : 'sin modelo';
+  lp.className = 'pill ' + (loaded.length ? 'ok' : 'off');
+  document.getElementById('llama-list').innerHTML = llama.length
+    ? llama.map(m => `<div class="mono" style="font-size:12px">${m.status === 'loaded' ? '●' : '○'} ${m.id}</div>`).join('')
+    : '<span class="k">sin respuesta</span>';
+
+  const ml = typeof s.immich_ml === 'string' ? s.immich_ml : (s.immich_ml?.error ? 'error' : '—');
+  const mp = document.getElementById('ml-pill');
+  mp.textContent = ml; mp.className = 'pill ' + (ml === 'running' ? 'ok' : 'off');
+
+  const ff = s.immich_ffmpeg || {};
+  document.getElementById('imm-ff').textContent = ff.accel ? `${ff.accel} (${ff.preferredHwDevice || 'auto'})` : '—';
+  document.getElementById('jf-accel').textContent =
+    typeof s.jellyfin_accel === 'string' ? s.jellyfin_accel : 'error';
+}
+document.getElementById('pl').addEventListener('input', e => {
+  document.getElementById('pl-val').textContent = e.target.value + ' W';
+});
+refresh();
+setInterval(refresh, 5000);
+</script>
+</body>
+</html>

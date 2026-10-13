@@ -1,0 +1,16 @@
+services:
+  gpu-panel:
+    build: .
+    image: gpu-panel:local
+    container_name: gpu-panel
+    restart: unless-stopped
+    ports:
+      - "8099:8099"
+    environment:
+      - TZ=Etc/UTC
+      - PANEL_USER=${PANEL_USER:-admin}
+      - PANEL_PASSWORD=${PANEL_PASSWORD:?PANEL_PASSWORD is required}
+    volumes:
+      # The control node's SSH key is what reaches the PVE host and every
+      # container; mounted read-only so the panel can only use it, not change it.
+      - /root/.ssh:/root/.ssh:ro

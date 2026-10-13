@@ -54,7 +54,7 @@
 
 - name: "{{ stack.name }} | bring the stack up"
   ansible.builtin.command:
-    cmd: "docker compose up -d --remove-orphans"
+    cmd: "docker compose up -d --remove-orphans{{ ' --build' if stack.build | default(false) else '' }}"
     chdir: "{{ stacks_root }}/{{ stack.name }}"
   register: compose_up
   changed_when: >-

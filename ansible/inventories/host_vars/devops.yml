@@ -1,0 +1,10 @@
+---
+# The GPU control panel runs on the control node: it is the only host with SSH
+# reach to the PVE node (nvidia-smi, power limit) and every GPU consumer.
+stacks:
+  - name: gpu-panel
+    src: app-services/gpu-panel
+    build: true
+    env:
+      PANEL_USER: admin
+      PANEL_PASSWORD: "{{ vault_gpu_panel_password }}"

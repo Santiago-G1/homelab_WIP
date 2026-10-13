@@ -15,3 +15,4 @@ proxy_checks:
   - { host: "blocky.{{vault_domainname_hs}}", path: /metrics } # Blocky has no UI
   - { host: "grafana.{{vault_domainname_hs}}" }
   - { host: "litellm.{{vault_domainname_hs}}", path: /health/liveliness }
+  - { host: "gpu.{{vault_domainname_hs}}" }
