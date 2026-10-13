@@ -50,10 +50,26 @@ Verify with `nvidia-smi` inside the containers and a test encode:
 
 **VRAM is shared with llama.cpp.** The AI container keeps the P100 for `llama-server`; a loaded 27B model takes around 15 GiB of the 16 GiB, so Immich machine learning may not fit while a model is resident. Transcoding needs little VRAM and is not affected. Stop the model (or lower its context) before bulk ML jobs.
 
+### GPU control panel
+
+`https://gpu.domain.com` (basic auth) shows the P100 and decides who uses it.
+It runs on the control node and reaches the PVE host over SSH to read
+`nvidia-smi` and set the power limit (125-250 W), and the containers to switch
+the card between **llama.cpp** and **Immich ML**:
+
+- **LLM**: stops Immich ML, leaving all 16 GiB to llama.cpp.
+- **Media**: unloads the llama.cpp models and starts Immich ML.
+- **Shared**: both available (only fits with a small llama.cpp model).
+
+Jellyfin and Immich transcoding use little VRAM and only while playing, so they
+are not part of the switch. The panel and its stack live in
+`docker-compose/app-services/gpu-panel` (role `stacks`, host `devops`).
+
 ---
 ## Deployed Services
 ### Management Services
 - **Devops (192.168.10.11):** IaC repository, Terraform + Ansible control node
+- **GPU panel (https://gpu.domain.com):** P100 dashboard and GPU arbitration, served by Caddy (basic auth)
 
 ### Network Services
 - **Blocky (192.168.10.3):** DNS resolver and ad-blocker, API/DoH/metrics on port 4000
