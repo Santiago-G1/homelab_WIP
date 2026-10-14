@@ -11,6 +11,10 @@ services:
       - PANEL_USER=${PANEL_USER:-admin}
       - PANEL_PASSWORD=${PANEL_PASSWORD:?PANEL_PASSWORD is required}
       - PANEL_TOKEN=${PANEL_TOKEN:?PANEL_TOKEN is required}
+      # Which models the dashboard may name, and where Jellyfin goes when the LLM
+      # owns the P100. The values live in the rendered .env, never in this file.
+      - LLAMA_PUBLIC_MODELS=${LLAMA_PUBLIC_MODELS:-}
+      - JELLYFIN_FALLBACK=${JELLYFIN_FALLBACK:-vaapi}
     volumes:
       # The control node's SSH key is what reaches the PVE host and every
       # container; mounted read-only so the panel can only use it, not change it.

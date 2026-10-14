@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="es">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -80,97 +80,97 @@
 <header>
   <span class="dot" id="dot"></span>
   <h1 id="host">GPU Control</h1>
-  <span class="sub" id="gpu-name">cargando…</span>
-  <button id="logout" title="Cerrar la sesión de este navegador">Salir</button>
+  <span class="sub" id="gpu-name">loading…</span>
+  <button id="logout" title="End this browser's session">Sign out</button>
 </header>
 <main>
-  <h2>Tarjeta</h2>
+  <h2>Card</h2>
   <div class="grid" id="gpu-cards"></div>
 
   <h2>Power limit</h2>
   <div class="card">
     <div class="row" style="justify-content:space-between">
-      <span class="k">Límite actual: <b id="pl-now" class="mono">—</b></span>
-      <span class="k">Rango soportado: <span id="pl-range" class="mono">—</span></span>
+      <span class="k">Current limit: <b id="pl-now" class="mono">—</b></span>
+      <span class="k">Supported range: <span id="pl-range" class="mono">—</span></span>
     </div>
     <div class="row" style="margin-top:10px">
       <input type="range" id="pl" min="125" max="250" step="5" value="150">
       <span class="mono" id="pl-val">150 W</span>
-      <button class="pri" id="pl-apply">Aplicar</button>
+      <button class="pri" id="pl-apply">Apply</button>
     </div>
   </div>
 
-  <h2>Auto-switch por inactividad</h2>
+  <h2>Idle auto-switch</h2>
   <div class="card">
     <div class="row" id="auto">
       <button id="auto-toggle">—</button>
-      <label class="k">Liberar el LLM tras
-        <input type="number" id="llm-idle" min="0" max="1440" style="width:72px"> min ocioso</label>
-      <label class="k">Apagar Immich ML tras
+      <label class="k">Release the LLM after
+        <input type="number" id="llm-idle" min="0" max="1440" style="width:72px"> min idle</label>
+      <label class="k">Stop Immich ML after
         <input type="number" id="ml-idle" min="0" max="1440" style="width:72px"> min (0 = off)</label>
-      <button class="pri" id="auto-save">Guardar</button>
+      <button class="pri" id="auto-save">Save</button>
     </div>
-    <div class="k" style="margin-top:10px">GPU ociosa desde hace <b id="idle-s" class="mono">—</b></div>
-    <div class="k">Estado: <b id="llm-mode-state" class="mono">—</b></div>
-    <div class="k">Última acción automática: <b id="last-action" class="mono">—</b></div>
+    <div class="k" style="margin-top:10px">GPU idle for <b id="idle-s" class="mono">—</b></div>
+    <div class="k">State: <b id="llm-mode-state" class="mono">—</b></div>
+    <div class="k">Last automatic action: <b id="last-action" class="mono">—</b></div>
   </div>
 
-  <h2>Procesos en la GPU</h2>
-  <div class="card"><table><thead><tr><th>PID</th><th>Proceso</th><th>VRAM</th></tr></thead>
+  <h2>Processes on the GPU</h2>
+  <div class="card"><table><thead><tr><th>PID</th><th>Process</th><th>VRAM</th></tr></thead>
     <tbody id="procs"><tr><td colspan="3" class="k">—</td></tr></tbody></table></div>
 
-  <h2>Consumidores</h2>
+  <h2>Consumers</h2>
   <div class="two">
     <div class="card">
       <div class="k">llama.cpp <span id="llama-pill" class="pill">—</span></div>
       <div id="llama-list" style="margin:10px 0"></div>
-      <button class="warn" id="llama-unload">Descargar todos los modelos</button>
+      <button class="warn" id="llama-unload">Unload every model</button>
     </div>
     <div class="card">
       <div class="k">Immich Machine Learning <span id="ml-pill" class="pill">—</span></div>
       <div class="row" id="ml" style="margin-top:10px">
-        <button class="on" id="ml-start" data-ml="start">Encender</button>
-        <button id="ml-restart" data-ml="restart">Reiniciar</button>
-        <button class="warn" id="ml-stop" data-ml="stop">Apagar</button>
+        <button class="on" id="ml-start" data-ml="start">Start</button>
+        <button id="ml-restart" data-ml="restart">Restart</button>
+        <button class="warn" id="ml-stop" data-ml="stop">Stop</button>
       </div>
       <div class="k" style="margin-top:10px">Video transcoding (Immich): <b id="imm-ff" class="mono">—</b></div>
     </div>
   </div>
 
-  <h2>Modos de GPU <span class="pill acc" id="mode-now">—</span></h2>
+  <h2>GPU modes <span class="pill acc" id="mode-now">—</span></h2>
   <div class="card">
     <div class="row" id="modes">
       <button class="pri" data-mode="llm">LLM (llama.cpp)</button>
-      <button class="pri" data-mode="media">Medios (Immich + Jellyfin)</button>
-      <button data-mode="balanced">Compartido</button>
+      <button class="pri" data-mode="media">Media (Immich + Jellyfin)</button>
+      <button data-mode="balanced">Shared</button>
     </div>
     <div class="k" style="margin-top:10px">
-      El botón marcado refleja el estado real del sistema (se recalcula cada 5 s), no el último clic.
+      The marked button reflects the real state of the machine (recalculated every 5 s), not the last click.
     </div>
     <div class="k" style="margin-top:6px">
-      <b>LLM</b>: Immich ML se para (comparte la P100 con CUDA) y Jellyfin pasa a la iGPU (VAAPI):
-      la P100 queda para llama.cpp sin que Jellyfin se quede sin acelerar.
-      <b>Medios</b>: descarga los modelos de llama.cpp y enciende Immich ML + Jellyfin por NVENC (P100).
-      <b>Compartido</b>: Immich ML + Jellyfin NVENC sin descargar el LLM (cabe si el modelo es pequeño).
+      <b>LLM</b>: Immich ML stops (it shares the P100 through CUDA) and Jellyfin moves to the iGPU (VAAPI):
+      the P100 is left to llama.cpp without losing hardware transcoding.
+      <b>Media</b>: unloads the llama.cpp models and turns Immich ML + Jellyfin (NVENC on the P100) on.
+      <b>Shared</b>: Immich ML + Jellyfin NVENC without unloading the LLM (only fits with a small one).
     </div>
   </div>
 
   <h2>Jellyfin</h2>
   <div class="card">
-    <div class="k">Hardware acceleration actual: <b id="jf-accel" class="mono">—</b></div>
+    <div class="k">Current hardware acceleration: <b id="jf-accel" class="mono">—</b></div>
     <div class="k" style="margin-top:6px">
-      NVENC usa la <b>P100</b> (la misma tarjeta que llama.cpp e Immich ML); VAAPI usa la
-      <b>iGPU Intel</b>, que es otro dispositivo. Si el LLM se queda con la P100, Jellyfin
-      baja solo a la iGPU, nunca a CPU.
+      NVENC uses the <b>P100</b> (the same card as llama.cpp and Immich ML); VAAPI uses the
+      <b>Intel iGPU</b>, which is a different device. When the LLM takes the P100, Jellyfin
+      drops only to the iGPU, never to CPU.
     </div>
     <div class="row" id="jf" style="margin-top:10px">
       <button class="on" data-accel="nvenc">NVIDIA NVENC · P100</button>
-      <button data-accel="vaapi">VAAPI · iGPU Intel</button>
-      <button class="warn" data-accel="none">CPU (sin acelerar)</button>
+      <button data-accel="vaapi">VAAPI · Intel iGPU</button>
+      <button class="warn" data-accel="none">CPU (no acceleration)</button>
     </div>
   </div>
 </main>
-<footer class="mono">GET /api/status · automatización: Authorization: Bearer &lt;token&gt;</footer>
+<footer class="mono">GET /api/status · automation: Authorization: Bearer &lt;token&gt;</footer>
 <div id="msg"></div>
 
 <script>
@@ -183,11 +183,11 @@ $('host').textContent = location.hostname + ' · GPU Control';
 document.title = location.hostname + ' · GPU Control';
 
 const MODES = {
-  llm: 'LLM (P100 para llama.cpp)',
-  media: 'Medios (Immich ML + Jellyfin NVENC)',
-  balanced: 'Compartido (LLM + medios en la P100)',
-  igpu: 'Medios con Jellyfin en la iGPU',
-  mixed: 'mixto / en transición',
+  llm: 'LLM (P100 for llama.cpp)',
+  media: 'Media (Immich ML + Jellyfin NVENC)',
+  balanced: 'Shared (LLM + media on the P100)',
+  igpu: 'Media with Jellyfin on the iGPU',
+  mixed: 'mixed / transitioning',
 };
 
 // The P100 is the card being arbitrated (llama.cpp, Immich ML, Jellyfin NVENC);
@@ -237,7 +237,7 @@ async function api(path, opts) {
   const r = await fetch(path, Object.assign({credentials: 'same-origin', headers: {'Content-Type': 'application/json'}}, opts));
   if (r.status === 401) {
     location.href = '/login?next=' + encodeURIComponent(location.pathname);
-    throw new Error('sesión expirada');
+    throw new Error('session expired');
   }
   if (!r.ok) throw new Error(await errText(r));
   return r.headers.get('content-type')?.includes('json') ? r.json() : r.text();
@@ -251,7 +251,7 @@ async function act(btn, path, body, opts = {}) {
   startRequest();
   setBusy(btn, true);
   if (group) setGroupDisabled(group, true);
-  toast(opts.pending || 'Aplicando…', 'busy', true);
+  toast(opts.pending || 'Applying…', 'busy', true);
   let ok = true;
   try {
     return await api(path, {method: 'POST', body: body ? JSON.stringify(body) : undefined});
@@ -264,11 +264,11 @@ async function act(btn, path, body, opts = {}) {
     if (group) setGroupDisabled(group, false);
     endRequest();
     await refresh();
-    if (ok) toast(opts.done || 'Listo');
+    if (ok) toast(opts.done || 'Done');
   }
 }
 
-function skip(why) { toast(why + ' (no hace falta repetirlo)'); }
+function skip(why) { toast(why + ' (nothing to repeat)'); }
 
 /* ------------------------------------------------------------------ render */
 function card(k, v, pct) {
@@ -277,16 +277,27 @@ function card(k, v, pct) {
 }
 
 function human(sec) {
-  if (sec < 60) return sec + ' s';
+  if (sec < 60) return sec + 's';
   if (sec < 3600) return Math.floor(sec / 60) + ' min';
-  return (sec / 3600).toFixed(1) + ' h';
+  return (sec / 3600).toFixed(1) + 'h';
+}
+
+// How many models the router serves and how many are loaded. Every model counts
+// here, including the ones the panel is not allowed to name.
+function llamaCounts(s) {
+  const c = s.llama_counts;
+  if (!c || c.error || typeof c.loaded !== 'number') {
+    const list = Array.isArray(s.llama) ? s.llama : [];
+    return {total: list.length, loaded: list.filter(m => m.status === 'loaded').length};
+  }
+  return c;
 }
 
 // Which state the machine is really in, derived from what the probes report.
 function deriveMode(s) {
   const ml = str(s.immich_ml);
   const jf = str(s.jellyfin_accel);
-  const loaded = (Array.isArray(s.llama) ? s.llama : []).filter(m => m.status === 'loaded').length;
+  const loaded = llamaCounts(s).loaded;
   // "LLM" means the P100 belongs to llama.cpp, and Immich ML (CUDA) is the only
   // other P100 consumer that must stop. Where Jellyfin transcodes while that
   // happens is not part of the decision: the iGPU is a different card.
@@ -310,12 +321,11 @@ function paintState(s) {
   const stopped = !!ml && ml !== 'unknown' && !running;
   pressed('#ml button', (d) => (d.ml === 'start' && running) || (d.ml === 'stop' && stopped));
 
-  const llama = Array.isArray(s.llama) ? s.llama : [];
-  $('llama-unload').disabled = llama.filter(m => m.status === 'loaded').length === 0;
+  $('llama-unload').disabled = llamaCounts(s).loaded === 0;
 
   const at = $('auto-toggle');
   at.setAttribute('aria-pressed', autoState.enabled ? 'true' : 'false');
-  at.textContent = autoState.enabled ? 'Auto: activado' : 'Auto: desactivado';
+  at.textContent = autoState.enabled ? 'Auto: on' : 'Auto: off';
   at.className = autoState.enabled ? 'on' : 'warn';
 
   syncPower();
@@ -326,26 +336,26 @@ function syncPower() {
   const watts = Number($('pl').value);
   const limit = last && last.gpu ? Number(last.gpu.power_limit) : NaN;
   const same = !Number.isNaN(limit) && watts === limit;
-  btn.textContent = same ? 'Aplicar ' + watts + ' W (ya activo)' : 'Aplicar ' + watts + ' W';
+  btn.textContent = same ? 'Apply ' + watts + ' W (already active)' : 'Apply ' + watts + ' W';
   // Leave the button alone while it is busy; setBusy() restores it afterwards.
   if (!btn.classList.contains('busy')) btn.disabled = same;
-  btn.title = same ? 'El límite actual ya es ' + watts + ' W' : '';
+  btn.title = same ? 'The current limit is already ' + watts + ' W' : '';
 }
 
 async function refresh() {
   let s;
   try { s = await api('/api/status'); }
-  catch (e) { if (!String(e.message).includes('sesión')) $('gpu-name').textContent = 'sin conexión'; return; }
+  catch (e) { if (!String(e.message).includes('session')) $('gpu-name').textContent = 'no connection'; return; }
   last = s;
   const g = s.gpu || {};
   const usedPct = Math.round(100 * g.mem_used / g.mem_total);
   $('gpu-name').textContent = `${g.name} · driver ${g.driver}`;
   $('gpu-cards').innerHTML =
-    card('Uso', g.util + ' %', g.util) +
+    card('Utilization', g.util + ' %', g.util) +
     card('VRAM', `${(g.mem_used/1024).toFixed(1)} / ${(g.mem_total/1024).toFixed(1)} GiB`, usedPct) +
-    card('Temperatura', g.temp + ' °C') +
-    card('Potencia', `${g.power_draw} / ${g.power_limit} W`) +
-    card('Reloj SM / Mem', `${g.clk_sm} / ${g.clk_mem} MHz`);
+    card('Temperature', g.temp + ' °C') +
+    card('Power', `${g.power_draw} / ${g.power_limit} W`) +
+    card('SM / Mem clock', `${g.clk_sm} / ${g.clk_mem} MHz`);
   $('pl-now').textContent = g.power_limit + ' W';
   $('pl-range').textContent = `${g.power_min}–${g.power_max} W`;
   const pl = $('pl');
@@ -363,17 +373,17 @@ async function refresh() {
     autoState.last_action ? `${autoState.last_action} (${autoState.last_action_at})` : '—';
   const jfDev = deviceLabel(str(s.jellyfin_accel));
   $('llm-mode-state').textContent = autoState.llm_blocked
-    ? `prioridad LLM: Immich ML parado (P100 para llama.cpp), Jellyfin en ${jfDev}`
-    : `medios activos: Immich ML en la P100, Jellyfin en ${jfDev}`;
+    ? `LLM priority: Immich ML stopped (P100 for llama.cpp), Jellyfin on ${jfDev}`
+    : `media active: Immich ML on the P100, Jellyfin on ${jfDev}`;
 
   const llama = Array.isArray(s.llama) ? s.llama : [];
-  const loaded = llama.filter(m => m.status === 'loaded');
+  const counts = llamaCounts(s);
   const lp = $('llama-pill');
-  lp.textContent = loaded.length ? loaded.length + ' cargado(s)' : 'sin modelo';
-  lp.className = 'pill ' + (loaded.length ? 'ok' : 'off');
+  lp.textContent = counts.loaded ? counts.loaded + ' loaded' : 'no model';
+  lp.className = 'pill ' + (counts.loaded ? 'ok' : 'off');
   $('llama-list').innerHTML = llama.length
     ? llama.map(m => `<div class="mono" style="font-size:12px">${m.status === 'loaded' ? '●' : '○'} ${m.id}</div>`).join('')
-    : '<span class="k">sin respuesta</span>';
+    : '<span class="k">no response</span>';
 
   const ml = typeof s.immich_ml === 'string' ? s.immich_ml : (s.immich_ml?.error ? 'error' : '—');
   const mp = $('ml-pill');
@@ -397,19 +407,19 @@ $('pl').addEventListener('input', (e) => {
 
 $('pl-apply').onclick = () => {
   const watts = Number($('pl').value);
-  if (last && last.gpu && Number(last.gpu.power_limit) === watts) return skip('El límite ya es ' + watts + ' W');
-  act($('pl-apply'), '/api/power', {watts}, {pending: 'Aplicando ' + watts + ' W…', done: 'Power limit = ' + watts + ' W'});
+  if (last && last.gpu && Number(last.gpu.power_limit) === watts) return skip('The limit is already ' + watts + ' W');
+  act($('pl-apply'), '/api/power', {watts}, {pending: 'Applying ' + watts + ' W…', done: 'Power limit = ' + watts + ' W'});
 };
 
 $('llama-unload').onclick = () => act($('llama-unload'), '/api/llama/unload', null,
-  {pending: 'Descargando modelos…', done: 'Modelos descargados'});
+  {pending: 'Unloading models…', done: 'Models unloaded'});
 
 document.querySelectorAll('#ml button').forEach((b) => {
   b.onclick = () => {
     const action = b.dataset.ml;
     const state = typeof last?.immich_ml === 'string' ? last.immich_ml : '';
-    if (action === 'start' && state === 'running') return skip('Immich ML ya está encendido');
-    if (action === 'stop' && state && state !== 'running') return skip('Immich ML ya está apagado');
+    if (action === 'start' && state === 'running') return skip('Immich ML is already running');
+    if (action === 'stop' && state && state !== 'running') return skip('Immich ML is already stopped');
     pressed('#ml button', (d) => d.ml === action && action !== 'restart');
     act(b, '/api/immich/ml/' + action, null, {group: '#ml', pending: 'Immich ML: ' + action + '…', done: 'Immich ML: ' + action});
   };
@@ -418,30 +428,30 @@ document.querySelectorAll('#ml button').forEach((b) => {
 document.querySelectorAll('#modes button').forEach((b) => {
   b.onclick = () => {
     const mode = b.dataset.mode;
-    if (last && deriveMode(last) === mode) return skip('Ya estás en modo ' + MODES[mode]);
+    if (last && deriveMode(last) === mode) return skip('Already in ' + MODES[mode] + ' mode');
     pressed('#modes button', (d) => d.mode === mode);
-    $('mode-now').textContent = MODES[mode] + ' (aplicando…)';
-    act(b, '/api/mode/' + mode, null, {group: '#modes', pending: 'Cambiando a ' + MODES[mode] + '…', done: 'Modo ' + MODES[mode]});
+    $('mode-now').textContent = MODES[mode] + ' (applying…)';
+    act(b, '/api/mode/' + mode, null, {group: '#modes', pending: 'Switching to ' + MODES[mode] + '…', done: 'Mode: ' + MODES[mode]});
   };
 });
 
 document.querySelectorAll('#jf button').forEach((b) => {
   b.onclick = () => {
     const accel = b.dataset.accel;
-    if (last && last.jellyfin_accel === accel) return skip('Jellyfin ya usa ' + accel + ' · ' + deviceLabel(accel));
+    if (last && last.jellyfin_accel === accel) return skip('Jellyfin already uses ' + accel + ' · ' + deviceLabel(accel));
     pressed('#jf button', (d) => d.accel === accel);
-    act(b, '/api/jellyfin/accel/' + accel, null, {group: '#jf', pending: 'Jellyfin → ' + accel + ' (reinicia el contenedor)…', done: 'Jellyfin: ' + accel});
+    act(b, '/api/jellyfin/accel/' + accel, null, {group: '#jf', pending: 'Jellyfin → ' + accel + ' (restarts the container)…', done: 'Jellyfin: ' + accel});
   };
 });
 
 $('auto-toggle').onclick = () => act($('auto-toggle'), '/api/auto', {enabled: !autoState.enabled},
-  {group: '#auto', pending: autoState.enabled ? 'Desactivando auto-switch…' : 'Activando auto-switch…',
-   done: autoState.enabled ? 'Auto-switch desactivado' : 'Auto-switch activado'});
+  {group: '#auto', pending: autoState.enabled ? 'Turning the auto-switch off…' : 'Turning the auto-switch on…',
+   done: autoState.enabled ? 'Auto-switch off' : 'Auto-switch on'});
 
 $('auto-save').onclick = () => {
   const llama = Number($('llm-idle').value), ml = Number($('ml-idle').value);
   act($('auto-save'), '/api/auto', {llama_idle_min: llama, ml_idle_min: ml},
-      {group: '#auto', pending: 'Guardando umbrales…', done: `Umbrales guardados (LLM ${llama} min, ML ${ml} min)`});
+      {group: '#auto', pending: 'Saving thresholds…', done: `Thresholds saved (LLM ${llama} min, ML ${ml} min)`});
 };
 
 $('logout').onclick = async () => {

@@ -74,7 +74,14 @@ its group stays locked while the request runs, and the active button keeps a
 marker (`aria-pressed`) that is re-derived every 5 s from what the probes report
 instead of from the last click, so the highlighted mode is always the real one.
 Clicks that would repeat the current state are answered with a notice and send
-nothing.
+nothing. The interface is in English.
+
+The dashboard only **names** the models listed in `LLAMA_PUBLIC_MODELS` (the
+deployment sets it to the ones `llm.yml` already documents). Any other `.gguf`
+the router serves from the models directory still loads, still counts for the
+arbitration and is still unloaded by "Unload every model", but its name is never
+printed by the panel or by `/api/status`: `llama_counts` reports how many models
+are served and loaded, without names.
 
 The API also accepts a token (`Authorization: Bearer <vault_gpu_panel_token>`)
 for automation, and there is an **idle auto-switch**: after `llama_idle_min`

@@ -50,6 +50,14 @@ JELLYFIN_DEVICES = {"nvenc": "P100 (NVENC)", "vaapi": "iGPU (VAAPI)", "none": "C
 if JELLYFIN_FALLBACK not in ("vaapi", "none"):
     JELLYFIN_FALLBACK = "vaapi"
 
+# Models the dashboard is allowed to name, matched as case-insensitive
+# substrings. Anything else the router serves stays unlisted: it still loads,
+# counts and unloads like any other model, but the panel never prints its name.
+# The default (empty) lists everything, and the deployment sets this to the
+# models the repository already documents, so no private name has to be
+# committed anywhere.
+LLAMA_PUBLIC_MODELS = [m.strip().lower() for m in os.environ.get("LLAMA_PUBLIC_MODELS", "").split(",") if m.strip()]
+
 IMMICH_ML = "immich_machine_learning"
 JELLYFIN_XML = "/opt/docker/jellyfin/config/encoding.xml"
 GPU_FIELDS = (
@@ -224,6 +232,23 @@ def llama_unload_all():
     return out
 
 
+def listed_models(models):
+    """Keep only the models the panel is allowed to name (see LLAMA_PUBLIC_MODELS)."""
+    if not LLAMA_PUBLIC_MODELS:
+        return list(models)
+    return [m for m in models if any(p in str(m.get("id", "")).lower() for p in LLAMA_PUBLIC_MODELS)]
+
+
+def model_names(models):
+    """Names for messages: the listed ids, plus how many unlisted ones were touched."""
+    listed = listed_models(models)
+    names = [m.get("id") for m in listed]
+    unlisted = len(models) - len(listed)
+    if unlisted:
+        names.append("%d unlisted" % unlisted)
+    return names
+
+
 def immich_ml_state():
     p = ssh(IMMICH_HOST, f"docker inspect -f '{{{{.State.Status}}}}' {IMMICH_ML}")
     return p.stdout.strip() or "unknown"
@@ -350,7 +375,8 @@ def auto_tick():
                     back = jellyfin_reclaim_p100()
                 llm_blocked = False
                 record_action("GPU idle %d min: unloaded %s, Immich ML on, Jellyfin back to %s"
-                              % (idle // 60, [u["model"] for u in unloaded], JELLYFIN_DEVICES.get(back.get("accel"), back.get("accel"))))
+                              % (idle // 60, ", ".join(model_names([{"id": u["model"]} for u in unloaded])),
+                                 JELLYFIN_DEVICES.get(back.get("accel"), back.get("accel"))))
         elif not llm_blocked:
             with contextlib.suppress(HTTPException):
                 immich_ml("stop")        # Immich ML is CUDA: it needs the P100
@@ -450,7 +476,6 @@ def session_info(request: Request):
 def status(_: str = Depends(require_auth)):
     out = {"gpu": gpu_status(), "auto": auto_snapshot()}
     for key, fn in (
-        ("llama", llama_models),
         ("immich_ml", immich_ml_state),
         ("immich_ffmpeg", immich_transcode),
         ("jellyfin_accel", jellyfin_accel),
@@ -459,6 +484,18 @@ def status(_: str = Depends(require_auth)):
             out[key] = fn()
         except Exception as exc:  # noqa: BLE001 - surface each probe failure
             out[key] = {"error": str(exc)}
+    try:
+        models = llama_models()
+        out["llama"] = listed_models(models)
+        # The counts cover every model, so the dashboard never claims the card is
+        # free just because the loaded one is unlisted.
+        out["llama_counts"] = {
+            "total": len(models),
+            "loaded": sum(1 for m in models if m["status"] == "loaded"),
+        }
+    except Exception as exc:  # noqa: BLE001 - surface the probe failure
+        out["llama"] = {"error": str(exc)}
+        out["llama_counts"] = {"error": str(exc)}
     return out
 
 
@@ -521,7 +558,8 @@ def set_power(body: dict = Body(...), _: str = Depends(require_auth)):
 
 @app.post("/api/llama/unload")
 def llama_unload(_: str = Depends(require_auth)):
-    return {"unloaded": llama_unload_all()}
+    unloaded = llama_unload_all()
+    return {"unloaded": model_names([{"id": u["model"]} for u in unloaded])}
 
 
 @app.post("/api/immich/ml/{action}")

@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="es">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GPU Control · Iniciar sesión</title>
+<title>GPU Control · Sign in</title>
 <style>
   :root { --bg:#0e1116; --card:#171c24; --line:#252c38; --fg:#e6e9ef; --mut:#8b95a5;
           --ok:#3fb950; --bad:#f85149; --acc:#58a6ff; }
@@ -42,18 +42,18 @@
 <body>
 <form class="box" id="form" autocomplete="on">
   <h1><span class="dot"></span> GPU Control</h1>
-  <p class="sub">Acceso restringido al panel de la Tesla P100.</p>
+  <p class="sub">Restricted access to the Tesla P100 panel.</p>
 
-  <label for="user">Usuario</label>
+  <label for="user">Username</label>
   <input id="user" name="user" type="text" autocapitalize="off" autocorrect="off" required autofocus
          value="admin">
 
-  <label for="pass">Contraseña</label>
+  <label for="pass">Password</label>
   <input id="pass" name="password" type="password" required>
 
-  <button id="go" type="submit">Entrar</button>
+  <button id="go" type="submit">Sign in</button>
   <div id="err" role="alert"></div>
-  <footer class="mono">La sesión dura 7 días y se guarda en una cookie firmada.</footer>
+  <footer class="mono">The session lasts 7 days and is kept in a signed cookie.</footer>
 </form>
 
 <script>
@@ -84,7 +84,7 @@ form.addEventListener('submit', async (ev) => {
     const next = new URLSearchParams(location.search).get('next');
     location.replace(next && next.startsWith('/') && !next.startsWith('//') ? next : '/');
   } catch (e) {
-    fail('No se pudo contactar con el panel: ' + e.message);
+    fail('Could not reach the panel: ' + e.message);
   } finally {
     go.classList.remove('busy');
     go.disabled = false;
