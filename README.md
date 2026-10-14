@@ -58,8 +58,8 @@ It runs on the control node and reaches the PVE host over SSH to read
 the card between **llama.cpp** and **Immich ML**:
 
 - **LLM**: stops Immich ML, leaving all 16 GiB to llama.cpp.
-- **Media**: unloads the llama.cpp models and starts Immich ML.
-- **Shared**: both available (only fits with a small llama.cpp model).
+- **Media**: unloads the llama.cpp models and turns Immich ML and Jellyfin (NVENC) on.
+- **Shared**: Immich ML and Jellyfin available, without unloading the LLM (only fits with a small one).
 
 Jellyfin and Immich transcoding use little VRAM and only while playing, so they
 are not part of the switch. The panel and its stack live in

@@ -206,6 +206,12 @@ def jellyfin_set_accel(accel):
     return {"accel": accel}
 
 
+def jellyfin_ensure_accel(accel):
+    if jellyfin_accel() == accel:
+        return {"accel": accel, "already": True}
+    return jellyfin_set_accel(accel)
+
+
 def auto_snapshot():
     return {
         "enabled": state["enabled"],
@@ -242,7 +248,8 @@ def auto_tick():
             if unloaded:
                 with contextlib.suppress(HTTPException):
                     immich_ml("start")
-                record_action("GPU idle %d min: unloaded %s, Immich ML on" % (idle // 60, [u["model"] for u in unloaded]))
+                    jellyfin_ensure_accel("nvenc")
+                record_action("GPU idle %d min: unloaded %s, Immich ML + Jellyfin on" % (idle // 60, [u["model"] for u in unloaded]))
 
     if state["ml_idle_min"] and idle > state["ml_idle_min"] * 60:
         if immich_ml_state() == "running" and immich_ml_queue_active() == 0:
@@ -292,10 +299,12 @@ def set_mode(mode: str, _: str = Depends(require_auth)):
     elif mode == "media":
         result["llama"] = llama_unload_all()
         result["immich_ml"] = immich_ml("start")
-        record_action("mode Media: llama.cpp unloaded, Immich ML on")
+        result["jellyfin"] = jellyfin_ensure_accel("nvenc")
+        record_action("mode Media: llama.cpp unloaded, Immich ML + Jellyfin on")
     elif mode == "balanced":
         result["immich_ml"] = immich_ml("start")
-        record_action("mode Shared: Immich ML on")
+        result["jellyfin"] = jellyfin_ensure_accel("nvenc")
+        record_action("mode Shared: Immich ML + Jellyfin on")
     else:
         raise HTTPException(400, "mode must be llm, media or balanced")
     return result
