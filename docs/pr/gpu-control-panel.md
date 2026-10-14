@@ -26,7 +26,7 @@ Served at `https://gpu.domain.com` (HTTP basic auth).
 | `ansible/roles/stacks/tasks/stack.yml` | Optional `build: true` adds `--build` to `docker compose up`. |
 | `docker-compose/network-services/caddy/Caddyfile` | Route `gpu.<domain>` → `192.168.10.11:8099`. |
 | `ansible/inventories/host_vars/caddy.yml` | Proxy check for the panel. |
-| `ansible/inventories/group_vars/all/vault.yml` | `vault_gpu_panel_password`. |
+| `ansible/inventories/group_vars/all/vault.yml` | `vault_gpu_panel_password`, `vault_gpu_panel_token`. |
 
 ## Why these decisions
 
@@ -51,6 +51,20 @@ Served at `https://gpu.domain.com` (HTTP basic auth).
   does not survive nested shells with plain quoting.
 - **Basic auth.** The panel can stop containers and change the power limit; the
   password lives in the vault (`vault_gpu_panel_password`), not in the repo.
+
+## Token auth and idle auto-switch
+
+- **Token**: any request may use `Authorization: Bearer <vault_gpu_panel_token>`
+  or `X-API-Token`, next to the HTTP basic login. Meant for scripts; the
+  dashboard still uses basic auth.
+- **Auto-switch**: a 30 s loop samples the GPU. If a llama.cpp model is loaded
+  and the GPU has been idle for `llama_idle_min` minutes, it unloads the models
+  and turns Immich ML on. With `ml_idle_min > 0` it also stops Immich ML after
+  that many idle minutes and with empty Immich ML queues. Settings live in
+  `/state/auto.json` (a named volume) and are editable from the dashboard.
+- **Why GPU utilisation** and not llama.cpp counters: the router's `/metrics`
+  is per-model and returns 400 with no model loaded, so idle is derived from
+  `utilization.gpu`, which is already needed for the dashboard.
 
 ## Validation
 
