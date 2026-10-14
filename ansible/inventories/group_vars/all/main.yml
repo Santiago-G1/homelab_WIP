@@ -5,7 +5,7 @@ timezone: America/Bogota
 
 # Where each Docker Compose project is deployed on the target host.
 stacks_root: /opt/docker
-compose_src_root: "{{ inventory_dir }}/../../docker-compose"
+compose_src_root: "{{ playbook_dir }}/../../docker-compose"
 
 # The control node injects its own key so every container stays reachable.
 admin_authorized_keys:
