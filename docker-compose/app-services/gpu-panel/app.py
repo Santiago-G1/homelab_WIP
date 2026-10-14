@@ -52,6 +52,7 @@ DEFAULTS = {"enabled": True, "llama_idle_min": 60, "ml_idle_min": 0, "last_actio
 state = dict(DEFAULTS)
 busy_samples = deque(maxlen=240)
 last_busy = time.time()
+llm_blocked = False
 
 app = FastAPI(title="domain.com GPU control")
 
@@ -220,6 +221,7 @@ def auto_snapshot():
         "last_action": state.get("last_action"),
         "last_action_at": state.get("last_action_at"),
         "idle_seconds": int(time.time() - last_busy),
+        "llm_blocked": llm_blocked,
     }
 
 
@@ -233,7 +235,7 @@ def record_action(text):
 # auto switch
 # --------------------------------------------------------------------------- #
 def auto_tick():
-    global last_busy
+    global last_busy, llm_blocked
     util = int(gpu_status()["util"])
     busy_samples.append(util)
     if util > 0:
@@ -242,14 +244,28 @@ def auto_tick():
         return
     idle = time.time() - last_busy
 
-    if state["llama_idle_min"] and idle > state["llama_idle_min"] * 60:
-        if llama_loaded():
+    try:
+        models = llama_loaded()
+    except Exception:
+        models = []
+
+    if models:
+        if state["llama_idle_min"] and idle > state["llama_idle_min"] * 60:
             unloaded = llama_unload_all()
             if unloaded:
                 with contextlib.suppress(HTTPException):
                     immich_ml("start")
                     jellyfin_ensure_accel("nvenc")
+                llm_blocked = False
                 record_action("GPU idle %d min: unloaded %s, Immich ML + Jellyfin on" % (idle // 60, [u["model"] for u in unloaded]))
+        elif not llm_blocked:
+            with contextlib.suppress(HTTPException):
+                immich_ml("stop")
+                jellyfin_ensure_accel("none")
+            llm_blocked = True
+            record_action("LLM in use: Immich ML stopped, Jellyfin off (full VRAM)")
+    else:
+        llm_blocked = False
 
     if state["ml_idle_min"] and idle > state["ml_idle_min"] * 60:
         if immich_ml_state() == "running" and immich_ml_queue_active() == 0:
@@ -262,7 +278,7 @@ async def auto_loop():
     while True:
         with contextlib.suppress(Exception):
             await asyncio.to_thread(auto_tick)
-        await asyncio.sleep(30)
+        await asyncio.sleep(20)
 
 
 @app.on_event("startup")
@@ -292,18 +308,23 @@ def status(_: str = Depends(require_auth)):
 
 @app.post("/api/mode/{mode}")
 def set_mode(mode: str, _: str = Depends(require_auth)):
+    global llm_blocked
     result = {}
     if mode == "llm":
         result["immich_ml"] = immich_ml("stop")
-        record_action("mode LLM: Immich ML stopped")
+        result["jellyfin"] = jellyfin_ensure_accel("none")
+        llm_blocked = True
+        record_action("mode LLM: Immich ML stopped, Jellyfin off (full VRAM)")
     elif mode == "media":
         result["llama"] = llama_unload_all()
         result["immich_ml"] = immich_ml("start")
         result["jellyfin"] = jellyfin_ensure_accel("nvenc")
+        llm_blocked = False
         record_action("mode Media: llama.cpp unloaded, Immich ML + Jellyfin on")
     elif mode == "balanced":
         result["immich_ml"] = immich_ml("start")
         result["jellyfin"] = jellyfin_ensure_accel("nvenc")
+        llm_blocked = False
         record_action("mode Shared: Immich ML + Jellyfin on")
     else:
         raise HTTPException(400, "mode must be llm, media or balanced")

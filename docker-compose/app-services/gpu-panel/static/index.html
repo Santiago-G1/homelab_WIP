@@ -85,6 +85,7 @@
       <button class="pri" onclick="saveAuto()">Guardar</button>
     </div>
     <div class="k" style="margin-top:10px">GPU ociosa desde hace <b id="idle-s" class="mono">—</b></div>
+    <div class="k">Estado: <b id="llm-mode-state" class="mono">—</b></div>
     <div class="k">Última acción automática: <b id="last-action" class="mono">—</b></div>
   </div>
 
@@ -118,7 +119,7 @@
       <button onclick="post('/api/mode/balanced')">Compartido</button>
     </div>
     <div class="k" style="margin-top:10px">
-      <b>LLM</b>: apaga Immich ML y deja los 16 GB para llama.cpp.
+      <b>LLM</b>: apaga Immich ML y Jellyfin (accel off): toda la VRAM para llama.cpp.
       <b>Medios</b>: descarga los modelos de llama.cpp y enciende Immich ML + Jellyfin (NVENC).
       <b>Compartido</b>: Immich ML + Jellyfin activos sin descargar el LLM (cabe si el modelo es pequeño).
     </div>
@@ -208,6 +209,8 @@ async function refresh() {
   document.getElementById('idle-s').textContent = human(autoState.idle_seconds || 0);
   document.getElementById('last-action').textContent =
     autoState.last_action ? `${autoState.last_action} (${autoState.last_action_at})` : '—';
+  document.getElementById('llm-mode-state').textContent = autoState.llm_blocked
+    ? 'prioridad LLM: Immich ML y Jellyfin apagados' : 'medios activos (Immich ML + Jellyfin)';
 
   const llama = Array.isArray(s.llama) ? s.llama : [];
   const loaded = llama.filter(m => m.status === 'loaded');
