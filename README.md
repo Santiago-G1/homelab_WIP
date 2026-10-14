@@ -57,19 +57,21 @@ It runs on the control node and reaches the PVE host over SSH to read
 `nvidia-smi` and set the power limit (125-250 W), and the containers to switch
 the card between **llama.cpp** and **Immich ML**:
 
-- **LLM**: stops Immich ML, leaving all 16 GiB to llama.cpp.
+- **LLM**: stops Immich ML and turns Jellyfin off, leaving all 16 GiB to llama.cpp.
 - **Media**: unloads the llama.cpp models and turns Immich ML and Jellyfin (NVENC) on.
 - **Shared**: Immich ML and Jellyfin available, without unloading the LLM (only fits with a small one).
 
-Jellyfin and Immich transcoding use little VRAM and only while playing, so they
-are not part of the switch. The panel and its stack live in
+While a llama.cpp model is loaded the panel gives it the whole card: Immich ML is
+stopped and Jellyfin's acceleration is set to `none` automatically. Both come
+back when the LLM is released. The panel and its stack live in
 `docker-compose/app-services/gpu-panel` (role `stacks`, host `devops`).
 
 The API also accepts a token (`Authorization: Bearer <vault_gpu_panel_token>`)
 for automation, and there is an **idle auto-switch**: after `llama_idle_min`
-minutes (default 60 = 1 h) of GPU idle it unloads the llama.cpp models and turns Immich ML
-on (`ml_idle_min` optionally stops Immich ML too; `0` disables each). The
-thresholds are editable in the dashboard and persisted in a volume.
+minutes (default 60 = 1 h) of GPU idle it unloads the llama.cpp models and turns
+Immich ML and Jellyfin (NVENC) back on (`ml_idle_min` optionally stops Immich ML
+too; `0` disables each). Both thresholds are editable in the dashboard and
+persisted in a volume.
 
 ---
 ## Deployed Services
