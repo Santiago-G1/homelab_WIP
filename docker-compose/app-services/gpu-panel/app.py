@@ -3,21 +3,28 @@
 Runs on the devops container and drives the Tesla P100 through the only host
 that can reach everything: the PVE node (nvidia-smi, power limit) and each
 container that uses the GPU (llama.cpp, Immich ML, Jellyfin transcoding).
+
+Auth is a login page that sets a signed session cookie, plus the bearer token
+for automation; there is no HTTP basic challenge, so browsers never pop up the
+native credentials dialog.
 """
 
 import asyncio
 import base64
 import contextlib
+import hashlib
+import hmac
 import json
 import os
 import secrets
 import subprocess
 import time
 from collections import deque
+from urllib.parse import urlparse
 
 import httpx
 from fastapi import Body, Depends, FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -28,6 +35,9 @@ LLAMA_URL = os.environ.get("LLAMA_URL", "http://192.168.10.26:8080")
 PANEL_USER = os.environ.get("PANEL_USER", "admin")
 PANEL_PASSWORD = os.environ.get("PANEL_PASSWORD", "")
 PANEL_TOKEN = os.environ.get("PANEL_TOKEN", "")
+SESSION_COOKIE = os.environ.get("SESSION_COOKIE", "panel_session")
+SESSION_TTL = int(os.environ.get("SESSION_TTL", 7 * 24 * 3600))
+LOGIN_DELAY = float(os.environ.get("LOGIN_DELAY", 0.4))
 STATE_PATH = os.environ.get("STATE_PATH", "/state/auto.json")
 
 IMMICH_ML = "immich_machine_learning"
@@ -47,7 +57,11 @@ ML_QUEUES = ("faceDetection", "smartSearch", "ocr")
 # because the SQL/psql quoting does not survive nested shells otherwise.
 IMMICH_CFG_SCRIPT = r"""docker exec immich_postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atc "select value from system_metadata where key = '"'"'system-config'"'"';"'"""
 
-DEFAULTS = {"enabled": True, "llama_idle_min": 60, "ml_idle_min": 0, "last_action": None, "last_action_at": None}
+DEFAULTS = {"enabled": True, "llama_idle_min": 60, "ml_idle_min": 0, "last_action": None, "last_action_at": None, "revoked": {}}
+
+# Sessions are signed with a key derived from the credentials, so rotating
+# either one logs every browser out and no extra secret has to be provisioned.
+SESSION_KEY = hashlib.sha256(f"session|{PANEL_PASSWORD}|{PANEL_TOKEN}".encode()).digest()
 
 state = dict(DEFAULTS)
 busy_samples = deque(maxlen=240)
@@ -76,23 +90,71 @@ def save_state():
 
 
 # --------------------------------------------------------------------------- #
-# auth: HTTP basic for the browser, bearer token for automation
+# auth: login page -> signed session cookie; bearer token for automation
 # --------------------------------------------------------------------------- #
-def require_auth(request: Request) -> str:
+def _b64e(raw: bytes) -> str:
+    return base64.urlsafe_b64encode(raw).decode().rstrip("=")
+
+
+def _b64d(text: str) -> bytes:
+    return base64.urlsafe_b64decode(text + "=" * (-len(text) % 4))
+
+
+def is_https(request: Request) -> bool:
+    return request.headers.get("x-forwarded-proto", request.url.scheme) == "https"
+
+
+def make_session(user: str) -> str:
+    payload = {"u": user, "exp": int(time.time()) + SESSION_TTL, "n": secrets.token_urlsafe(12)}
+    body = _b64e(json.dumps(payload, separators=(",", ":")).encode())
+    sig = _b64e(hmac.new(SESSION_KEY, body.encode(), hashlib.sha256).digest())
+    return f"{body}.{sig}"
+
+
+def session_payload(request: Request) -> dict:
+    """Verified session payload, or {} when the cookie is absent/invalid/revoked."""
+    raw = request.cookies.get(SESSION_COOKIE, "")
+    body, _, sig = raw.partition(".")
+    if not body or not sig:
+        return {}
+    expected = _b64e(hmac.new(SESSION_KEY, body.encode(), hashlib.sha256).digest())
+    if not secrets.compare_digest(sig, expected):
+        return {}
+    try:
+        payload = json.loads(_b64d(body))
+    except Exception:
+        return {}
+    if int(payload.get("exp", 0)) < time.time():
+        return {}
+    if payload.get("n") in state.get("revoked", {}):
+        return {}
+    return payload
+
+
+def read_session(request: Request) -> str:
+    return str(session_payload(request).get("u") or "")
+
+
+def has_bearer(request: Request) -> bool:
     header = request.headers.get("authorization", "")
-    if PANEL_TOKEN and (
+    return bool(PANEL_TOKEN) and (
         secrets.compare_digest(header, f"Bearer {PANEL_TOKEN}")
         or secrets.compare_digest(request.headers.get("x-api-token", ""), PANEL_TOKEN)
-    ):
+    )
+
+
+def require_auth(request: Request) -> str:
+    if has_bearer(request):
         return "token"
-    if PANEL_PASSWORD and header.startswith("Basic "):
-        try:
-            user, _, password = base64.b64decode(header[6:]).decode().partition(":")
-        except Exception:
-            user = password = ""
-        if secrets.compare_digest(user, PANEL_USER) and secrets.compare_digest(password, PANEL_PASSWORD):
-            return user
-    raise HTTPException(401, "unauthorized", headers={"WWW-Authenticate": "Basic"})
+    user = read_session(request)
+    if user:
+        # Cookie-authenticated writes must come from this same origin.
+        if request.method not in ("GET", "HEAD", "OPTIONS"):
+            origin = request.headers.get("origin")
+            if origin and urlparse(origin).netloc != request.headers.get("host", ""):
+                raise HTTPException(403, "cross-origin request rejected")
+        return user
+    raise HTTPException(401, "unauthorized")
 
 
 # --------------------------------------------------------------------------- #
@@ -288,6 +350,68 @@ async def _startup():
 
 
 # --------------------------------------------------------------------------- #
+# pages
+# --------------------------------------------------------------------------- #
+NO_STORE = {"Cache-Control": "no-store"}
+
+
+@app.get("/login")
+def login_page():
+    return FileResponse(os.path.join(APP_DIR, "static", "login.html"), headers=NO_STORE)
+
+
+@app.get("/")
+def index(request: Request):
+    if not (read_session(request) or has_bearer(request)):
+        return RedirectResponse("/login", status_code=303)
+    return FileResponse(os.path.join(APP_DIR, "static", "index.html"), headers=NO_STORE)
+
+
+@app.post("/api/login")
+def login(request: Request, body: dict = Body(...)):
+    user = str(body.get("user") or "").strip()
+    password = str(body.get("password") or "")
+    ok = bool(PANEL_PASSWORD) and secrets.compare_digest(user, PANEL_USER) and secrets.compare_digest(password, PANEL_PASSWORD)
+    if not ok:
+        time.sleep(LOGIN_DELAY)
+        raise HTTPException(401, "usuario o contraseña incorrectos")
+    response = JSONResponse({"ok": True, "user": user})
+    response.set_cookie(
+        SESSION_COOKIE,
+        make_session(user),
+        max_age=SESSION_TTL,
+        httponly=True,
+        samesite="lax",
+        secure=is_https(request),
+        path="/",
+    )
+    return response
+
+
+@app.post("/api/logout")
+def logout(request: Request):
+    payload = session_payload(request)
+    if payload.get("n"):
+        # Sessions are stateless, so "Salir" has to remember the nonce until it
+        # would have expired anyway.
+        revoked = {n: exp for n, exp in state.get("revoked", {}).items() if int(exp) > time.time()}
+        revoked[str(payload["n"])] = int(payload.get("exp") or time.time())
+        state["revoked"] = revoked
+        save_state()
+    response = JSONResponse({"ok": True})
+    response.delete_cookie(SESSION_COOKIE, path="/")
+    return response
+
+
+@app.get("/api/session")
+def session_info(request: Request):
+    if has_bearer(request):
+        return {"authenticated": True, "user": "token", "mode": "token"}
+    user = read_session(request)
+    return {"authenticated": bool(user), "user": user or None, "mode": "session" if user else None}
+
+
+# --------------------------------------------------------------------------- #
 # api
 # --------------------------------------------------------------------------- #
 @app.get("/api/status")
@@ -375,8 +499,3 @@ def immich_ml_action(action: str, _: str = Depends(require_auth)):
 @app.post("/api/jellyfin/accel/{accel}")
 def jellyfin_accel_action(accel: str, _: str = Depends(require_auth)):
     return jellyfin_set_accel(accel)
-
-
-@app.get("/")
-def index(_: str = Depends(require_auth)):
-    return FileResponse(os.path.join(APP_DIR, "static", "index.html"))

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>domain.com · GPU Control</title>
+<title>GPU Control</title>
 <style>
   :root { --bg:#0e1116; --card:#171c24; --line:#252c38; --fg:#e6e9ef; --mut:#8b95a5;
           --ok:#3fb950; --warn:#d29922; --bad:#f85149; --acc:#58a6ff; }
@@ -14,6 +14,8 @@
            border-bottom:1px solid var(--line); }
   header h1 { margin:0; font-size:17px; font-weight:600; letter-spacing:.2px; }
   header .dot { width:9px; height:9px; border-radius:50%; background:var(--ok); }
+  header .dot.busy { background:var(--warn); animation:pulse .8s ease-in-out infinite alternate; }
+  @keyframes pulse { from { opacity:.35; } to { opacity:1; } }
   header .sub { color:var(--mut); margin-left:auto; font-variant-numeric:tabular-nums; }
   main { padding:18px 22px 40px; max-width:1200px; margin:0 auto; }
   h2 { font-size:12px; text-transform:uppercase; letter-spacing:.9px; color:var(--mut);
@@ -30,23 +32,46 @@
   th,td { text-align:left; padding:7px 8px; border-bottom:1px solid var(--line); font-size:13px; }
   th { color:var(--mut); font-weight:600; font-size:12px; }
   button { background:#21262d; color:var(--fg); border:1px solid var(--line);
-           border-radius:7px; padding:7px 12px; cursor:pointer; font-size:13px; }
-  button:hover { border-color:#3b4351; }
+           border-radius:7px; padding:7px 12px; cursor:pointer; font-size:13px;
+           transition:background .12s, border-color .12s, transform .06s, box-shadow .12s;
+           -webkit-tap-highlight-color:transparent; }
+  button:hover:not(:disabled) { border-color:#3b4351; }
+  button:active:not(:disabled) { transform:translateY(1px) scale(.985); }
+  button:focus-visible { outline:2px solid var(--acc); outline-offset:2px; }
+  button:disabled { opacity:.5; cursor:not-allowed; }
   button.pri { background:#1f6feb; border-color:#1f6feb; }
   button.warn { background:#8b2c2c; border-color:#8b2c2c; }
   button.on { background:#238636; border-color:#238636; }
+  /* Activated/toggled button: ring + dot, applied from the real backend state. */
+  button[aria-pressed="true"] { background:#1f6feb; border-color:var(--acc); color:#fff;
+                               box-shadow:0 0 0 3px rgba(88,166,255,.20); }
+  button[aria-pressed="true"]::before { content:"●"; font-size:9px; color:#cfe3ff;
+                                        margin-right:6px; vertical-align:middle; }
+  button[aria-pressed="true"].on { background:#238636; border-color:#2ea043; }
+  button[aria-pressed="true"].warn { background:#a13a3a; border-color:#c95050; }
+  button.busy { position:relative; color:transparent !important; box-shadow:none; }
+  button.busy::after { content:""; position:absolute; inset:0; margin:auto; width:13px; height:13px;
+                       border:2px solid rgba(255,255,255,.35); border-top-color:#fff;
+                       border-radius:50%; animation:spin .7s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) {
+    button.busy::after { animation-duration:2s; }
+    header .dot.busy { animation:none; }
+  }
   .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
   .pill { font-size:11px; padding:2px 8px; border-radius:20px; border:1px solid var(--line); color:var(--mut); }
   .pill.ok { color:var(--ok); border-color:#1d3d24; }
   .pill.off { color:var(--bad); border-color:#4a2323; }
+  .pill.acc { color:var(--acc); border-color:#1d3a5e; }
   input[type=range] { width:100%; }
   input[type=number] { background:#0b0e13; color:var(--fg); border:1px solid var(--line);
                        border-radius:6px; padding:5px 7px; }
   #msg { position:fixed; right:18px; bottom:18px; background:#1f6feb; color:#fff;
          padding:10px 14px; border-radius:8px; opacity:0; transition:opacity .2s; max-width:380px;
-         font-size:13px; }
+         font-size:13px; pointer-events:none; }
   #msg.show { opacity:1; }
   #msg.err { background:#8b2c2c; }
+  #msg.busy { background:#33415a; }
   .mono { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
   footer { color:var(--mut); font-size:12px; padding:0 22px 30px; max-width:1200px; margin:0 auto; }
 </style>
@@ -54,8 +79,9 @@
 <body>
 <header>
   <span class="dot" id="dot"></span>
-  <h1>domain.com · GPU Control</h1>
+  <h1 id="host">GPU Control</h1>
   <span class="sub" id="gpu-name">cargando…</span>
+  <button id="logout" title="Cerrar la sesión de este navegador">Salir</button>
 </header>
 <main>
   <h2>Tarjeta</h2>
@@ -70,19 +96,19 @@
     <div class="row" style="margin-top:10px">
       <input type="range" id="pl" min="125" max="250" step="5" value="150">
       <span class="mono" id="pl-val">150 W</span>
-      <button class="pri" onclick="setPower()">Aplicar</button>
+      <button class="pri" id="pl-apply">Aplicar</button>
     </div>
   </div>
 
   <h2>Auto-switch por inactividad</h2>
   <div class="card">
-    <div class="row">
-      <button id="auto-toggle" onclick="toggleAuto()">—</button>
+    <div class="row" id="auto">
+      <button id="auto-toggle">—</button>
       <label class="k">Liberar el LLM tras
         <input type="number" id="llm-idle" min="0" max="1440" style="width:72px"> min ocioso</label>
       <label class="k">Apagar Immich ML tras
         <input type="number" id="ml-idle" min="0" max="1440" style="width:72px"> min (0 = off)</label>
-      <button class="pri" onclick="saveAuto()">Guardar</button>
+      <button class="pri" id="auto-save">Guardar</button>
     </div>
     <div class="k" style="margin-top:10px">GPU ociosa desde hace <b id="idle-s" class="mono">—</b></div>
     <div class="k">Estado: <b id="llm-mode-state" class="mono">—</b></div>
@@ -98,27 +124,30 @@
     <div class="card">
       <div class="k">llama.cpp <span id="llama-pill" class="pill">—</span></div>
       <div id="llama-list" style="margin:10px 0"></div>
-      <button class="warn" onclick="post('/api/llama/unload')">Descargar todos los modelos</button>
+      <button class="warn" id="llama-unload">Descargar todos los modelos</button>
     </div>
     <div class="card">
       <div class="k">Immich Machine Learning <span id="ml-pill" class="pill">—</span></div>
-      <div class="row" style="margin-top:10px">
-        <button class="on" onclick="post('/api/immich/ml/start')">Encender</button>
-        <button onclick="post('/api/immich/ml/restart')">Reiniciar</button>
-        <button class="warn" onclick="post('/api/immich/ml/stop')">Apagar</button>
+      <div class="row" id="ml" style="margin-top:10px">
+        <button class="on" id="ml-start" data-ml="start">Encender</button>
+        <button id="ml-restart" data-ml="restart">Reiniciar</button>
+        <button class="warn" id="ml-stop" data-ml="stop">Apagar</button>
       </div>
       <div class="k" style="margin-top:10px">Video transcoding (Immich): <b id="imm-ff" class="mono">—</b></div>
     </div>
   </div>
 
-  <h2>Modos de GPU</h2>
+  <h2>Modos de GPU <span class="pill acc" id="mode-now">—</span></h2>
   <div class="card">
-    <div class="row">
-      <button class="pri" onclick="post('/api/mode/llm')">LLM (llama.cpp)</button>
-      <button class="pri" onclick="post('/api/mode/media')">Medios (Immich + Jellyfin)</button>
-      <button onclick="post('/api/mode/balanced')">Compartido</button>
+    <div class="row" id="modes">
+      <button class="pri" data-mode="llm">LLM (llama.cpp)</button>
+      <button class="pri" data-mode="media">Medios (Immich + Jellyfin)</button>
+      <button data-mode="balanced">Compartido</button>
     </div>
     <div class="k" style="margin-top:10px">
+      El botón marcado refleja el estado real del sistema (se recalcula cada 5 s), no el último clic.
+    </div>
+    <div class="k" style="margin-top:6px">
       <b>LLM</b>: apaga Immich ML y Jellyfin (accel off): toda la VRAM para llama.cpp.
       <b>Medios</b>: descarga los modelos de llama.cpp y enciende Immich ML + Jellyfin (NVENC).
       <b>Compartido</b>: Immich ML + Jellyfin activos sin descargar el LLM (cabe si el modelo es pequeño).
@@ -128,111 +157,282 @@
   <h2>Jellyfin</h2>
   <div class="card">
     <div class="k">Hardware acceleration actual: <b id="jf-accel" class="mono">—</b></div>
-    <div class="row" style="margin-top:10px">
-      <button class="on" onclick="post('/api/jellyfin/accel/nvenc')">NVIDIA NVENC</button>
-      <button onclick="post('/api/jellyfin/accel/vaapi')">VAAPI (iGPU)</button>
-      <button class="warn" onclick="post('/api/jellyfin/accel/none')">Apagado (CPU)</button>
+    <div class="row" id="jf" style="margin-top:10px">
+      <button class="on" data-accel="nvenc">NVIDIA NVENC</button>
+      <button data-accel="vaapi">VAAPI (iGPU)</button>
+      <button class="warn" data-accel="none">Apagado (CPU)</button>
     </div>
   </div>
 </main>
-<footer class="mono">API: Authorization: Bearer &lt;token&gt; · GET /api/status</footer>
+<footer class="mono">GET /api/status · automatización: Authorization: Bearer &lt;token&gt;</footer>
 <div id="msg"></div>
 
 <script>
-let timer, autoState = {};
-function msg(text, isErr) {
-  const el = document.getElementById('msg');
-  el.textContent = text; el.className = 'show' + (isErr ? ' err' : '');
-  clearTimeout(timer); timer = setTimeout(() => el.className = '', 4000);
+const $ = (id) => document.getElementById(id);
+let toastTimer, last = null, inflight = 0, autoState = {};
+
+// The header shows the host you are actually visiting, so the repo can keep a
+// placeholder name while the deployed panel shows its real name.
+$('host').textContent = location.hostname + ' · GPU Control';
+document.title = location.hostname + ' · GPU Control';
+
+const MODES = {
+  llm: 'LLM (llama.cpp)',
+  media: 'Medios (Immich + Jellyfin)',
+  balanced: 'Compartido (LLM + medios)',
+  mixed: 'mixto / en transición',
+};
+
+/* ---------------------------------------------------------------- feedback */
+function toast(text, kind, sticky) {
+  const el = $('msg');
+  el.textContent = text;
+  el.className = 'show' + (kind ? ' ' + kind : '');
+  clearTimeout(toastTimer);
+  if (!sticky) toastTimer = setTimeout(() => { el.className = ''; }, kind === 'err' ? 6000 : 3500);
 }
-async function api(path, opts) {
-  const r = await fetch(path, Object.assign({headers: {'Content-Type': 'application/json'}}, opts));
-  if (!r.ok) throw new Error((await r.text()) || r.statusText);
-  return r.headers.get('content-type')?.includes('json') ? r.json() : r.text();
+const msg = (text, isErr) => toast(text, isErr ? 'err' : '');
+
+function startRequest() { inflight++; $('dot').classList.add('busy'); }
+function endRequest() { inflight = Math.max(0, inflight - 1); if (!inflight) $('dot').classList.remove('busy'); }
+
+function setBusy(btn, on) {
+  if (!btn) return;
+  btn.classList.toggle('busy', on);
+  btn.setAttribute('aria-busy', on ? 'true' : 'false');
+  if (on) { btn.dataset.prevDisabled = btn.disabled ? '1' : '0'; btn.disabled = true; }
+  else { btn.disabled = btn.dataset.prevDisabled === '1'; }
 }
-async function post(path, body) {
-  try {
-    const r = await api(path, {method: 'POST', body: body ? JSON.stringify(body) : undefined});
-    msg('OK: ' + path); refresh(); return r;
-  } catch (e) { msg('Error: ' + e.message, true); }
-}
-async function setPower() {
-  const w = document.getElementById('pl').value;
-  try { await api('/api/power', {method:'POST', body: JSON.stringify({watts: Number(w)})});
-        msg('Power limit = ' + w + ' W'); refresh(); }
-  catch (e) { msg('Error: ' + e.message, true); }
-}
-async function toggleAuto() { await post('/api/auto', {enabled: !autoState.enabled}); }
-async function saveAuto() {
-  await post('/api/auto', {
-    llama_idle_min: Number(document.getElementById('llm-idle').value),
-    ml_idle_min: Number(document.getElementById('ml-idle').value),
+
+function setGroupDisabled(selector, on) {
+  document.querySelectorAll(selector + ' button').forEach(b => {
+    if (!b.classList.contains('busy')) b.disabled = on;
   });
 }
+
+function pressed(selector, isOn) {
+  document.querySelectorAll(selector).forEach(b => b.setAttribute('aria-pressed', isOn(b.dataset) ? 'true' : 'false'));
+}
+
+/* --------------------------------------------------------------------- api */
+async function errText(r) {
+  const raw = await r.text();
+  try { return JSON.parse(raw).detail || raw; } catch (e) { return raw; }
+}
+
+async function api(path, opts) {
+  const r = await fetch(path, Object.assign({credentials: 'same-origin', headers: {'Content-Type': 'application/json'}}, opts));
+  if (r.status === 401) {
+    location.href = '/login?next=' + encodeURIComponent(location.pathname);
+    throw new Error('sesión expirada');
+  }
+  if (!r.ok) throw new Error(await errText(r));
+  return r.headers.get('content-type')?.includes('json') ? r.json() : r.text();
+}
+
+// Every action: instant spinner + a "pending" toast, the group locked while it
+// runs, then the state re-derived from /api/status (no optimistic guessing left
+// behind) and a confirmation toast.
+async function act(btn, path, body, opts = {}) {
+  const group = opts.group;
+  startRequest();
+  setBusy(btn, true);
+  if (group) setGroupDisabled(group, true);
+  toast(opts.pending || 'Aplicando…', 'busy', true);
+  let ok = true;
+  try {
+    return await api(path, {method: 'POST', body: body ? JSON.stringify(body) : undefined});
+  } catch (e) {
+    ok = false;
+    toast('Error: ' + e.message, 'err');
+    return null;
+  } finally {
+    setBusy(btn, false);
+    if (group) setGroupDisabled(group, false);
+    endRequest();
+    await refresh();
+    if (ok) toast(opts.done || 'Listo');
+  }
+}
+
+function skip(why) { toast(why + ' (no hace falta repetirlo)'); }
+
+/* ------------------------------------------------------------------ render */
 function card(k, v, pct) {
   return `<div class="card"><div class="k">${k}</div><div class="v">${v}</div>
     ${pct !== undefined ? `<div class="bar"><i style="width:${pct}%"></i></div>` : ''}</div>`;
 }
+
 function human(sec) {
   if (sec < 60) return sec + ' s';
   if (sec < 3600) return Math.floor(sec / 60) + ' min';
   return (sec / 3600).toFixed(1) + ' h';
 }
+
+// Which mode the machine is actually in, derived from what the probes report.
+function deriveMode(s) {
+  const ml = typeof s.immich_ml === 'string' ? s.immich_ml : '';
+  const jf = typeof s.jellyfin_accel === 'string' ? s.jellyfin_accel : '';
+  const loaded = (Array.isArray(s.llama) ? s.llama : []).filter(m => m.status === 'loaded').length;
+  if (s.auto && s.auto.llm_blocked) return 'llm';
+  if (ml === 'running' && jf === 'nvenc') return loaded ? 'balanced' : 'media';
+  return 'mixed';
+}
+
+function paintState(s) {
+  const mode = deriveMode(s);
+  pressed('#modes button', (d) => d.mode === mode);
+  const now = $('mode-now');
+  now.textContent = MODES[mode];
+  now.className = 'pill ' + (mode === 'mixed' ? '' : 'acc');
+
+  const jf = typeof s.jellyfin_accel === 'string' ? s.jellyfin_accel : '';
+  pressed('#jf button', (d) => d.accel === jf);
+
+  const ml = typeof s.immich_ml === 'string' ? s.immich_ml : '';
+  const running = ml === 'running';
+  const stopped = !!ml && ml !== 'unknown' && !running;
+  pressed('#ml button', (d) => (d.ml === 'start' && running) || (d.ml === 'stop' && stopped));
+
+  const llama = Array.isArray(s.llama) ? s.llama : [];
+  $('llama-unload').disabled = llama.filter(m => m.status === 'loaded').length === 0;
+
+  const at = $('auto-toggle');
+  at.setAttribute('aria-pressed', autoState.enabled ? 'true' : 'false');
+  at.textContent = autoState.enabled ? 'Auto: activado' : 'Auto: desactivado';
+  at.className = autoState.enabled ? 'on' : 'warn';
+
+  syncPower();
+}
+
+function syncPower() {
+  const btn = $('pl-apply');
+  const watts = Number($('pl').value);
+  const limit = last && last.gpu ? Number(last.gpu.power_limit) : NaN;
+  const same = !Number.isNaN(limit) && watts === limit;
+  btn.textContent = same ? 'Aplicar ' + watts + ' W (ya activo)' : 'Aplicar ' + watts + ' W';
+  // Leave the button alone while it is busy; setBusy() restores it afterwards.
+  if (!btn.classList.contains('busy')) btn.disabled = same;
+  btn.title = same ? 'El límite actual ya es ' + watts + ' W' : '';
+}
+
 async function refresh() {
   let s;
   try { s = await api('/api/status'); }
-  catch (e) { document.getElementById('gpu-name').textContent = 'sin conexión'; return; }
+  catch (e) { if (!String(e.message).includes('sesión')) $('gpu-name').textContent = 'sin conexión'; return; }
+  last = s;
   const g = s.gpu || {};
   const usedPct = Math.round(100 * g.mem_used / g.mem_total);
-  document.getElementById('gpu-name').textContent = `${g.name} · driver ${g.driver}`;
-  document.getElementById('gpu-cards').innerHTML =
+  $('gpu-name').textContent = `${g.name} · driver ${g.driver}`;
+  $('gpu-cards').innerHTML =
     card('Uso', g.util + ' %', g.util) +
     card('VRAM', `${(g.mem_used/1024).toFixed(1)} / ${(g.mem_total/1024).toFixed(1)} GiB`, usedPct) +
     card('Temperatura', g.temp + ' °C') +
     card('Potencia', `${g.power_draw} / ${g.power_limit} W`) +
     card('Reloj SM / Mem', `${g.clk_sm} / ${g.clk_mem} MHz`);
-  document.getElementById('pl-now').textContent = g.power_limit + ' W';
-  document.getElementById('pl-range').textContent = `${g.power_min}–${g.power_max} W`;
-  const pl = document.getElementById('pl');
+  $('pl-now').textContent = g.power_limit + ' W';
+  $('pl-range').textContent = `${g.power_min}–${g.power_max} W`;
+  const pl = $('pl');
   pl.min = g.power_min; pl.max = g.power_max;
-  document.getElementById('pl-val').textContent = pl.value + ' W';
-  document.getElementById('procs').innerHTML = (g.processes || []).length
+  $('pl-val').textContent = pl.value + ' W';
+  $('procs').innerHTML = (g.processes || []).length
     ? g.processes.map(p => `<tr><td>${p.pid}</td><td class="mono">${p.name}</td><td>${p.mem_mib} MiB</td></tr>`).join('')
     : '<tr><td colspan="3" class="k">—</td></tr>';
 
   autoState = s.auto || {};
-  const at = document.getElementById('auto-toggle');
-  at.textContent = autoState.enabled ? 'Auto: activado' : 'Auto: desactivado';
-  at.className = autoState.enabled ? 'on' : 'warn';
-  document.getElementById('llm-idle').value = autoState.llama_idle_min;
-  document.getElementById('ml-idle').value = autoState.ml_idle_min;
-  document.getElementById('idle-s').textContent = human(autoState.idle_seconds || 0);
-  document.getElementById('last-action').textContent =
+  $('llm-idle').value = autoState.llama_idle_min;
+  $('ml-idle').value = autoState.ml_idle_min;
+  $('idle-s').textContent = human(autoState.idle_seconds || 0);
+  $('last-action').textContent =
     autoState.last_action ? `${autoState.last_action} (${autoState.last_action_at})` : '—';
-  document.getElementById('llm-mode-state').textContent = autoState.llm_blocked
+  $('llm-mode-state').textContent = autoState.llm_blocked
     ? 'prioridad LLM: Immich ML y Jellyfin apagados' : 'medios activos (Immich ML + Jellyfin)';
 
   const llama = Array.isArray(s.llama) ? s.llama : [];
   const loaded = llama.filter(m => m.status === 'loaded');
-  const lp = document.getElementById('llama-pill');
+  const lp = $('llama-pill');
   lp.textContent = loaded.length ? loaded.length + ' cargado(s)' : 'sin modelo';
   lp.className = 'pill ' + (loaded.length ? 'ok' : 'off');
-  document.getElementById('llama-list').innerHTML = llama.length
+  $('llama-list').innerHTML = llama.length
     ? llama.map(m => `<div class="mono" style="font-size:12px">${m.status === 'loaded' ? '●' : '○'} ${m.id}</div>`).join('')
     : '<span class="k">sin respuesta</span>';
 
   const ml = typeof s.immich_ml === 'string' ? s.immich_ml : (s.immich_ml?.error ? 'error' : '—');
-  const mp = document.getElementById('ml-pill');
+  const mp = $('ml-pill');
   mp.textContent = ml; mp.className = 'pill ' + (ml === 'running' ? 'ok' : 'off');
 
   const ff = s.immich_ffmpeg || {};
-  document.getElementById('imm-ff').textContent = ff.accel ? `${ff.accel} (${ff.preferredHwDevice || 'auto'})` : '—';
-  document.getElementById('jf-accel').textContent =
+  $('imm-ff').textContent = ff.accel ? `${ff.accel} (${ff.preferredHwDevice || 'auto'})` : '—';
+  $('jf-accel').textContent =
     typeof s.jellyfin_accel === 'string' ? s.jellyfin_accel : 'error';
+
+  // While an action is in flight the optimistic ring stays; once it finishes the
+  // real state wins (so a failed switch visibly falls back).
+  if (!inflight) paintState(s);
 }
-document.getElementById('pl').addEventListener('input', e => {
-  document.getElementById('pl-val').textContent = e.target.value + ' W';
+
+/* ----------------------------------------------------------------- actions */
+$('pl').addEventListener('input', (e) => {
+  $('pl-val').textContent = e.target.value + ' W';
+  syncPower();
 });
+
+$('pl-apply').onclick = () => {
+  const watts = Number($('pl').value);
+  if (last && last.gpu && Number(last.gpu.power_limit) === watts) return skip('El límite ya es ' + watts + ' W');
+  act($('pl-apply'), '/api/power', {watts}, {pending: 'Aplicando ' + watts + ' W…', done: 'Power limit = ' + watts + ' W'});
+};
+
+$('llama-unload').onclick = () => act($('llama-unload'), '/api/llama/unload', null,
+  {pending: 'Descargando modelos…', done: 'Modelos descargados'});
+
+document.querySelectorAll('#ml button').forEach((b) => {
+  b.onclick = () => {
+    const action = b.dataset.ml;
+    const state = typeof last?.immich_ml === 'string' ? last.immich_ml : '';
+    if (action === 'start' && state === 'running') return skip('Immich ML ya está encendido');
+    if (action === 'stop' && state && state !== 'running') return skip('Immich ML ya está apagado');
+    pressed('#ml button', (d) => d.ml === action && action !== 'restart');
+    act(b, '/api/immich/ml/' + action, null, {group: '#ml', pending: 'Immich ML: ' + action + '…', done: 'Immich ML: ' + action});
+  };
+});
+
+document.querySelectorAll('#modes button').forEach((b) => {
+  b.onclick = () => {
+    const mode = b.dataset.mode;
+    if (last && deriveMode(last) === mode) return skip('Ya estás en modo ' + MODES[mode]);
+    pressed('#modes button', (d) => d.mode === mode);
+    $('mode-now').textContent = MODES[mode] + ' (aplicando…)';
+    act(b, '/api/mode/' + mode, null, {group: '#modes', pending: 'Cambiando a ' + MODES[mode] + '…', done: 'Modo ' + MODES[mode]});
+  };
+});
+
+document.querySelectorAll('#jf button').forEach((b) => {
+  b.onclick = () => {
+    const accel = b.dataset.accel;
+    if (last && last.jellyfin_accel === accel) return skip('Jellyfin ya usa ' + accel);
+    pressed('#jf button', (d) => d.accel === accel);
+    act(b, '/api/jellyfin/accel/' + accel, null, {group: '#jf', pending: 'Jellyfin → ' + accel + ' (reinicia el contenedor)…', done: 'Jellyfin: ' + accel});
+  };
+});
+
+$('auto-toggle').onclick = () => act($('auto-toggle'), '/api/auto', {enabled: !autoState.enabled},
+  {group: '#auto', pending: autoState.enabled ? 'Desactivando auto-switch…' : 'Activando auto-switch…',
+   done: autoState.enabled ? 'Auto-switch desactivado' : 'Auto-switch activado'});
+
+$('auto-save').onclick = () => {
+  const llama = Number($('llm-idle').value), ml = Number($('ml-idle').value);
+  act($('auto-save'), '/api/auto', {llama_idle_min: llama, ml_idle_min: ml},
+      {group: '#auto', pending: 'Guardando umbrales…', done: `Umbrales guardados (LLM ${llama} min, ML ${ml} min)`});
+};
+
+$('logout').onclick = async () => {
+  startRequest();
+  setBusy($('logout'), true);
+  try { await api('/api/logout', {method: 'POST'}); } catch (e) {}
+  location.href = '/login';
+};
+
 refresh();
 setInterval(refresh, 5000);
 </script>

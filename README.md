@@ -44,7 +44,11 @@ Two settings live inside the applications and cannot be shipped as config, so se
 
 ### GPU control panel
 
-`https://gpu.domain.com` (basic auth) shows the P100 and decides who uses it.
+`https://gpu.domain.com` shows the P100 and decides who uses it. It serves its
+own login page (`/login`, user `admin`, password from `vault_gpu_panel_password`)
+and keeps the browser signed in with an `HttpOnly` session cookie that lasts 7
+days; **Salir** revokes it server-side, and there is no HTTP basic challenge, so
+browsers never open their native credential dialog.
 It runs on the control node and reaches the PVE host over SSH to read
 `nvidia-smi` and set the power limit (125-250 W), and the containers to switch
 the card between **llama.cpp** and **Immich ML**:
@@ -58,6 +62,13 @@ stopped and Jellyfin's acceleration is set to `none` automatically. Both come
 back when the LLM is released. The panel and its stack live in
 `docker-compose/app-services/gpu-panel` (role `stacks`, host `devops`).
 
+Every control reports back immediately: the clicked button shows a spinner and
+its group stays locked while the request runs, and the active button keeps a
+marker (`aria-pressed`) that is re-derived every 5 s from what the probes report
+instead of from the last click, so the highlighted mode is always the real one.
+Clicks that would repeat the current state are answered with a notice and send
+nothing.
+
 The API also accepts a token (`Authorization: Bearer <vault_gpu_panel_token>`)
 for automation, and there is an **idle auto-switch**: after `llama_idle_min`
 minutes (default 60 = 1 h) of GPU idle it unloads the llama.cpp models and turns
@@ -69,7 +80,7 @@ persisted in a volume.
 ## Deployed Services
 ### Management Services
 - **Devops (192.168.10.11):** IaC repository, Terraform + Ansible control node
-- **GPU panel (https://gpu.domain.com):** P100 dashboard and GPU arbitration, served by Caddy (basic auth)
+- **GPU panel (https://gpu.domain.com):** P100 dashboard and GPU arbitration, served by Caddy; own login page with a session cookie
 
 ### Network Services
 - **Blocky (192.168.10.3):** DNS resolver and ad-blocker, API/DoH/metrics on port 4000
