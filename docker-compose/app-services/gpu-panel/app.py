@@ -47,7 +47,7 @@ ML_QUEUES = ("faceDetection", "smartSearch", "ocr")
 # because the SQL/psql quoting does not survive nested shells otherwise.
 IMMICH_CFG_SCRIPT = r"""docker exec immich_postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atc "select value from system_metadata where key = '"'"'system-config'"'"';"'"""
 
-DEFAULTS = {"enabled": True, "llama_idle_min": 15, "ml_idle_min": 0, "last_action": None, "last_action_at": None}
+DEFAULTS = {"enabled": True, "llama_idle_min": 60, "ml_idle_min": 0, "last_action": None, "last_action_at": None}
 
 state = dict(DEFAULTS)
 busy_samples = deque(maxlen=240)

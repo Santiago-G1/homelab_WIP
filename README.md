@@ -67,7 +67,7 @@ are not part of the switch. The panel and its stack live in
 
 The API also accepts a token (`Authorization: Bearer <vault_gpu_panel_token>`)
 for automation, and there is an **idle auto-switch**: after `llama_idle_min`
-minutes with the GPU idle it unloads the llama.cpp models and turns Immich ML
+minutes (default 60 = 1 h) of GPU idle it unloads the llama.cpp models and turns Immich ML
 on (`ml_idle_min` optionally stops Immich ML too; `0` disables each). The
 thresholds are editable in the dashboard and persisted in a volume.
 
