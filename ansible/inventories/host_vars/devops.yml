@@ -8,3 +8,4 @@ stacks:
     env:
       PANEL_USER: admin
       PANEL_PASSWORD: "{{ vault_gpu_panel_password }}"
+      PANEL_TOKEN: "{{ vault_gpu_panel_token }}"

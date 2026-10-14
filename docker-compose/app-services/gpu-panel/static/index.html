@@ -35,17 +35,20 @@
   button.pri { background:#1f6feb; border-color:#1f6feb; }
   button.warn { background:#8b2c2c; border-color:#8b2c2c; }
   button.on { background:#238636; border-color:#238636; }
-  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
   .pill { font-size:11px; padding:2px 8px; border-radius:20px; border:1px solid var(--line); color:var(--mut); }
   .pill.ok { color:var(--ok); border-color:#1d3d24; }
   .pill.off { color:var(--bad); border-color:#4a2323; }
   input[type=range] { width:100%; }
+  input[type=number] { background:#0b0e13; color:var(--fg); border:1px solid var(--line);
+                       border-radius:6px; padding:5px 7px; }
   #msg { position:fixed; right:18px; bottom:18px; background:#1f6feb; color:#fff;
          padding:10px 14px; border-radius:8px; opacity:0; transition:opacity .2s; max-width:380px;
          font-size:13px; }
   #msg.show { opacity:1; }
   #msg.err { background:#8b2c2c; }
   .mono { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
+  footer { color:var(--mut); font-size:12px; padding:0 22px 30px; max-width:1200px; margin:0 auto; }
 </style>
 </head>
 <body>
@@ -69,6 +72,20 @@
       <span class="mono" id="pl-val">150 W</span>
       <button class="pri" onclick="setPower()">Aplicar</button>
     </div>
+  </div>
+
+  <h2>Auto-switch por inactividad</h2>
+  <div class="card">
+    <div class="row">
+      <button id="auto-toggle" onclick="toggleAuto()">—</button>
+      <label class="k">Liberar el LLM tras
+        <input type="number" id="llm-idle" min="0" max="1440" style="width:72px"> min ocioso</label>
+      <label class="k">Apagar Immich ML tras
+        <input type="number" id="ml-idle" min="0" max="1440" style="width:72px"> min (0 = off)</label>
+      <button class="pri" onclick="saveAuto()">Guardar</button>
+    </div>
+    <div class="k" style="margin-top:10px">GPU ociosa desde hace <b id="idle-s" class="mono">—</b></div>
+    <div class="k">Última acción automática: <b id="last-action" class="mono">—</b></div>
   </div>
 
   <h2>Procesos en la GPU</h2>
@@ -96,9 +113,9 @@
   <h2>Modos de GPU</h2>
   <div class="card">
     <div class="row">
-      <button class="pri" onclick="mode('llm')">LLM (llama.cpp)</button>
-      <button class="pri" onclick="mode('media')">Medios (Immich + Jellyfin)</button>
-      <button onclick="mode('balanced')">Compartido</button>
+      <button class="pri" onclick="post('/api/mode/llm')">LLM (llama.cpp)</button>
+      <button class="pri" onclick="post('/api/mode/media')">Medios (Immich + Jellyfin)</button>
+      <button onclick="post('/api/mode/balanced')">Compartido</button>
     </div>
     <div class="k" style="margin-top:10px">
       <b>LLM</b>: apaga Immich ML y deja los 16 GB para llama.cpp.
@@ -117,10 +134,11 @@
     </div>
   </div>
 </main>
+<footer class="mono">API: Authorization: Bearer &lt;token&gt; · GET /api/status</footer>
 <div id="msg"></div>
 
 <script>
-let timer;
+let timer, autoState = {};
 function msg(text, isErr) {
   const el = document.getElementById('msg');
   el.textContent = text; el.className = 'show' + (isErr ? ' err' : '');
@@ -131,20 +149,33 @@ async function api(path, opts) {
   if (!r.ok) throw new Error((await r.text()) || r.statusText);
   return r.headers.get('content-type')?.includes('json') ? r.json() : r.text();
 }
-async function post(path) {
-  try { const r = await api(path, {method: 'POST'}); msg('OK: ' + path); refresh(); return r; }
-  catch (e) { msg('Error: ' + e.message, true); }
+async function post(path, body) {
+  try {
+    const r = await api(path, {method: 'POST', body: body ? JSON.stringify(body) : undefined});
+    msg('OK: ' + path); refresh(); return r;
+  } catch (e) { msg('Error: ' + e.message, true); }
 }
-async function mode(m) { return post('/api/mode/' + m); }
 async function setPower() {
   const w = document.getElementById('pl').value;
   try { await api('/api/power', {method:'POST', body: JSON.stringify({watts: Number(w)})});
         msg('Power limit = ' + w + ' W'); refresh(); }
   catch (e) { msg('Error: ' + e.message, true); }
 }
+async function toggleAuto() { await post('/api/auto', {enabled: !autoState.enabled}); }
+async function saveAuto() {
+  await post('/api/auto', {
+    llama_idle_min: Number(document.getElementById('llm-idle').value),
+    ml_idle_min: Number(document.getElementById('ml-idle').value),
+  });
+}
 function card(k, v, pct) {
   return `<div class="card"><div class="k">${k}</div><div class="v">${v}</div>
     ${pct !== undefined ? `<div class="bar"><i style="width:${pct}%"></i></div>` : ''}</div>`;
+}
+function human(sec) {
+  if (sec < 60) return sec + ' s';
+  if (sec < 3600) return Math.floor(sec / 60) + ' min';
+  return (sec / 3600).toFixed(1) + ' h';
 }
 async function refresh() {
   let s;
@@ -152,8 +183,7 @@ async function refresh() {
   catch (e) { document.getElementById('gpu-name').textContent = 'sin conexión'; return; }
   const g = s.gpu || {};
   const usedPct = Math.round(100 * g.mem_used / g.mem_total);
-  document.getElementById('gpu-name').textContent =
-    `${g.name} · driver ${g.driver}`;
+  document.getElementById('gpu-name').textContent = `${g.name} · driver ${g.driver}`;
   document.getElementById('gpu-cards').innerHTML =
     card('Uso', g.util + ' %', g.util) +
     card('VRAM', `${(g.mem_used/1024).toFixed(1)} / ${(g.mem_total/1024).toFixed(1)} GiB`, usedPct) +
@@ -168,6 +198,16 @@ async function refresh() {
   document.getElementById('procs').innerHTML = (g.processes || []).length
     ? g.processes.map(p => `<tr><td>${p.pid}</td><td class="mono">${p.name}</td><td>${p.mem_mib} MiB</td></tr>`).join('')
     : '<tr><td colspan="3" class="k">—</td></tr>';
+
+  autoState = s.auto || {};
+  const at = document.getElementById('auto-toggle');
+  at.textContent = autoState.enabled ? 'Auto: activado' : 'Auto: desactivado';
+  at.className = autoState.enabled ? 'on' : 'warn';
+  document.getElementById('llm-idle').value = autoState.llama_idle_min;
+  document.getElementById('ml-idle').value = autoState.ml_idle_min;
+  document.getElementById('idle-s').textContent = human(autoState.idle_seconds || 0);
+  document.getElementById('last-action').textContent =
+    autoState.last_action ? `${autoState.last_action} (${autoState.last_action_at})` : '—';
 
   const llama = Array.isArray(s.llama) ? s.llama : [];
   const loaded = llama.filter(m => m.status === 'loaded');

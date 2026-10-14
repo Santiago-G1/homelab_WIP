@@ -5,16 +5,19 @@ that can reach everything: the PVE node (nvidia-smi, power limit) and each
 container that uses the GPU (llama.cpp, Immich ML, Jellyfin transcoding).
 """
 
+import asyncio
 import base64
+import contextlib
 import json
 import os
 import secrets
 import subprocess
+import time
+from collections import deque
 
 import httpx
-from fastapi import Body, Depends, FastAPI, HTTPException
+from fastapi import Body, Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -24,6 +27,8 @@ FRONTEND_HOST = os.environ.get("FRONTEND_HOST", "root@192.168.10.21")
 LLAMA_URL = os.environ.get("LLAMA_URL", "http://192.168.10.26:8080")
 PANEL_USER = os.environ.get("PANEL_USER", "admin")
 PANEL_PASSWORD = os.environ.get("PANEL_PASSWORD", "")
+PANEL_TOKEN = os.environ.get("PANEL_TOKEN", "")
+STATE_PATH = os.environ.get("STATE_PATH", "/state/auto.json")
 
 IMMICH_ML = "immich_machine_learning"
 JELLYFIN_XML = "/opt/docker/jellyfin/config/encoding.xml"
@@ -36,25 +41,62 @@ GPU_KEYS = [
     "name", "driver", "mem_used", "mem_total", "util", "temp", "power_draw",
     "power_limit", "power_default", "power_min", "power_max", "clk_sm", "clk_mem",
 ]
+ML_QUEUES = ("faceDetection", "smartSearch", "ocr")
 
 # Immich keeps its system config as JSON in system_metadata. Delivered base64
 # because the SQL/psql quoting does not survive nested shells otherwise.
 IMMICH_CFG_SCRIPT = r"""docker exec immich_postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atc "select value from system_metadata where key = '"'"'system-config'"'"';"'"""
 
+DEFAULTS = {"enabled": True, "llama_idle_min": 15, "ml_idle_min": 0, "last_action": None, "last_action_at": None}
+
+state = dict(DEFAULTS)
+busy_samples = deque(maxlen=240)
+last_busy = time.time()
+
 app = FastAPI(title="domain.com GPU control")
-security = HTTPBasic()
 
 
-def require_auth(cred: HTTPBasicCredentials = Depends(security)) -> str:
-    if PANEL_PASSWORD:
-        ok = secrets.compare_digest(cred.username, PANEL_USER) and secrets.compare_digest(
-            cred.password, PANEL_PASSWORD
-        )
-        if not ok:
-            raise HTTPException(401, "unauthorized", headers={"WWW-Authenticate": "Basic"})
-    return cred.username
+# --------------------------------------------------------------------------- #
+# state
+# --------------------------------------------------------------------------- #
+def load_state():
+    try:
+        with open(STATE_PATH) as fh:
+            state.update({k: v for k, v in json.load(fh).items() if k in DEFAULTS})
+    except Exception:
+        pass
 
 
+def save_state():
+    with contextlib.suppress(Exception):
+        os.makedirs(os.path.dirname(STATE_PATH), exist_ok=True)
+        with open(STATE_PATH, "w") as fh:
+            json.dump(state, fh, indent=2)
+
+
+# --------------------------------------------------------------------------- #
+# auth: HTTP basic for the browser, bearer token for automation
+# --------------------------------------------------------------------------- #
+def require_auth(request: Request) -> str:
+    header = request.headers.get("authorization", "")
+    if PANEL_TOKEN and (
+        secrets.compare_digest(header, f"Bearer {PANEL_TOKEN}")
+        or secrets.compare_digest(request.headers.get("x-api-token", ""), PANEL_TOKEN)
+    ):
+        return "token"
+    if PANEL_PASSWORD and header.startswith("Basic "):
+        try:
+            user, _, password = base64.b64decode(header[6:]).decode().partition(":")
+        except Exception:
+            user = password = ""
+        if secrets.compare_digest(user, PANEL_USER) and secrets.compare_digest(password, PANEL_PASSWORD):
+            return user
+    raise HTTPException(401, "unauthorized", headers={"WWW-Authenticate": "Basic"})
+
+
+# --------------------------------------------------------------------------- #
+# helpers
+# --------------------------------------------------------------------------- #
 def run(cmd, timeout=30, **kwargs):
     return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, **kwargs)
 
@@ -97,12 +139,15 @@ def llama_models():
     ]
 
 
+def llama_loaded():
+    return [m for m in llama_models() if m["status"] == "loaded"]
+
+
 def llama_unload_all():
     out = []
-    for m in llama_models():
-        if m["status"] == "loaded":
-            r = httpx.post(f"{LLAMA_URL}/models/unload", json={"model": m["id"]}, timeout=60)
-            out.append({"model": m["id"], "http": r.status_code})
+    for m in llama_loaded():
+        r = httpx.post(f"{LLAMA_URL}/models/unload", json={"model": m["id"]}, timeout=60)
+        out.append({"model": m["id"], "http": r.status_code})
     return out
 
 
@@ -116,6 +161,19 @@ def immich_ml(action):
     if p.returncode != 0:
         raise HTTPException(502, p.stderr.strip() or p.stdout.strip())
     return {"action": action, "ok": True}
+
+
+def immich_ml_queue_active():
+    script = "\n".join(
+        f'echo "$(docker exec immich_redis redis-cli llen immich_bull:{q}:active) $(docker exec immich_redis redis-cli llen immich_bull:{q}:wait)"'
+        for q in ML_QUEUES
+    )
+    p = ssh_script(IMMICH_HOST, script)
+    total = 0
+    for line in p.stdout.split():
+        if line.isdigit():
+            total += int(line)
+    return total
 
 
 def immich_transcode():
@@ -148,9 +206,70 @@ def jellyfin_set_accel(accel):
     return {"accel": accel}
 
 
+def auto_snapshot():
+    return {
+        "enabled": state["enabled"],
+        "llama_idle_min": state["llama_idle_min"],
+        "ml_idle_min": state["ml_idle_min"],
+        "last_action": state.get("last_action"),
+        "last_action_at": state.get("last_action_at"),
+        "idle_seconds": int(time.time() - last_busy),
+    }
+
+
+def record_action(text):
+    state["last_action"] = text
+    state["last_action_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
+    save_state()
+
+
+# --------------------------------------------------------------------------- #
+# auto switch
+# --------------------------------------------------------------------------- #
+def auto_tick():
+    global last_busy
+    util = int(gpu_status()["util"])
+    busy_samples.append(util)
+    if util > 0:
+        last_busy = time.time()
+    if not state["enabled"]:
+        return
+    idle = time.time() - last_busy
+
+    if state["llama_idle_min"] and idle > state["llama_idle_min"] * 60:
+        if llama_loaded():
+            unloaded = llama_unload_all()
+            if unloaded:
+                with contextlib.suppress(HTTPException):
+                    immich_ml("start")
+                record_action("GPU idle %d min: unloaded %s, Immich ML on" % (idle // 60, [u["model"] for u in unloaded]))
+
+    if state["ml_idle_min"] and idle > state["ml_idle_min"] * 60:
+        if immich_ml_state() == "running" and immich_ml_queue_active() == 0:
+            with contextlib.suppress(HTTPException):
+                immich_ml("stop")
+            record_action("Immich ML idle %d min: stopped to free VRAM" % (idle // 60))
+
+
+async def auto_loop():
+    while True:
+        with contextlib.suppress(Exception):
+            await asyncio.to_thread(auto_tick)
+        await asyncio.sleep(30)
+
+
+@app.on_event("startup")
+async def _startup():
+    load_state()
+    asyncio.create_task(auto_loop())
+
+
+# --------------------------------------------------------------------------- #
+# api
+# --------------------------------------------------------------------------- #
 @app.get("/api/status")
 def status(_: str = Depends(require_auth)):
-    state = {"gpu": gpu_status()}
+    out = {"gpu": gpu_status(), "auto": auto_snapshot()}
     for key, fn in (
         ("llama", llama_models),
         ("immich_ml", immich_ml_state),
@@ -158,10 +277,10 @@ def status(_: str = Depends(require_auth)):
         ("jellyfin_accel", jellyfin_accel),
     ):
         try:
-            state[key] = fn()
+            out[key] = fn()
         except Exception as exc:  # noqa: BLE001 - surface each probe failure
-            state[key] = {"error": str(exc)}
-    return state
+            out[key] = {"error": str(exc)}
+    return out
 
 
 @app.post("/api/mode/{mode}")
@@ -169,14 +288,31 @@ def set_mode(mode: str, _: str = Depends(require_auth)):
     result = {}
     if mode == "llm":
         result["immich_ml"] = immich_ml("stop")
+        record_action("mode LLM: Immich ML stopped")
     elif mode == "media":
         result["llama"] = llama_unload_all()
         result["immich_ml"] = immich_ml("start")
+        record_action("mode Media: llama.cpp unloaded, Immich ML on")
     elif mode == "balanced":
         result["immich_ml"] = immich_ml("start")
+        record_action("mode Shared: Immich ML on")
     else:
         raise HTTPException(400, "mode must be llm, media or balanced")
     return result
+
+
+@app.post("/api/auto")
+def set_auto(body: dict = Body(...), _: str = Depends(require_auth)):
+    if "enabled" in body:
+        state["enabled"] = bool(body["enabled"])
+    for key in ("llama_idle_min", "ml_idle_min"):
+        if key in body:
+            value = int(body[key])
+            if value < 0 or value > 1440:
+                raise HTTPException(400, f"{key} must be 0..1440 minutes")
+            state[key] = value
+    save_state()
+    return auto_snapshot()
 
 
 @app.post("/api/power")
@@ -190,6 +326,7 @@ def set_power(body: dict = Body(...), _: str = Depends(require_auth)):
     p = ssh(PVE_HOST, f"nvidia-smi -pl {watts}")
     if p.returncode != 0:
         raise HTTPException(502, p.stderr.strip() or p.stdout.strip())
+    record_action(f"power limit = {watts} W")
     return {"ok": True, "watts": watts}
 
 
