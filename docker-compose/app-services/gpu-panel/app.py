@@ -40,6 +40,16 @@ SESSION_TTL = int(os.environ.get("SESSION_TTL", 7 * 24 * 3600))
 LOGIN_DELAY = float(os.environ.get("LOGIN_DELAY", 0.4))
 STATE_PATH = os.environ.get("STATE_PATH", "/state/auto.json")
 
+# NVENC is the only Jellyfin mode that touches the P100, the card it shares with
+# llama.cpp and Immich ML. VAAPI runs on the Intel iGPU, a different device that
+# costs the P100 nothing, so it is what Jellyfin falls back to when the LLM owns
+# the card: dropping it to CPU would lose hardware transcoding for no reason.
+# JELLYFIN_FALLBACK=none restores the old CPU behaviour on purpose.
+JELLYFIN_FALLBACK = os.environ.get("JELLYFIN_FALLBACK", "vaapi")
+JELLYFIN_DEVICES = {"nvenc": "P100 (NVENC)", "vaapi": "iGPU (VAAPI)", "none": "CPU"}
+if JELLYFIN_FALLBACK not in ("vaapi", "none"):
+    JELLYFIN_FALLBACK = "vaapi"
+
 IMMICH_ML = "immich_machine_learning"
 JELLYFIN_XML = "/opt/docker/jellyfin/config/encoding.xml"
 GPU_FIELDS = (
@@ -57,7 +67,7 @@ ML_QUEUES = ("faceDetection", "smartSearch", "ocr")
 # because the SQL/psql quoting does not survive nested shells otherwise.
 IMMICH_CFG_SCRIPT = r"""docker exec immich_postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atc "select value from system_metadata where key = '"'"'system-config'"'"';"'"""
 
-DEFAULTS = {"enabled": True, "llama_idle_min": 60, "ml_idle_min": 0, "last_action": None, "last_action_at": None, "revoked": {}}
+DEFAULTS = {"enabled": True, "llama_idle_min": 60, "ml_idle_min": 0, "last_action": None, "last_action_at": None, "revoked": {}, "jellyfin_before_llm": None}
 
 # Sessions are signed with a key derived from the credentials, so rotating
 # either one logs every browser out and no extra secret has to be provisioned.
@@ -275,6 +285,25 @@ def jellyfin_ensure_accel(accel):
     return jellyfin_set_accel(accel)
 
 
+def jellyfin_release_p100():
+    """Move Jellyfin off the P100 while keeping hardware transcoding: the iGPU.
+
+    The chosen accel is remembered so the way back puts Jellyfin on the device it
+    had before, instead of assuming NVENC.
+    """
+    current = jellyfin_accel()
+    if current in ("nvenc", "vaapi"):
+        state["jellyfin_before_llm"] = current
+    return jellyfin_ensure_accel(JELLYFIN_FALLBACK)
+
+
+def jellyfin_reclaim_p100():
+    """Undo jellyfin_release_p100() once llama.cpp gives the card back."""
+    accel = state.get("jellyfin_before_llm") or "nvenc"
+    state["jellyfin_before_llm"] = None
+    return jellyfin_ensure_accel(accel)
+
+
 def auto_snapshot():
     return {
         "enabled": state["enabled"],
@@ -315,17 +344,20 @@ def auto_tick():
         if state["llama_idle_min"] and idle > state["llama_idle_min"] * 60:
             unloaded = llama_unload_all()
             if unloaded:
+                back = {"accel": state.get("jellyfin_before_llm") or "nvenc"}
                 with contextlib.suppress(HTTPException):
                     immich_ml("start")
-                    jellyfin_ensure_accel("nvenc")
+                    back = jellyfin_reclaim_p100()
                 llm_blocked = False
-                record_action("GPU idle %d min: unloaded %s, Immich ML + Jellyfin on" % (idle // 60, [u["model"] for u in unloaded]))
+                record_action("GPU idle %d min: unloaded %s, Immich ML on, Jellyfin back to %s"
+                              % (idle // 60, [u["model"] for u in unloaded], JELLYFIN_DEVICES.get(back.get("accel"), back.get("accel"))))
         elif not llm_blocked:
             with contextlib.suppress(HTTPException):
-                immich_ml("stop")
-                jellyfin_ensure_accel("none")
+                immich_ml("stop")        # Immich ML is CUDA: it needs the P100
+                jellyfin_release_p100()  # Jellyfin keeps transcoding on the iGPU
             llm_blocked = True
-            record_action("LLM in use: Immich ML stopped, Jellyfin off (full VRAM)")
+            record_action("LLM in use: Immich ML stopped, Jellyfin on %s (P100 free for llama.cpp)"
+                          % JELLYFIN_DEVICES[JELLYFIN_FALLBACK])
     else:
         llm_blocked = False
 
@@ -435,21 +467,24 @@ def set_mode(mode: str, _: str = Depends(require_auth)):
     global llm_blocked
     result = {}
     if mode == "llm":
-        result["immich_ml"] = immich_ml("stop")
-        result["jellyfin"] = jellyfin_ensure_accel("none")
+        result["immich_ml"] = immich_ml("stop")        # CUDA: it needs the P100
+        result["jellyfin"] = jellyfin_release_p100()   # iGPU keeps transcoding
         llm_blocked = True
-        record_action("mode LLM: Immich ML stopped, Jellyfin off (full VRAM)")
+        record_action("mode LLM: Immich ML stopped, Jellyfin on %s (P100 free for llama.cpp)"
+                      % JELLYFIN_DEVICES[JELLYFIN_FALLBACK])
     elif mode == "media":
         result["llama"] = llama_unload_all()
         result["immich_ml"] = immich_ml("start")
         result["jellyfin"] = jellyfin_ensure_accel("nvenc")
+        state["jellyfin_before_llm"] = None
         llm_blocked = False
-        record_action("mode Media: llama.cpp unloaded, Immich ML + Jellyfin on")
+        record_action("mode Media: llama.cpp unloaded, Immich ML + Jellyfin (NVENC on the P100) on")
     elif mode == "balanced":
         result["immich_ml"] = immich_ml("start")
         result["jellyfin"] = jellyfin_ensure_accel("nvenc")
+        state["jellyfin_before_llm"] = None
         llm_blocked = False
-        record_action("mode Shared: Immich ML + Jellyfin on")
+        record_action("mode Shared: Immich ML + Jellyfin (NVENC on the P100, LLM not unloaded) on")
     else:
         raise HTTPException(400, "mode must be llm, media or balanced")
     return result

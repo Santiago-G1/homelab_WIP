@@ -53,12 +53,19 @@ It runs on the control node and reaches the PVE host over SSH to read
 `nvidia-smi` and set the power limit (125-250 W), and the containers to switch
 the card between **llama.cpp** and **Immich ML**:
 
-- **LLM**: stops Immich ML and turns Jellyfin off, leaving all 16 GiB to llama.cpp.
-- **Media**: unloads the llama.cpp models and turns Immich ML and Jellyfin (NVENC) on.
-- **Shared**: Immich ML and Jellyfin available, without unloading the LLM (only fits with a small one).
+Only Jellyfin's **NVENC** profile puts Jellyfin on the P100; **VAAPI** runs on
+the Intel iGPU, which is a different device and costs the P100 nothing. That is
+why the panel never drops Jellyfin to CPU when the LLM takes the card: it moves
+it to the iGPU (`JELLYFIN_FALLBACK`, `vaapi` by default; `none` restores the old
+CPU behaviour) and remembers the device it had, so releasing the LLM puts it
+back where it was.
+
+- **LLM**: stops Immich ML (CUDA: it needs the P100) and moves Jellyfin to the iGPU, never to CPU; the P100 ends up full for llama.cpp.
+- **Media**: unloads the llama.cpp models, starts Immich ML and puts Jellyfin back on the P100 (NVENC).
+- **Shared**: Immich ML and Jellyfin (NVENC) available, without unloading the LLM (only fits with a small one).
 
 While a llama.cpp model is loaded the panel gives it the whole card: Immich ML is
-stopped and Jellyfin's acceleration is set to `none` automatically. Both come
+stopped and Jellyfin's acceleration moves to the iGPU automatically, and both go
 back when the LLM is released. The panel and its stack live in
 `docker-compose/app-services/gpu-panel` (role `stacks`, host `devops`).
 

@@ -148,19 +148,25 @@
       El botón marcado refleja el estado real del sistema (se recalcula cada 5 s), no el último clic.
     </div>
     <div class="k" style="margin-top:6px">
-      <b>LLM</b>: apaga Immich ML y Jellyfin (accel off): toda la VRAM para llama.cpp.
-      <b>Medios</b>: descarga los modelos de llama.cpp y enciende Immich ML + Jellyfin (NVENC).
-      <b>Compartido</b>: Immich ML + Jellyfin activos sin descargar el LLM (cabe si el modelo es pequeño).
+      <b>LLM</b>: Immich ML se para (comparte la P100 con CUDA) y Jellyfin pasa a la iGPU (VAAPI):
+      la P100 queda para llama.cpp sin que Jellyfin se quede sin acelerar.
+      <b>Medios</b>: descarga los modelos de llama.cpp y enciende Immich ML + Jellyfin por NVENC (P100).
+      <b>Compartido</b>: Immich ML + Jellyfin NVENC sin descargar el LLM (cabe si el modelo es pequeño).
     </div>
   </div>
 
   <h2>Jellyfin</h2>
   <div class="card">
     <div class="k">Hardware acceleration actual: <b id="jf-accel" class="mono">—</b></div>
+    <div class="k" style="margin-top:6px">
+      NVENC usa la <b>P100</b> (la misma tarjeta que llama.cpp e Immich ML); VAAPI usa la
+      <b>iGPU Intel</b>, que es otro dispositivo. Si el LLM se queda con la P100, Jellyfin
+      baja solo a la iGPU, nunca a CPU.
+    </div>
     <div class="row" id="jf" style="margin-top:10px">
-      <button class="on" data-accel="nvenc">NVIDIA NVENC</button>
-      <button data-accel="vaapi">VAAPI (iGPU)</button>
-      <button class="warn" data-accel="none">Apagado (CPU)</button>
+      <button class="on" data-accel="nvenc">NVIDIA NVENC · P100</button>
+      <button data-accel="vaapi">VAAPI · iGPU Intel</button>
+      <button class="warn" data-accel="none">CPU (sin acelerar)</button>
     </div>
   </div>
 </main>
@@ -177,11 +183,18 @@ $('host').textContent = location.hostname + ' · GPU Control';
 document.title = location.hostname + ' · GPU Control';
 
 const MODES = {
-  llm: 'LLM (llama.cpp)',
-  media: 'Medios (Immich + Jellyfin)',
-  balanced: 'Compartido (LLM + medios)',
+  llm: 'LLM (P100 para llama.cpp)',
+  media: 'Medios (Immich ML + Jellyfin NVENC)',
+  balanced: 'Compartido (LLM + medios en la P100)',
+  igpu: 'Medios con Jellyfin en la iGPU',
   mixed: 'mixto / en transición',
 };
+
+// The P100 is the card being arbitrated (llama.cpp, Immich ML, Jellyfin NVENC);
+// VAAPI runs on the Intel iGPU, a different device.
+const DEVICES = {nvenc: 'P100 (NVENC)', vaapi: 'iGPU (VAAPI)', none: 'CPU'};
+const str = (v) => (typeof v === 'string' ? v : '');
+const deviceLabel = (a) => DEVICES[a] || a || '—';
 
 /* ---------------------------------------------------------------- feedback */
 function toast(text, kind, sticky) {
@@ -269,13 +282,16 @@ function human(sec) {
   return (sec / 3600).toFixed(1) + ' h';
 }
 
-// Which mode the machine is actually in, derived from what the probes report.
+// Which state the machine is really in, derived from what the probes report.
 function deriveMode(s) {
-  const ml = typeof s.immich_ml === 'string' ? s.immich_ml : '';
-  const jf = typeof s.jellyfin_accel === 'string' ? s.jellyfin_accel : '';
+  const ml = str(s.immich_ml);
+  const jf = str(s.jellyfin_accel);
   const loaded = (Array.isArray(s.llama) ? s.llama : []).filter(m => m.status === 'loaded').length;
-  if (s.auto && s.auto.llm_blocked) return 'llm';
-  if (ml === 'running' && jf === 'nvenc') return loaded ? 'balanced' : 'media';
+  // "LLM" means the P100 belongs to llama.cpp, and Immich ML (CUDA) is the only
+  // other P100 consumer that must stop. Where Jellyfin transcodes while that
+  // happens is not part of the decision: the iGPU is a different card.
+  if (ml === 'exited' || ml === 'created' || ml === 'paused') return 'llm';
+  if (ml === 'running') return jf === 'nvenc' ? (loaded ? 'balanced' : 'media') : 'igpu';
   return 'mixed';
 }
 
@@ -286,10 +302,10 @@ function paintState(s) {
   now.textContent = MODES[mode];
   now.className = 'pill ' + (mode === 'mixed' ? '' : 'acc');
 
-  const jf = typeof s.jellyfin_accel === 'string' ? s.jellyfin_accel : '';
+  const jf = str(s.jellyfin_accel);
   pressed('#jf button', (d) => d.accel === jf);
 
-  const ml = typeof s.immich_ml === 'string' ? s.immich_ml : '';
+  const ml = str(s.immich_ml);
   const running = ml === 'running';
   const stopped = !!ml && ml !== 'unknown' && !running;
   pressed('#ml button', (d) => (d.ml === 'start' && running) || (d.ml === 'stop' && stopped));
@@ -345,8 +361,10 @@ async function refresh() {
   $('idle-s').textContent = human(autoState.idle_seconds || 0);
   $('last-action').textContent =
     autoState.last_action ? `${autoState.last_action} (${autoState.last_action_at})` : '—';
+  const jfDev = deviceLabel(str(s.jellyfin_accel));
   $('llm-mode-state').textContent = autoState.llm_blocked
-    ? 'prioridad LLM: Immich ML y Jellyfin apagados' : 'medios activos (Immich ML + Jellyfin)';
+    ? `prioridad LLM: Immich ML parado (P100 para llama.cpp), Jellyfin en ${jfDev}`
+    : `medios activos: Immich ML en la P100, Jellyfin en ${jfDev}`;
 
   const llama = Array.isArray(s.llama) ? s.llama : [];
   const loaded = llama.filter(m => m.status === 'loaded');
@@ -363,8 +381,8 @@ async function refresh() {
 
   const ff = s.immich_ffmpeg || {};
   $('imm-ff').textContent = ff.accel ? `${ff.accel} (${ff.preferredHwDevice || 'auto'})` : '—';
-  $('jf-accel').textContent =
-    typeof s.jellyfin_accel === 'string' ? s.jellyfin_accel : 'error';
+  const jfNow = str(s.jellyfin_accel);
+  $('jf-accel').textContent = jfNow ? `${jfNow} · ${deviceLabel(jfNow)}` : 'error';
 
   // While an action is in flight the optimistic ring stays; once it finishes the
   // real state wins (so a failed switch visibly falls back).
@@ -410,7 +428,7 @@ document.querySelectorAll('#modes button').forEach((b) => {
 document.querySelectorAll('#jf button').forEach((b) => {
   b.onclick = () => {
     const accel = b.dataset.accel;
-    if (last && last.jellyfin_accel === accel) return skip('Jellyfin ya usa ' + accel);
+    if (last && last.jellyfin_accel === accel) return skip('Jellyfin ya usa ' + accel + ' · ' + deviceLabel(accel));
     pressed('#jf button', (d) => d.accel === accel);
     act(b, '/api/jellyfin/accel/' + accel, null, {group: '#jf', pending: 'Jellyfin → ' + accel + ' (reinicia el contenedor)…', done: 'Jellyfin: ' + accel});
   };
