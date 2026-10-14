@@ -51,3 +51,7 @@ Thumbs.db
 *.log
 *.tmp
 *.bak
+
+# PYTHON
+__pycache__/
+*.pyc
