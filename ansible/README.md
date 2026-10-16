@@ -11,6 +11,7 @@ Docker Compose projects from `docker-compose/` are deployed to `/opt/docker/<sta
 | `inventories/group_vars/all/main.yml` | Shared settings (timezone, packages, paths). |
 | `inventories/group_vars/all/vault.yml` | Vault-encrypted secrets rendered into each stack `.env`. |
 | `inventories/host_vars/<host>.yml` | Stacks deployed on that container, with their env and data dirs. |
+| `inventories/host_vars/llm/models.yml` | The only file to edit to change which local models are served. |
 | `roles/common` | Timezone, base packages, admin SSH keys, sshd hardening. |
 | `roles/docker` | Docker Engine from the official Debian repository. |
 | `roles/stacks` | Syncs a Compose project, renders `.env`, creates data dirs, brings it up. |
@@ -74,59 +75,17 @@ Limit a run with `--limit <host>` and preview with `--check --diff`.
 
 ## Adding a local model
 
-llama.cpp runs in **router mode**: it loads whichever `.gguf` in
-`llamacpp_models_dir` (`/mnt/data/models` on the AI host, `/tank/cloud/llm` on
-the PVE host) a request names. Adding a model is therefore data, not code —
-there is nothing to compile.
+Models are declared once in `inventories/host_vars/llm/models.yml`; LiteLLM's
+model list, the router presets and ZeroClaw's model are all derived from it. Add
+the `.gguf` to the AI host's models directory, add its name to that file, then:
 
-1. Put the `.gguf` in the models directory. From the control node:
+```bash
+ansible-playbook playbooks/llm-models.yml   # no rebuild
+```
 
-   ```bash
-   scp my-model.gguf root@192.168.10.26:/mnt/data/models/
-   ```
-
-2. Advertise it in `inventories/host_vars/llm.yml` under `litellm_models`. The
-   name is the **file name without `.gguf`**, exactly as the router prints it
-   (`curl http://192.168.10.26:8080/v1/models`):
-
-   ```yaml
-   litellm_models:
-     - my-model
-   ```
-
-3. Optional: size it for the P100 in `llamacpp_model_overrides`, keyed by the
-   same name. Without an entry it inherits `llamacpp_global_args` (8K context),
-   which almost always fits; the VRAM-hungry presets are the 64K + `draft-mtp`
-   ones. Only the top level of the models directory is addressable — a `.gguf`
-   in a subdirectory is published as a directory entry, not a model.
-
-4. Deploy **without rebuilding llama.cpp**:
-
-   ```bash
-   ansible-playbook playbooks/llm-models.yml
-   ```
-
-   This re-renders the router preset, restarts `llama-server` only if it
-   changed, re-deploys the LiteLLM and ZeroClaw stacks (the agent config embeds
-   the model name too) and reconciles the agent's virtual-key access. A full
-   `site.yml --limit llm` is only needed for a new llama.cpp/CUDA version or
-   changed build flags — and it re-fetches `llamacpp_version` (`master` by
-   default), so it can trigger a long compile.
-
-5. To point the agent at it, set `zeroclaw_model` (and `zeroclaw_litellm_models`)
-   in `host_vars/llm.yml` to that name and run the same playbook. LiteLLM keeps a
-   virtual key's allowlist in its database, but the `stacks` role reassigns it
-   from the repo on every deploy, so no dashboard surgery is needed.
-
-### The P100 is shared
-
-The card is 16 GB and llama.cpp is not the only tenant: Immich ML (CUDA, ~6.8 GB
-when loaded) takes the whole GPU, and Jellyfin can use NVENC. The `gpu-panel` on
-the control node arbitrates. A model whose **weights alone exceed the VRAM left
-free** fails to load with `cudaMalloc failed: out of memory`; on a cold start
-with Immich ML running, switching the panel to `llm` mode first (which stops
-Immich ML) avoids the race. `--models-max 1` means only one model is resident at
-any time.
+A full `site.yml --limit llm` is only for a new llama.cpp/CUDA version or changed
+build flags, and it can trigger a long compile. Full guide, including the shared
+P100 and the agent's model: `docs/llm-models.md`.
 
 ## Secrets
 

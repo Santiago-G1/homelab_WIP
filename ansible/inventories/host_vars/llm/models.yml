@@ -1,0 +1,53 @@
+---
+# The single place to add, remove or switch local models. Everything else in
+# this host (LiteLLM's model list, the router presets, the agent's model) is
+# derived from here. See docs/llm-models.md.
+#
+#   name  the .gguf file name WITHOUT its extension; must exist in
+#         llamacpp_models_dir and is the name clients send.
+#   args  per-model llama-server options (default: llamacpp_global_args).
+#   agent set on exactly one model: the one ZeroClaw talks to.
+llm_models:
+  - name: Qwen3.5-9B-UD-Q4_K_XL
+  - name: Qwen3.6-35B-A3B-UD-IQ3_S
+  - name: Qwen3.8-27B-UD-IQ4_XS
+  - name: Qwen3.8-27B-GSQ-RCO-IQ3_S-mtp
+    args:
+      n-gpu-layers: 99
+      ctx-size: 65536
+      cache-type-k: q8_0
+      cache-type-v: q8_0
+      flash-attn: "on"
+      fit: "off"
+      parallel: 1
+      batch-size: 2048
+      ubatch-size: 512
+      spec-type: draft-mtp
+      spec-draft-n-max: 3
+      spec-draft-ngl: 99
+      spec-draft-type-k: q8_0
+      spec-draft-type-v: q8_0
+  - name: Swift-1.5-Qwen3.8-27B-GSQ-RCO-IQ3_S-mtp
+    agent: true
+    args:
+      n-gpu-layers: 99
+      ctx-size: 65536
+      cache-type-k: q8_0
+      cache-type-v: q8_0
+      flash-attn: "on"
+      fit: "off"
+      parallel: 1
+      batch-size: 2048
+      ubatch-size: 512
+      spec-type: draft-mtp
+      spec-draft-n-max: 3
+      spec-draft-ngl: 99
+      spec-draft-type-k: q8_0
+      spec-draft-type-v: q8_0
+
+# Derived from llm_models; edit the list above instead.
+litellm_models: "{{ llm_models | map(attribute='name') | list }}"
+llamacpp_model_overrides: >-
+  {{ llm_models | selectattr('args', 'defined')
+     | items2dict(key_name='name', value_name='args') }}
+zeroclaw_model: "{{ (llm_models | selectattr('agent', 'defined') | first).name }}"

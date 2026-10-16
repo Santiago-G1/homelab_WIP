@@ -1,56 +1,31 @@
-# ZeroClaw runtime configuration.
-#
-# Rendered by Ansible (roles/stacks) from
-# roles/stacks/templates/zeroclaw-config.toml.j2 into
-# /opt/docker/zeroclaw/data/.zeroclaw/config.toml. Do not edit the rendered
-# copy by hand: it is rewritten on every `site.yml` run (and the daemon adds
-# pairing tokens to it, so expect drift in that one field).
-#
-# Secrets are NOT here. The LiteLLM key is injected at startup as
-# ZEROCLAW_providers__models__litellm__local__api_key, see docker-compose.yml.
+# Rendered by Ansible (roles/stacks) into /zeroclaw-data/.zeroclaw/config.toml.
+# Secrets arrive as ZEROCLAW_* env overrides, never here. The daemon adds
+# pairing tokens to this file, so expect drift there. See README.md.
 schema_version = 3
 
-# ── Model provider ──────────────────────────────────────────────────────────
-# The LiteLLM proxy runs on this same container, so the alias addresses it by
-# container name over the shared `ai-stack` network: no host round-trip and no
-# dependency on the published port. `api_key` is absent by design (see above).
 [providers.models.litellm.local]
 uri = "{{ zeroclaw_litellm_uri }}"
 model = "{{ zeroclaw_model }}"
-# llama.cpp serves this model with a 64K KV cache (P100 VRAM is the cap), and
-# the preset allows ~14 tok/s. The runtime keeps its own smaller input budget
-# below instead of filling the window with history.
+# llama.cpp serves a 64K window; the runtime keeps a smaller input budget.
 context_window = 65536
 max_tokens = 8192
 
-# ── Agent ───────────────────────────────────────────────────────────────────
 [agents.default]
 enabled = true
 model_provider = "litellm.local"
 risk_profile = "sandboxed"
 runtime_profile = "agent"
-# Once any agent declares a channel binding, an enabled channel that no agent
-# lists is simply not started. Being explicit here is what keeps the bot from
-# running under whichever agent happens to be the default.
+# An enabled channel no agent lists is not started, so be explicit.
 channels = ["telegram.home"]
 
 [agents.default.workspace]
-# Deliberately a host path: docker-compose.yml bind-mounts
-# /opt/docker/zeroclaw/workspace at the same location, which is what lets the
-# sandbox container mount the workspace by path (the Docker daemon resolves it
-# on the host, not inside the ZeroClaw container).
+# Must match the compose bind mount: the sandbox mounts it by host path.
 path = "/opt/docker/zeroclaw/workspace"
 
-# ── Risk profile: the sandbox boundary ──────────────────────────────────────
 [risk_profiles.sandboxed]
-# `supervised` asks the operator (through the gateway) before a risky tool
-# call. The sandbox below is what actually confines a command once it runs, so
-# the two knobs are independent: loosening one does not loosen the other.
+# `supervised` asks before risky tools; the sandbox confines what runs.
 level = "supervised"
 workspace_only = true
-# Every shell command runs in a throwaway container: no network, 512 MB RAM,
-# 1 CPU, workspace mounted read-only. Landlock needs no Docker socket at all
-# but is blocked by the container's seccomp profile; see README.md.
 sandbox_enabled = true
 sandbox_backend = "docker"
 sandbox_image = "zeroclaw-sandbox:1"
@@ -58,30 +33,16 @@ sandbox_image = "zeroclaw-sandbox:1"
 [runtime_profiles.agent]
 agentic = true
 max_tool_iterations = 12
-# Well under the 64K the model advertises: on this P100 a long transcript costs
-# more in prompt eval than it buys.
-max_context_tokens = 24000
+max_context_tokens = 24000   # well under the 64K the model advertises
 
-# ── Channels ────────────────────────────────────────────────────────────────
-# Telegram over long polling: no public URL, no inbound port. The bot token is
-# the one field the channel needs and it is NOT here — it arrives at startup as
-# ZEROCLAW_channels__telegram__home__bot_token, exactly like the provider key.
 [channels.telegram.home]
 enabled = true
 
-# Inbound authorization for that channel. An empty peer set denies everyone
-# (and is what makes the channel mint a first-user pairing code instead), so
-# the owner is pre-authorized by numeric Telegram user ID: it survives a
-# username change, which a handle does not.
+# Empty peers deny everyone; the owner is pre-authorized by numeric ID.
 [peer_groups.telegram_home]
 channel = "telegram.home"
 external_peers = ["{{ zeroclaw_telegram_user_id }}"]
 
-# ── Gateway ─────────────────────────────────────────────────────────────────
-# host and allow_public_bind are pinned again by the compose environment
-# (env overrides win over this file). `require_pairing` is what keeps the
-# listener authenticated — a new code comes from
-#   docker compose exec zeroclaw zeroclaw gateway get-paircode --new
 [gateway]
 port = 42617
 host = "0.0.0.0"

@@ -14,10 +14,8 @@
   changed_when: network_create.rc == 0
   failed_when: network_create.rc != 0 and 'already exists' not in network_create.stderr
 
-# `stacks_only` narrows the loop to a subset of this host's stacks, which is
-# what lets playbooks/llm-models.yml re-deploy just the LiteLLM stack without
-# touching the rest. Empty/undefined means "every stack", so site.yml is
-# unaffected.
+# `stacks_only` narrows the loop to a subset of this host's stacks (used by
+# playbooks/llm-models.yml). Empty/undefined means every stack.
 - name: Deploy the stacks declared for this host
   ansible.builtin.include_tasks: stack.yml
   loop: >-

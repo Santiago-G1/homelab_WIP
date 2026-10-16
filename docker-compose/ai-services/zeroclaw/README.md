@@ -116,13 +116,10 @@ config keys do move between releases.
 
 ## Known limits
 
-* The provider alias follows `zeroclaw_model` in `host_vars/llm.yml`, and the
-  LiteLLM virtual key is scoped to `zeroclaw_litellm_models` (same file). The
-  `stacks` role reassigns the key's allowlist through the admin API on every
-  deploy, so switching or adding a model for the agent is a value change
-  followed by `ansible-playbook playbooks/llm-models.yml` — never dashboard
-  surgery. The name must match the router's, i.e. the `.gguf` file name without
-  its extension.
+* The provider model is the `agent: true` entry in
+  `host_vars/llm/models.yml`; the `stacks` role reconciles the LiteLLM key's
+  scope on every deploy. Change the entry and run
+  `ansible-playbook playbooks/llm-models.yml`.
 * Public exposure is a Cloudflare tunnel decision, not a Caddy one: the route
   above is internal until `agent.<domain>` is added as a public hostname in the
   tunnel (Zero Trust → Networks → Tunnels).

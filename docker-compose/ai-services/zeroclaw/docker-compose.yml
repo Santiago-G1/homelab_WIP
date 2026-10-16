@@ -1,72 +1,34 @@
-# ZeroClaw — self-hosted agent runtime for the AI container, next to the
-# LiteLLM proxy it talks to (docker-compose/ai-services/litellm).
-#
-# Two images are built from Dockerfiles in this stack directory:
-#   * `zeroclaw`      — the upstream Debian image plus the Docker CLI. The CLI
-#                       is what the risk profile's Docker sandbox shells out to
-#                       for every sandboxed command; upstream does not ship it.
-#   * `zeroclaw-sandbox` — the throwaway container those commands run in. It is
-#                       declared with a `profiles` entry so `up` never starts
-#                       it: the entry exists only so `build` can produce the
-#                       image (Ansible drives it through `build_services`).
-#
-# No secret lives in this file. The LiteLLM virtual key reaches the container
-# as the schema-mirror env override below, interpolated from the stack `.env`
-# that Ansible renders from the encrypted vault: the two secrets, and only
-# they, are declared in ansible/inventories/group_vars/all/vault.yml.
-
+# ZeroClaw agent runtime, next to the LiteLLM proxy it talks to.
+# See README.md for the sandbox model and the trade-offs.
 services:
   zeroclaw:
     image: zeroclaw:debian-docker
     build:
       context: ./image
     container_name: zeroclaw
-    # The daemon runs as root on purpose: it writes its own config back when a
-    # client pairs, and it needs /var/run/docker.sock for the sandbox. That
-    # socket is the real trust boundary here, so a non-root user would only add
-    # GID juggling without taking anything away. See README.md.
+    # Root on purpose: it rewrites its config on pairing and needs the Docker
+    # socket for the sandbox, which is the real trust boundary here.
     user: "0:0"
     restart: unless-stopped
 
     environment:
-      # ── Model provider ────────────────────────────────────────────────────
-      # config.toml carries the alias (uri + model) but never the credential:
-      # this override injects it into the in-memory config at startup, so the
-      # rendered config on disk stays secret-free. Grammar is
-      # ZEROCLAW_<dotted.path.with.__.separators>.
+      # Secrets only, as schema-mirror overrides (ZEROCLAW_<a.b.c>); the
+      # rendered config.toml stays secret-free.
       - ZEROCLAW_providers__models__litellm__local__api_key=${ZEROCLAW_LITELLM_API_KEY:?ZEROCLAW_LITELLM_API_KEY is required}
-
-      # ── Telegram channel ──────────────────────────────────────────────────
-      # Second secret, second override, same rule: the bot token is never in
-      # the rendered config.toml either. Token comes from @BotFather.
       - ZEROCLAW_channels__telegram__home__bot_token=${ZEROCLAW_TELEGRAM_BOT_TOKEN:?ZEROCLAW_TELEGRAM_BOT_TOKEN is required}
-
-      # ── Gateway ───────────────────────────────────────────────────────────
-      # Listen on the container interface so the published port can reach it.
-      # `allow_public_bind` only silences the startup warning; the boundary is
-      # `require_pairing = true` in config.toml plus the published port.
       - ZEROCLAW_gateway__host=0.0.0.0
       - ZEROCLAW_gateway__allow_public_bind=true
 
     volumes:
-      # Config (config.toml, pairing state) and instance data (SQLite memories).
-      # The image keeps its dashboard under /usr/share, outside this mount, so
-      # the mount does not hide it.
       - ./data:/zeroclaw-data
-      # Agent workspace. The path is IDENTICAL here and on the host on purpose:
-      # the sandbox backend bind-mounts the workspace by path and the Docker
-      # daemon resolves that path on the host, not inside this container.
+      # Same absolute path as on the host: the sandbox bind-mount is resolved
+      # by the host daemon.
       - ./workspace:/opt/docker/zeroclaw/workspace
-      # The Docker sandbox backend launches `docker run` per sandboxed command.
-      # README.md documents the trade-off and the socket-free alternative
-      # (sandbox_backend = "landlock").
+      # Needed by the Docker sandbox backend (one `docker run` per command).
       - /var/run/docker.sock:/var/run/docker.sock
 
     ports:
-      # Published on every interface like the other stacks in this repo; the
-      # gateway is authenticated by pairing, and Caddy is the intended entry
-      # point (agent.<domain> -> this port).
-      - "42617:42617"
+      - "42617:42617"   # pairing required; Caddy is the intended entry point
 
     networks:
       - ai-stack
@@ -77,10 +39,7 @@ services:
           cpus: "2"
           memory: 1G
 
-    # The released upstream image declares no HEALTHCHECK, so without this
-    # `docker compose ps` only ever shows a bare "Up". `zeroclaw status
-    # --format=exit-code` fails when the daemon cannot answer, which makes the
-    # gateway and the channel loop visible as a health state.
+    # The upstream image declares no HEALTHCHECK.
     healthcheck:
       test: ["CMD", "zeroclaw", "status", "--format=exit-code"]
       interval: 60s
@@ -88,9 +47,7 @@ services:
       retries: 3
       start_period: 30s
 
-  # Not a running service: this entry owns the sandbox image build. Ansible
-  # runs `docker compose --profile tools build zeroclaw sandbox` before `up`,
-  # and the profile keeps the service out of every `up`.
+  # Owns the sandbox image build only; the profile keeps it out of `up`.
   sandbox:
     image: zeroclaw-sandbox:1
     build:
@@ -99,8 +56,5 @@ services:
     restart: "no"
 
 networks:
-  # Created by the LiteLLM stack's Ansible entry (host_vars/llm.yml). Joining
-  # it is what lets the provider alias address the proxy by container name
-  # instead of going out to the published port.
   ai-stack:
     external: true

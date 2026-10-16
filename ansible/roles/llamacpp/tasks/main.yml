@@ -1,9 +1,7 @@
 ---
-# Source build of llama.cpp. `llamacpp_skip_build: true` (set by
-# playbooks/llm-models.yml) skips this whole block, which is what makes adding
-# or removing a model a fast, build-free operation: only the router preset and
-# the systemd unit below are re-rendered. A full `site.yml` run still builds
-# (and re-builds whenever `llamacpp_version` moves).
+# Source build. `llamacpp_skip_build: true` (playbooks/llm-models.yml) skips this
+# whole block, so model changes never re-fetch or recompile. See
+# docs/llamacpp-build.md.
 - name: Build llama.cpp from source
   when: not (llamacpp_skip_build | default(false))
   block:
@@ -14,12 +12,7 @@
         update_cache: true
         cache_valid_time: 3600
 
-    # apt on trixie verifies repository signatures with Sequoia, whose policy
-    # stopped accepting SHA1 signatures on 2026-02-01, while NVIDIA still signs
-    # the CUDA repository key with SHA1: without this, apt rejects the whole
-    # repository and no CUDA package can be installed. See the file header for
-    # the tradeoff. Sequoia only reads the policy from this path when it exists,
-    # and nothing else creates the directory in a plain container.
+    # Sequoia rejects the SHA1-signed NVIDIA repo key on trixie.
     - name: Create the Sequoia policy directory
       ansible.builtin.file:
         path: /etc/crypto-policies/back-ends
@@ -37,27 +30,16 @@
         deb: "https://developer.download.nvidia.com/compute/cuda/repos/{{ cuda_repo_distro }}/x86_64/cuda-keyring_1.1-1_all.deb"
         state: present
 
-    # Toolkit only (nvcc + headers); the driver comes from roles/nvidia.
+    # Toolkit only; the driver comes from roles/nvidia.
     - name: Install the CUDA toolkit
       ansible.builtin.apt:
         name: "{{ cuda_toolkit_package }}"
         state: present
         update_cache: true
-        # The CUDA repository lives behind an Akamai edge that the lab's DNS
-        # does not always resolve to a reachable answer, and apt fails the whole
-        # update when any configured repository is unreachable: keep the cached
-        # indexes.
         cache_valid_time: 3600
 
-    # CUDA 12.x declares sinpi/cospi/sinpif/cospif in crt/math_functions.h
-    # without an exception specification, while glibc 2.41 (trixie) declares the
-    # same C23 functions noexcept(true). g++ and clang++ accept the
-    # redeclaration, but nvcc's cudafe++ frontend refuses to compile any
-    # translation unit that includes <math.h> ("exception specification is
-    # incompatible"), i.e. every CUDA file. The CUDA declarations get the
-    # matching specification; requiring the closing ";" in the pattern keeps the
-    # task idempotent, and a NVIDIA package upgrade that restores the original
-    # header is re-patched on the next run.
+    # glibc 2.41 declares the C23 sinpi/cospi noexcept; CUDA 12.x does not and
+    # nvcc refuses every TU that includes <math.h>. See docs/llamacpp-build.md.
     - name: Give the CUDA sinpi/cospi declarations glibc 2.41's exception specification
       ansible.builtin.replace:
         path: "{{ llamacpp_cuda_root }}/targets/x86_64-linux/include/crt/math_functions.h"
@@ -85,9 +67,7 @@
         path: /opt/llama.cpp/build/bin/llama-server
       register: llamacpp_bin
 
-    # A link interrupted by a crash leaves a truncated binary whose mtime is
-    # newer than every object file, so make would keep treating it as up to date
-    # and the service would fail to exec it ("Exec format error").
+    # A truncated binary is newer than its objects, so make would skip it.
     - name: Drop a truncated llama-server binary
       ansible.builtin.file:
         path: /opt/llama.cpp/build/bin/llama-server
@@ -107,7 +87,6 @@
       when: llamacpp_rebuild
       changed_when: true
 
-    # nvcc is memory hungry and the container has 12 GB: keep the job count low.
     - name: Compile
       ansible.builtin.command:
         argv: >-
@@ -120,8 +99,7 @@
       changed_when: true
       notify: restart llama-server
 
-# Outside the build block: the service runs as this user, and the model-only
-# path (llamacpp_skip_build) still has to guarantee it exists.
+# Outside the block: the service runs as this user, and llm-models.yml needs it.
 - name: Service user
   ansible.builtin.user:
     name: llama
@@ -137,10 +115,7 @@
     state: directory
     mode: "0755"
 
-# The router loads whichever .gguf in llamacpp_models_dir a request names, so a
-# new model needs no compile: drop the file in the models directory, add it to
-# `litellm_models` (and optionally a `llamacpp_model_overrides` block) in
-# host_vars/llm.yml, then run playbooks/llm-models.yml.
+# Per-model options come from llm_models in host_vars/llm/models.yml.
 - name: Render the router preset
   ansible.builtin.template:
     src: models.ini.j2

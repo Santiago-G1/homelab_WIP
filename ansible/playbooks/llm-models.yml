@@ -1,17 +1,7 @@
 ---
-# Fast path for local model changes: add or remove a llama.cpp model without
-# re-fetching or recompiling the source. It runs only the preset/service half of
-# roles/llamacpp (`llamacpp_skip_build`) and re-deploys the AI host's Compose
-# stacks, so the LiteLLM model list, the agent key's access and ZeroClaw's
-# `zeroclaw_model` are all reconciled from host_vars.
-#
-#   cd ansible
-#   ansible-playbook playbooks/llm-models.yml
-#
-# The .gguf itself must already be in `llamacpp_models_dir`
-# (/mnt/data/models = /tank/cloud/llm on the PVE host). See "Adding a local
-# model" in README.md. A full build — new llama.cpp, new CUDA, new flags — is a
-# `site.yml --limit llm` job instead.
+# Model changes without recompiling llama.cpp: skips the source build in
+# roles/llamacpp and re-deploys only the LiteLLM and ZeroClaw stacks on the AI
+# host. Models are declared in host_vars/llm/models.yml; see docs/llm-models.md.
 - name: Local model changes on the AI host (no rebuild)
   hosts: ai
   vars:
