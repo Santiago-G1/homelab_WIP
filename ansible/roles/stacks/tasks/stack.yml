@@ -5,6 +5,24 @@
     state: directory
     mode: "0755"
 
+# A file Ansible renders (a `files` dest) must not exist as a directory in the
+# Compose source: rsync replaces the bind-mounted file on the host with that
+# directory and the stack fails to start ("not a directory: Are you trying to
+# mount a directory onto a file"). Empty directories are invisible to git,
+# which is how one slipped in and took Blocky down; fail loudly instead.
+- name: "{{ stack.name }} | assert no rendered file is a directory in the source"
+  ansible.builtin.assert:
+    that: not ((compose_src_root ~ '/' ~ stack.src ~ '/' ~ item.dest) is directory)
+    fail_msg: >-
+      {{ stack.src }}/{{ item.dest }} is a directory in the repo, but Ansible
+      renders it as a file: delete it (empty directories are not tracked by
+      git) or drop the `files` entry.
+  loop: "{{ stack.files | default([]) }}"
+  loop_control:
+    label: "{{ item.dest }}"
+  delegate_to: localhost
+  when: stack.files is defined
+
 # rsync (not copy) so the rendered .env is never overwritten by the repo's
 # local .env, which would make the role flap between the two files.
 - name: "{{ stack.name }} | sync the Compose project"
@@ -85,3 +103,31 @@
     chdir: "{{ stacks_root }}/{{ stack.name }}"
   when: stack_files.changed | default(false) or stack_sync.changed | default(false)
   changed_when: true
+
+# LiteLLM stores a virtual key's model allowlist in its Postgres database, not
+# in config.yaml, so re-deploying the stack alone cannot widen (or narrow) what
+# a client may call. This reconciles each declared `agent_keys` entry against
+# the repo through the admin API; the proxy is up by now (it is started above),
+# and the call is a full state assignment, so it never reports a change. If the
+# proxy is still migrating its schema, retry until it answers.
+- name: "{{ stack.name }} | reconcile the virtual keys' model access"
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ stack.admin_port | default(4000) }}/key/update"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ vault_litellm_master_key }}"
+    body_format: json
+    body:
+      key: "{{ item.value }}"
+      models: "{{ item.models }}"
+    status_code: [200]
+  loop: "{{ stack.agent_keys | default([]) }}"
+  loop_control:
+    label: agent key
+  register: key_reconcile
+  until: key_reconcile is succeeded
+  retries: 12
+  delay: 5
+  no_log: true
+  changed_when: false
+  when: stack.agent_keys is defined
