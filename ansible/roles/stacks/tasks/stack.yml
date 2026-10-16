@@ -52,6 +52,22 @@
     label: "{{ item.dest }}"
   register: stack_files
 
+# Images built from a Dockerfile in the project (a thin layer over an upstream
+# image, or an image the service never runs directly). Services gated behind a
+# Compose profile are built here on purpose: the profile keeps them out of
+# `up`, and only their image is wanted. BuildKit prints its progress to stderr
+# and reuses its cache, so the task reports changed only when a layer was
+# actually rebuilt.
+- name: "{{ stack.name }} | build the images declared for the stack"
+  ansible.builtin.command:
+    cmd: >-
+      docker compose --profile {{ stack.build_profile | default('tools') }}
+      build {{ stack.build_services | join(' ') }}
+    chdir: "{{ stacks_root }}/{{ stack.name }}"
+  when: (stack.build_services | default([])) | length > 0
+  register: stack_build
+  changed_when: "'Successfully built' in stack_build.stdout"
+
 - name: "{{ stack.name }} | bring the stack up"
   ansible.builtin.command:
     cmd: "docker compose up -d --remove-orphans{{ ' --build' if stack.build | default(false) else '' }}"

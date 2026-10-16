@@ -16,3 +16,4 @@ proxy_checks:
   - { host: "grafana.{{vault_domainname_hs}}" }
   - { host: "litellm.{{vault_domainname_hs}}", path: /health/liveliness }
   - { host: "gpu.{{vault_domainname_hs}}" }
+  - { host: "agent.{{vault_domainname_hs}}" }

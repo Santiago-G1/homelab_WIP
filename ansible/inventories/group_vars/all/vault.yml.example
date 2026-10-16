@@ -24,3 +24,9 @@ vault_slskd_password: SOULSEEK-PASSWORD
 vault_slskd_username: SOULSEEK-NAME
 vault_sync_mount: /path/to/data
 vault_tailscale_auth_key: CHANGE-ME
+
+# ZeroClaw -> LiteLLM virtual key (sk-...)
+vault_zeroclaw_litellm_api_key: sk-replace-me
+
+# ZeroClaw Telegram bot token from @BotFather (<id>:<secret>)
+vault_zeroclaw_telegram_bot_token: 123456789:replace-me

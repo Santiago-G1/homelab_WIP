@@ -32,6 +32,8 @@
                 calendar.{$DOMAINNAME_HS}  192.168.10.24:5232
 		
 		litellm.{$DOMAINNAME_HS}   192.168.10.26:4000
+		# ZeroClaw gateway; pairing (not the proxy) is what authenticates it.
+		agent.{$DOMAINNAME_HS}     192.168.10.26:42617
 		gpu.{$DOMAINNAME_HS}       192.168.10.11:8099
 
 		#work in progress

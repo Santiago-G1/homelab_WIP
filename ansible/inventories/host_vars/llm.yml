@@ -87,6 +87,20 @@ litellm_models:
 docker_networks:
   - ai-stack
 
+# ── ZeroClaw (agent runtime, next to the LiteLLM proxy) ─────────────────────
+# The LiteLLM virtual key in the vault grants exactly one model, so the agent
+# is pinned to it. Widening the choice is a LiteLLM key change, not a stack
+# change. The uri addresses the proxy by container name: both stacks share the
+# `ai-stack` network, so the call never leaves the Docker bridge.
+zeroclaw_model: Qwen3.8-27B-GSQ-RCO-IQ3_S-mtp
+zeroclaw_litellm_uri: http://litellm-proxy:4000/v1
+
+# Numeric Telegram user ID allowed to talk to the bot (peer_groups.telegram_home
+# in the rendered config). A numeric ID survives a username change; add more
+# entries in the template to authorize more people. The bot token itself lives
+# in the vault (vault_zeroclaw_telegram_bot_token).
+zeroclaw_telegram_user_id: "5221861970"
+
 stacks:
   - name: litellm
     src: ai-services/litellm
@@ -96,6 +110,23 @@ stacks:
       LITELLM_DB_PASSWORD: "{{ vault_litellm_db_password }}"
       LITELLM_MASTER_KEY: "{{ vault_litellm_master_key }}"
       LITELLM_SALT_KEY: "{{ vault_litellm_salt_key }}"
+
+  - name: zeroclaw
+    src: ai-services/zeroclaw
+    # Builds both Dockerfiles: the daemon image (upstream + Docker CLI, which
+    # the sandbox backend needs) and the sandbox image itself.
+    build_services: [zeroclaw, sandbox]
+    dirs:
+      # Runtime directories: gitignored, never touched by the sync task.
+      - { path: data/.zeroclaw }
+      - { path: workspace }
+    files:
+      # No secret in the rendered config: both credentials arrive through the
+      # compose environment (see the stack README).
+      - { template: zeroclaw-config.toml.j2, dest: data/.zeroclaw/config.toml }
+    env:
+      ZEROCLAW_LITELLM_API_KEY: "{{ vault_zeroclaw_litellm_api_key }}"
+      ZEROCLAW_TELEGRAM_BOT_TOKEN: "{{ vault_zeroclaw_telegram_bot_token }}"
 
 health_checks:
   - { name: litellm, url: "http://127.0.0.1:4000/health/liveliness" }
