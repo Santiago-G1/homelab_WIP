@@ -25,7 +25,6 @@ message arrived from.
 | Path | What it is |
 | --- | --- |
 | `docker-compose.yml` | The stack. Two images are built from it, no secret inside. |
-| `.env.example` | Template for the rendered `.env` (mode `0600`, gitignored). |
 | `image/Dockerfile` | Upstream `v0.8.5-debian` + the Docker CLI the sandbox needs. |
 | `sandbox/Dockerfile` | The toolchain every sandboxed command runs in. |
 

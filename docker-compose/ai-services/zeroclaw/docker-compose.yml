@@ -12,7 +12,8 @@
 #
 # No secret lives in this file. The LiteLLM virtual key reaches the container
 # as the schema-mirror env override below, interpolated from the stack `.env`
-# that Ansible renders from the encrypted vault. See .env.example.
+# that Ansible renders from the encrypted vault: the two secrets, and only
+# they, are declared in ansible/inventories/group_vars/all/vault.yml.
 
 services:
   zeroclaw:
