@@ -1,0 +1,205 @@
+---
+# Single source of truth for the web services published through Caddy.
+#
+# Every entry becomes a route in the Caddyfile
+# (roles/stacks/templates/caddy-Caddyfile.j2) and a card in the Glance
+# dashboard (roles/stacks/templates/glance.yml.j2), so a service is declared
+# once and the proxy, the availability list, the bookmarks and the release
+# tracker all follow from it.
+#
+#   host     subdomain label; the published name is <host>.<vault_domainname_hs>
+#   backend  address Caddy proxies to (the container's LAN address)
+#   title    name shown in the dashboard
+#   icon     di: dashboard-icons, sh: selfh.st, si: simple-icons, mdi: material
+#   group    dashboard section; the bookmarks and monitors are grouped by it
+#   path     path probed for availability, relative to the published name
+#   ok       extra status codes that count as reachable (see ok_status_codes)
+#   check    false keeps the service out of the availability widget
+#   verify   true adds it to the route checks in playbooks/verify.yml
+#   release  GitHub repository tracked by the "updates" widget
+#   note     comment rendered next to the route in the Caddyfile
+
+# A 401 or 403 still proves the service answered; it is what several of them
+# reply without a session. Everything below 400 counts as reachable anyway,
+# so only 4xx codes need to be listed.
+ok_status_codes: [401, 403]
+
+homelab_services:
+  # --- network -------------------------------------------------------------
+  - host: blocky
+    backend: 192.168.10.3:4000
+    title: Blocky (DNS)
+    icon: di:blocky
+    group: Network
+    path: /api/blocking/status
+    note: Blocky has no web UI; this serves its API, DoH (/dns-query) and metrics.
+    verify: true
+
+  # --- monitoring ----------------------------------------------------------
+  - host: home
+    backend: 192.168.10.10:8080
+    title: Dashboard
+    icon: di:glance
+    group: Monitoring
+    path: /api/healthz
+    note: Glance itself; /api/healthz answers without a session.
+    verify: true
+
+  - host: grafana
+    backend: 192.168.10.10:3000
+    title: Grafana
+    icon: di:grafana
+    group: Monitoring
+    path: /api/health
+    release: grafana/grafana
+    verify: true
+
+  # --- media ---------------------------------------------------------------
+  - host: movies
+    backend: 192.168.10.21:8096
+    title: Jellyfin
+    icon: di:jellyfin
+    group: Media
+    path: /health
+    release: jellyfin/jellyfin
+
+  - host: music
+    backend: 192.168.10.21:4533
+    title: Navidrome
+    icon: di:navidrome
+    group: Media
+    path: /ping
+    release: navidrome/navidrome
+    verify: true
+
+  - host: komga
+    backend: 192.168.10.21:25600
+    title: Komga
+    icon: di:komga
+    group: Media
+    release: gotson/komga
+
+  - host: immich
+    backend: 192.168.10.22:2283
+    title: Immich
+    icon: di:immich
+    group: Media
+    path: /api/server/ping
+    release: immich-app/immich
+    verify: true
+
+  - host: torrent
+    backend: 192.168.10.20:8080
+    title: qBittorrent
+    icon: di:qbittorrent
+    group: Media
+    release: qbittorrent/qBittorrent
+    verify: true
+
+  - host: sonarr
+    backend: 192.168.10.20:8989
+    title: Sonarr
+    icon: di:sonarr
+    group: Media
+    release: Sonarr/Sonarr
+
+  - host: radarr
+    backend: 192.168.10.20:7878
+    title: Radarr
+    icon: di:radarr
+    group: Media
+    release: Radarr/Radarr
+
+  - host: prowlarr
+    backend: 192.168.10.20:9696
+    title: Prowlarr
+    icon: di:prowlarr
+    group: Media
+    release: Prowlarr/Prowlarr
+
+  - host: bazarr
+    backend: 192.168.10.20:6767
+    title: Bazarr
+    icon: di:bazarr
+    group: Media
+    release: morpheus65535/bazarr
+
+  - host: seerr
+    backend: 192.168.10.20:5055
+    title: Seerr
+    icon: di:seerr
+    group: Media
+    release: seerr-team/seerr
+
+  - host: calibre
+    backend: 192.168.10.20:8082
+    title: Calibre-Web
+    icon: di:calibre-web
+    group: Media
+    release: janeczku/calibre-web
+
+  - host: slskd
+    backend: 192.168.10.20:5030
+    title: slskd
+    icon: di:slskd
+    group: Media
+    release: slskd/slskd
+
+  # --- apps ----------------------------------------------------------------
+  - host: password
+    backend: 192.168.10.23:8000
+    title: Vaultwarden
+    icon: di:vaultwarden
+    group: Apps
+    path: /alive
+    release: dani-garcia/vaultwarden
+    verify: true
+
+  - host: calendar
+    backend: 192.168.10.24:5232
+    title: Radicale
+    icon: di:radicale
+    group: Apps
+    note: CalDAV/CardDAV; / redirects to the collection listing.
+
+  - host: cloud
+    backend: 192.168.10.25:80
+    title: Filebrowser
+    icon: di:filebrowser
+    group: Apps
+    release: filebrowser/filebrowser
+
+  - host: sync
+    backend: 192.168.10.25:8384
+    title: Syncthing
+    icon: di:syncthing
+    group: Apps
+    path: /rest/noauth/health
+    release: syncthing/syncthing
+
+  # --- ai ------------------------------------------------------------------
+  - host: gpu
+    backend: 192.168.10.11:8099
+    title: GPU panel
+    icon: sh:nvidia
+    group: AI
+    path: /api/session
+    note: The GPU control panel; its dashboard widget reads the same API.
+    verify: true
+
+  - host: litellm
+    backend: 192.168.10.26:4000
+    title: LiteLLM
+    icon: sh:litellm
+    group: AI
+    path: /health/liveliness
+    release: BerriAI/litellm
+    verify: true
+
+  - host: agent
+    backend: 192.168.10.26:42617
+    title: ZeroClaw
+    icon: mdi:robot
+    group: AI
+    note: ZeroClaw gateway; pairing (not the proxy) is what authenticates it.
+    verify: true

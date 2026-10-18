@@ -1,19 +1,15 @@
 ---
+# The route table is generated from the service catalog, which is also what the
+# Glance dashboard reads: one place declares a service, both follow.
 stacks:
   - name: caddy
     src: network-services/caddy
+    files:
+      - { template: caddy-Caddyfile.j2, dest: Caddyfile }
     env:
       CLOUDFLARE_API_TOKEN: "{{ vault_cloudflare_api_token }}"
       DOMAINNAME_HS:        "{{vault_domainname_hs}}"
 
 # Reached through the proxy with real SNI, so these prove the route table works.
-proxy_checks:
-  - { host: "music.{{vault_domainname_hs}}" }
-  - { host: "password.{{vault_domainname_hs}}"}
-  - { host: "torrent.{{vault_domainname_hs}}" }
-  - { host: "immich.{{vault_domainname_hs}}" }
-  - { host: "blocky.{{vault_domainname_hs}}", path: /metrics } # Blocky has no UI
-  - { host: "grafana.{{vault_domainname_hs}}" }
-  - { host: "litellm.{{vault_domainname_hs}}", path: /health/liveliness }
-  - { host: "gpu.{{vault_domainname_hs}}" }
-  - { host: "agent.{{vault_domainname_hs}}" }
+# The catalog decides which services are worth probing.
+proxy_checks: "{{ homelab_services | selectattr('verify', 'defined') | selectattr('verify') | list }}"

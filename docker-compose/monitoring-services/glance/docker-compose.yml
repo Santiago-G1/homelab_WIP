@@ -1,0 +1,22 @@
+services:
+  glance:
+    # Pinned like every other stack: glance main moves fast.
+    image: glanceapp/glance:v0.8.7
+    container_name: glance
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - TZ=${TZ:-Etc/UTC}
+      # glance.yml keeps ${...} placeholders instead of secrets; these are the
+      # values it resolves at startup. The rendered .env is mode 600 and never
+      # versioned, so nothing here or in the config file is a secret.
+      - GLANCE_SECRET_KEY=${GLANCE_SECRET_KEY:?GLANCE_SECRET_KEY is required}
+      - GLANCE_ADMIN_PASSWORD=${GLANCE_ADMIN_PASSWORD:?GLANCE_ADMIN_PASSWORD is required}
+      # Read-only token for the GPU control panel's JSON API.
+      - GPU_PANEL_TOKEN=${GPU_PANEL_TOKEN:?GPU_PANEL_TOKEN is required}
+    volumes:
+      # The directory is mounted whole on purpose: a single bind-mounted file
+      # keeps its old inode when Ansible rewrites it, and Glance would then
+      # watch a file that nothing writes to any more.
+      - ./config:/app/config

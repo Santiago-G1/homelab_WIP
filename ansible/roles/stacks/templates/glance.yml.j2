@@ -1,0 +1,311 @@
+{#
+   Glance dashboard, rendered by Ansible for the monitoring host.
+
+   Everything concrete comes from the inventory:
+     * group_vars/all/services.yml   routes, titles, icons, groups, releases
+     * host_vars/<host>.yml          each service's LAN address
+     * vault.yml                     secrets, and only as ${...} placeholders
+
+   Secrets never reach this file: ${...} is Glance's own environment syntax and
+   the values arrive through the stack's .env (mode 600). That syntax is also
+   why the custom-api bodies sit inside {% raw %} blocks: Jinja and Glance's Go
+   templates both spell their expressions with double braces, and this file is
+   rendered by Ansible before Glance ever reads it.
+#}
+{% set monitoring_host = hostvars['monitoring'].ansible_host %}
+{% set devops_host = hostvars['devops'].ansible_host %}
+{% set llm_host = hostvars['llm'].ansible_host %}
+{% set domain = vault_domainname_hs %}
+{% set prometheus_query_url = 'http://' ~ monitoring_host ~ ':9090/api/v1/query' %}
+{% set gpu_panel_url = 'http://' ~ devops_host ~ ':8099' %}
+{% set llama_url = 'http://' ~ llm_host ~ ':' ~ hostvars['llm'].llamacpp_port %}
+{% set alt_status_codes = ok_status_codes | join(', ') %}
+
+server:
+  port: 8080
+  # Caddy terminates TLS in front of Glance, so the real client address arrives
+  # in X-Forwarded-For; that is what its brute-force protection counts.
+  proxied: true
+
+auth:
+  # secret-key signs the session cookie, and it must be a random value:
+  #  docker run --rm glanceapp/glance secret:make
+  secret-key: ${GLANCE_SECRET_KEY}
+  users:
+    {{ glance_admin_user }}:
+      password: ${GLANCE_ADMIN_PASSWORD}
+
+branding:
+  logo-text: Homelab
+  app-name: Homelab
+
+theme:
+  background-color: 229 19 23
+  primary-color: 222 74 74
+  positive-color: 96 44 68
+  negative-color: 359 68 71
+  contrast-multiplier: 1.15
+  presets:
+    default-light:
+      light: true
+      background-color: 220 23 95
+      primary-color: 220 91 54
+      positive-color: 109 58 40
+      negative-color: 347 87 44
+      contrast-multiplier: 1.1
+
+pages:
+  - name: Home
+    width: wide
+    head-widgets:
+      - type: clock
+        hide-header: true
+        hour-format: 24h
+        timezones:
+          - timezone: {{ timezone }}
+            label: Local
+      - type: search
+        hide-header: true
+        search-engine: duckduckgo
+        new-tab: true
+        bangs:
+          - { title: YouTube, shortcut: "!yt", url: "https://www.youtube.com/results?search_query={QUERY}" }
+          - { title: GitHub, shortcut: "!gh", url: "https://github.com/search?q={QUERY}" }
+          - { title: Homelab repo, shortcut: "!lab", url: "https://github.com/Santiago-G1/homelab_WIP/search?q={QUERY}" }
+    columns:
+      - size: small
+        widgets:
+          # One site per catalog entry, so a new service shows up here by
+          # being declared once in services.yml.
+          - type: monitor
+            title: Availability
+            style: compact
+            cache: 1m
+            sites:
+{% for service in homelab_services if service.check | default(true) %}
+              - title: {{ service.title }}
+                url: https://{{ service.host }}.{{ domain }}/
+                check-url: https://{{ service.host }}.{{ domain }}{{ service.path | default('/') }}
+                icon: {{ service.icon }}
+                timeout: 5s
+                alt-status-codes: [{{ service.ok | default(ok_status_codes) | join(', ') }}]
+{% endfor %}
+
+          # Upstream releases for every service that names a repository.
+          - type: releases
+            title: Updates
+            cache: 12h
+            show-source-icon: true
+            collapse-after: 6
+            repositories:
+{% for service in homelab_services if service.release | default('') %}
+              - {{ service.release }}
+{% endfor %}
+      - size: full
+        widgets:
+          - type: split-column
+            max-columns: 3
+            widgets:
+              # Homelab-wide numbers, straight out of the Prometheus the
+              # monitoring container already runs (node_exporter on every host).
+              - type: custom-api
+                title: Homelab
+                title-url: https://grafana.{{ domain }}/
+                cache: 30s
+                url: {{ prometheus_query_url }}
+                parameters:
+                  query: 'count(up == 1)'
+                subrequests:
+                  cpu:
+                    url: {{ prometheus_query_url }}
+                    parameters:
+                      query: '100 - (avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)'
+                  ram:
+                    url: {{ prometheus_query_url }}
+                    parameters:
+                      query: '100 * (1 - sum(node_memory_MemAvailable_bytes) / sum(node_memory_MemTotal_bytes))'
+                  disk:
+                    url: {{ prometheus_query_url }}
+                    parameters:
+                      query: '100 * (1 - avg(node_filesystem_avail_bytes{mountpoint="/",fstype!~"overlay|tmpfs"} / node_filesystem_size_bytes{mountpoint="/",fstype!~"overlay|tmpfs"}))'
+                template: |
+                  {%- raw %}
+                  <div class="flex justify-between text-center">
+                    <div>
+                      <div class="color-highlight size-h3">{{ .JSON.Int "data.result.0.value.1" }}</div>
+                      <div class="size-h6">HOSTS UP</div>
+                    </div>
+                    <div>
+                      <div class="color-highlight size-h3">{{ (.Subrequest "cpu").JSON.Float "data.result.0.value.1" | toInt }}%</div>
+                      <div class="size-h6">CPU</div>
+                    </div>
+                    <div>
+                      <div class="color-highlight size-h3">{{ (.Subrequest "ram").JSON.Float "data.result.0.value.1" | toInt }}%</div>
+                      <div class="size-h6">RAM</div>
+                    </div>
+                    <div>
+                      <div class="color-highlight size-h3">{{ (.Subrequest "disk").JSON.Float "data.result.0.value.1" | toInt }}%</div>
+                      <div class="size-h6">DISK</div>
+                    </div>
+                  </div>
+                  {%- endraw %}
+
+              # Blocky is scraped by the same Prometheus (job: blocky), which
+              # is the only way to get DNS numbers: the dns-stats widget speaks
+              # AdGuard/Pi-hole/Technitium, not Blocky.
+              - type: custom-api
+                title: DNS
+                cache: 1m
+                url: {{ prometheus_query_url }}
+                parameters:
+                  query: 'sum(increase(blocky_query_total[24h]))'
+                subrequests:
+                  blocked:
+                    url: {{ prometheus_query_url }}
+                    parameters:
+                      query: 'sum(increase(blocky_response_total{response_type="BLOCKED"}[24h]))'
+                  blocked_ratio:
+                    url: {{ prometheus_query_url }}
+                    parameters:
+                      query: '100 * sum(increase(blocky_response_total{response_type="BLOCKED"}[24h])) / sum(increase(blocky_response_total[24h]))'
+                  cached_ratio:
+                    url: {{ prometheus_query_url }}
+                    parameters:
+                      query: '100 * sum(increase(blocky_response_total{response_type="CACHED"}[24h])) / sum(increase(blocky_response_total[24h]))'
+                template: |
+                  {%- raw %}
+                  <div class="flex justify-between text-center">
+                    <div>
+                      <div class="color-highlight size-h3">{{ .JSON.Float "data.result.0.value.1" | toInt | formatNumber }}</div>
+                      <div class="size-h6">QUERIES 24H</div>
+                    </div>
+                    <div>
+                      <div class="color-highlight size-h3">{{ (.Subrequest "blocked").JSON.Float "data.result.0.value.1" | toInt | formatNumber }}</div>
+                      <div class="size-h6">BLOCKED 24H</div>
+                    </div>
+                    <div>
+                      <div class="color-highlight size-h3">{{ (.Subrequest "blocked_ratio").JSON.Float "data.result.0.value.1" | toInt }}%</div>
+                      <div class="size-h6">BLOCKED</div>
+                    </div>
+                    <div>
+                      <div class="color-highlight size-h3">{{ (.Subrequest "cached_ratio").JSON.Float "data.result.0.value.1" | toInt }}%</div>
+                      <div class="size-h6">CACHED</div>
+                    </div>
+                  </div>
+                  {%- endraw %}
+
+              # The GPU control panel, read through the same JSON API its own
+              # UI uses (token from the vault). Degrades to the panel's error
+              # message instead of a blank widget, e.g. while the P100 is off
+              # the bus.
+              - &gpu_panel_widget
+                type: custom-api
+                title: GPU & LLM
+                title-url: https://gpu.{{ domain }}/
+                cache: 20s
+                url: {{ gpu_panel_url }}/api/status
+                headers:
+                  x-api-token: "${GPU_PANEL_TOKEN}"
+                template: |
+                  {%- raw %}
+                  {{ if eq .Response.StatusCode 200 }}
+                  <div class="flex justify-between text-center">
+                    <div>
+                      <div class="color-highlight size-h3">{{ .JSON.String "gpu.temp" }}°</div>
+                      <div class="size-h6">TEMP</div>
+                    </div>
+                    <div>
+                      <div class="color-highlight size-h3">{{ .JSON.String "gpu.util" }}%</div>
+                      <div class="size-h6">UTIL</div>
+                    </div>
+                    <div>
+                      <div class="color-highlight size-h3">{{ .JSON.String "gpu.power_draw" }}W</div>
+                      <div class="size-h6">POWER</div>
+                    </div>
+                  </div>
+                  <ul class="list list-gap-10 margin-top-15">
+                    <li>VRAM {{ .JSON.String "gpu.mem_used" }} / {{ .JSON.String "gpu.mem_total" }} MiB</li>
+                    <li>llama.cpp: {{ .JSON.Int "llama_counts.loaded" }} loaded of {{ .JSON.Int "llama_counts.total" }}</li>
+                    <li>Immich ML: {{ .JSON.String "immich_ml" }}</li>
+                    <li>Jellyfin: {{ .JSON.String "jellyfin_accel" }}</li>
+                    <li>Auto: {{ if .JSON.Bool "auto.enabled" }}on{{ else }}off{{ end }}, idle {{ div (.JSON.Int "auto.idle_seconds" | toFloat) 60 | toInt }} min</li>
+                  </ul>
+                  {{ else }}
+                  <p class="color-negative">{{ .Response.Status }}</p>
+                  <p class="color-subdue">{{ .JSON.String "detail" }}</p>
+                  {{ end }}
+                  {%- endraw %}
+
+          # Every published service, grouped by the section it declares.
+          - type: bookmarks
+            title: Applications
+            groups:
+{% for group, services in homelab_services | groupby('group') %}
+              - title: {{ group }}
+                links:
+{% for service in services %}
+                  - title: {{ service.title }}
+                    url: https://{{ service.host }}.{{ domain }}/
+                    icon: {{ service.icon }}
+{% endfor %}
+{% endfor %}
+
+  - name: AI
+    width: wide
+    columns:
+      - size: full
+        widgets:
+          - type: split-column
+            max-columns: 2
+            widgets:
+              # llama.cpp in router mode: which model is resident right now.
+              - type: custom-api
+                title: llama.cpp
+                title-url: https://litellm.{{ domain }}/
+                cache: 15s
+                url: {{ llama_url }}/v1/models
+                template: |
+                  {%- raw %}
+                  <ul class="list list-gap-10 collapsible-container" data-collapse-after="5">
+                  {{ range .JSON.Array "data" }}
+                    <li>
+                      <span class="color-primary-if-not-visited">{{ .String "id" }}</span>
+                      <ul class="list-horizontal-text">
+                        <li>{{ .String "status.value" }}</li>
+                      </ul>
+                    </li>
+                  {{ else }}
+                    <li class="color-subdue">No model is resident.</li>
+                  {{ end }}
+                  </ul>
+                  {%- endraw %}
+
+              - <<: *gpu_panel_widget
+
+          # The panel itself, so the controls live inside the dashboard instead
+          # of a tab of their own. It is the same page, and the same session.
+          - type: iframe
+            title: GPU control panel
+            title-url: https://gpu.{{ domain }}/
+            source: https://gpu.{{ domain }}/
+            height: 760
+
+          - type: split-column
+            max-columns: 2
+            widgets:
+              - type: reddit
+                subreddit: LocalLLaMA
+                style: vertical-list
+                show-thumbnails: true
+                limit: 15
+                collapse-after: 6
+                cache: 15m
+                comments-url-template: https://old.reddit.com/{POST-PATH}
+              - type: reddit
+                subreddit: LocalLLM
+                style: vertical-list
+                show-thumbnails: true
+                limit: 15
+                collapse-after: 6
+                cache: 15m
+                comments-url-template: https://old.reddit.com/{POST-PATH}

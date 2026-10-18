@@ -6,6 +6,14 @@ vault_filebrowser_admin_password: CHANGE-ME
 vault_gf_database_name: grafana_prod_db
 vault_gf_database_password: change-me
 vault_gf_database_user: grafana_prod_user
+
+# Glance dashboard on the monitoring container. The session key must be base64
+# that decodes to exactly 64 bytes (Glance rejects anything else), so generate
+# it instead of typing one:
+#   docker run --rm glanceapp/glance secret:make
+#   openssl rand -base64 64 | tr -d '\n'      # 88 characters
+vault_glance_secret_key: CHANGE-ME
+vault_glance_admin_password: CHANGE-ME
 vault_immich_db_data_location: /opt/immich/database
 vault_immich_db_database_name: immich_prod_db
 vault_immich_db_password: postgres

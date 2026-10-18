@@ -29,14 +29,16 @@
       failed_when: failed_containers.stdout | int != 0
 
     # The reverse proxy needs a real hostname for SNI, so it gets its own check.
+    # The list is the catalog's `verify` entries: the routes that a broken map
+    # would take down silently.
     - name: Reverse proxy routes answer
       ansible.builtin.command:
         cmd: >-
-          curl -s --resolve {{ item.host }}:443:127.0.0.1 -o /dev/null
-          -w '%{http_code}' https://{{ item.host }}{{ item.path | default('/') }}
+          curl -s --resolve {{ item.host }}.{{ vault_domainname_hs }}:443:127.0.0.1 -o /dev/null
+          -w '%{http_code}' https://{{ item.host }}.{{ vault_domainname_hs }}{{ item.path | default('/') }}
       loop: "{{ proxy_checks | default([]) }}"
       loop_control:
-        label: "{{ item.host }}"
+        label: "{{ item.host }}.{{ vault_domainname_hs }}"
       register: proxy_result
       changed_when: false
       failed_when: >-
