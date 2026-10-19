@@ -179,12 +179,14 @@ homelab_services:
 
   # --- ai ------------------------------------------------------------------
   - host: gpu
-    backend: 192.168.10.11:8099
+    backend: 192.168.10.26:8099
     title: GPU panel
     icon: sh:nvidia
     group: AI
     path: /api/session
-    note: The GPU control panel; its dashboard widget reads the same API.
+    note: >-
+      The GPU control panel, on the AI host next to llama.cpp; its dashboard
+      widget reads the same API.
     verify: true
 
   - host: litellm

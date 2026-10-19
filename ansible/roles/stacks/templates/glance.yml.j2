@@ -13,11 +13,11 @@
    rendered by Ansible before Glance ever reads it.
 #}
 {% set monitoring_host = hostvars['monitoring'].ansible_host %}
-{% set devops_host = hostvars['devops'].ansible_host %}
+{% set gpu_panel = homelab_services | selectattr('host', 'equalto', 'gpu') | first %}
 {% set llm_host = hostvars['llm'].ansible_host %}
 {% set domain = vault_domainname_hs %}
 {% set prometheus_query_url = 'http://' ~ monitoring_host ~ ':9090/api/v1/query' %}
-{% set gpu_panel_url = 'http://' ~ devops_host ~ ':8099' %}
+{% set gpu_panel_url = 'http://' ~ gpu_panel.backend %}
 {% set llama_url = 'http://' ~ llm_host ~ ':' ~ hostvars['llm'].llamacpp_port %}
 {% set alt_status_codes = ok_status_codes | join(', ') %}
 

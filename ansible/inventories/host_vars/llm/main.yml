@@ -67,5 +67,23 @@ stacks:
       ZEROCLAW_LITELLM_API_KEY: "{{ vault_zeroclaw_litellm_api_key }}"
       ZEROCLAW_TELEGRAM_BOT_TOKEN: "{{ vault_zeroclaw_telegram_bot_token }}"
 
+  # It talks to the GPU through the PVE host over SSH: an unprivileged
+  # container cannot set the power limit itself (nvidia-smi -pl answers
+  # "Insufficient Permissions"), and the same key reaches Immich ML and
+  # Jellyfin. See the bootstrap note in ansible/README.md.
+  - name: gpu-panel
+    src: app-services/gpu-panel
+    build: true
+    env:
+      PANEL_USER: admin
+      PANEL_PASSWORD: "{{ vault_gpu_panel_password }}"
+      PANEL_TOKEN: "{{ vault_gpu_panel_token }}"
+      LLAMA_URL: "http://{{ ansible_host }}:{{ llamacpp_port }}"
+      # Models the dashboard may name: exactly the ones models.yml declares, so
+      # any other .gguf the router serves still loads, counts and unloads but is
+      # never printed.
+      LLAMA_PUBLIC_MODELS: "{{ llm_models | map(attribute='name') | join(',') }},image_models"
+
 health_checks:
   - { name: litellm, url: "http://127.0.0.1:4000/health/liveliness" }
+  - { name: gpu-panel, url: "http://127.0.0.1:8099/api/session" }

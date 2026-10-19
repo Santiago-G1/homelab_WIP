@@ -38,6 +38,18 @@ Docker Compose projects from `docker-compose/` are deployed to `/opt/docker/<sta
    pct exec <vmid> -- bash -c "mkdir -p /root/.ssh && echo '<devops pubkey>' >> /root/.ssh/authorized_keys"
    ```
 
+   The GPU control panel on the AI host also needs the *private* key (it drives
+   `nvidia-smi` on the PVE node and the other consumers of the card over SSH)
+   and the host keys, because it connects non-interactively. Scan them instead
+   of copying a `known_hosts` that may still hold a recreated container's old
+   key:
+
+   ```bash
+   pct push 126 /root/.ssh/id_ed25519 /root/.ssh/id_ed25519 --perms 600
+   pct exec 126 -- bash -c "ssh-keyscan -t ed25519 \
+     192.168.10.2 192.168.10.21 192.168.10.22 >> /root/.ssh/known_hosts"
+   ```
+
 2. **Tank permissions.** Bind mounts under `/tank` are shared with the containers
    through POSIX ACLs keyed by the *mapped* uid: an unprivileged container maps
    uid `N` to host uid `100000 + N`. Examples:

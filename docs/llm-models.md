@@ -82,7 +82,7 @@ The card is 16 GB and llama.cpp is not the only tenant:
 
 - Immich ML (CUDA) uses ~6.8 GB when loaded.
 - Jellyfin can use NVENC.
-- The `gpu-panel` on the control node arbitrates.
+- The `gpu-panel` on the AI host arbitrates.
 
 A model whose weights alone exceed the VRAM left free fails with
 `cudaMalloc failed: out of memory` (a 500 from the router). The 27B presets are

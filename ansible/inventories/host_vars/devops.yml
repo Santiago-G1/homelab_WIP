@@ -1,15 +1,4 @@
 ---
-# The GPU control panel runs on the control node: it is the only host with SSH
-# reach to the PVE node (nvidia-smi, power limit) and every GPU consumer.
-stacks:
-  - name: gpu-panel
-    src: app-services/gpu-panel
-    build: true
-    env:
-      PANEL_USER: admin
-      PANEL_PASSWORD: "{{ vault_gpu_panel_password }}"
-      PANEL_TOKEN: "{{ vault_gpu_panel_token }}"
-      # Models the dashboard may name: exactly the ones llm.yml already documents
-      # (and the ComfyUI folder), so any other .gguf the router serves from the
-      # data directory still loads, counts and unloads but is never printed.
-      LLAMA_PUBLIC_MODELS: "Qwen3.5-9B-UD-Q4_K_XL,Qwen3.6-35B-A3B-UD-IQ3_S,Qwen3.8-27B-UD-IQ4_XS,Qwen3.8-27B-GSQ-RCO-IQ3_S-mtp,image_models"
+# The control node runs Ansible itself and declares no Compose stacks: the GPU
+# control panel moved to the AI host (see host_vars/llm/main.yml), which is the
+# container that owns the P100. Every other stack lives with its own container.

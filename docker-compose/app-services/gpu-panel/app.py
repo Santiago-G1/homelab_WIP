@@ -1,8 +1,9 @@
 """GPU control panel for the domain.com lab.
 
-Runs on the devops container and drives the Tesla P100 through the only host
-that can reach everything: the PVE node (nvidia-smi, power limit) and each
-container that uses the GPU (llama.cpp, Immich ML, Jellyfin transcoding).
+Runs on the AI container, next to llama.cpp, and drives the Tesla P100 through
+the PVE node: that is where nvidia-smi and the power limit live (an unprivileged
+container gets "Insufficient Permissions" for -pl) and where the SSH reach to
+every other consumer of the card starts.
 
 Auth is a login page that sets a signed session cookie, plus the bearer token
 for automation; there is no HTTP basic challenge, so browsers never pop up the

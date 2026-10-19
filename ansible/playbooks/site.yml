@@ -20,13 +20,6 @@
     - docker
     - stacks
 
-# The GPU control panel runs on the control node: it is the only host with SSH
-# reach to the PVE node and to every container that uses the GPU.
-- name: GPU control panel
-  hosts: management
-  roles:
-    - stacks
-
 # The control node is monitored as well, but it is not re-configured by the
 # base role (it is the machine running Ansible).
 - name: Monitoring agent on the control node
