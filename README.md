@@ -72,7 +72,8 @@ Once the underlying infrastructure is provisioned, Ansible connects to the newly
 - Injecting required environment variables and setting up system mount points.
 - Orchestrating the execution of local Docker Compose stacks.
 ---
-##ROADMAP
-[] add comfyui
-[] add Open-webui
+## ROADMAP
+- [] add comfyui
+- [] add Open-webui
+
 (i'm waiting for my new gpu to arrive, sit tight)
