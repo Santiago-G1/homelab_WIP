@@ -38,7 +38,7 @@ The infrastructure is segmented into distinct layers managed via automated pipel
 - **Cloudflare (192.168.10.6):** Cloudflare Tunnel (Handles external exposure for internal services like Navidrome)
 
 ### Monitoring Services
-- **Monitor (192.168.10.10):** Prometheus (9090), Grafana (3000), Glance dashboard (8080, published as `home.domain.com`)
+- **Monitor (192.168.10.10):** Prometheus (9090), Grafana (3000), Glance dashboard (8080)
   - Glance is the single entry point for the lab: service availability, per-group bookmarks, homelab-wide metrics (read from Prometheus), DNS numbers, upstream releases, the GPU control panel (widget + embedded UI) and the LocalLLaMA/LocalLLM feeds. See [`docs/dashboard.md`](docs/dashboard.md).
 
 ### Media Services
@@ -50,7 +50,7 @@ The infrastructure is segmented into distinct layers managed via automated pipel
 - **Vaultwarden (192.168.10.23):** Vaultwarden (8000)
 - **Radicale (192.168.10.24):** Radicale (5232)
 - **Quantum Filebrowser (192.168.10.25):** Quantum Filebrowser (8080), Syncthing (8384)
-- **AI-Stack (192.168.10.26):** llama.cpp server in router mode (8080), LiteLLM (4000), GPU control panel (8099, published as `gpu.domain.com`)
+- **AI-Stack (192.168.10.26):** llama.cpp server in router mode (8080), LiteLLM (4000), GPU control panel (8099)
 
 ---
 
