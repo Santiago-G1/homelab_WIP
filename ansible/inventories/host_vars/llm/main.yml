@@ -14,8 +14,10 @@ llamacpp_cuda_root: /usr/local/cuda-12.8
 llamacpp_cuda_arch: "60-real"
 
 # Pinned: the vendored P100 patch set applies cleanly to this commit only
-# (b11696, "convert: respect Mistral format for DeepseekV2Model"). Bump it and
-# re-run ansible/roles/llamacpp/files/apply-p100-patches.sh by hand to re-check.
+# It is 2a667032d ("convert : respect Mistral format for DeepseekV2Model",
+# 2026-10-16), two commits AFTER the b11696 tag - b11696 is a different, earlier
+# tree, so do not "restore" it to the tag. Bump it and re-run
+# ansible/roles/llamacpp/files/apply-p100-patches.sh by hand to re-check.
 llamacpp_version: 2a667032dc788c3a071d538e0b572e45a3f12731
 llamacpp_port: 8080
 llamacpp_build_jobs: 2          # nvcc is memory hungry; 2 is the safe value here

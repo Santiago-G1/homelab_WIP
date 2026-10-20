@@ -6,9 +6,10 @@ here.
 
 ## Version
 
-`llamacpp_version` in `host_vars/llm/main.yml` pins a **commit** (upstream
-`b11696`), not a branch: the vendored patch set below only applies cleanly to
-that revision, so every `site.yml` run checks out the same tree instead of
+`llamacpp_version` in `host_vars/llm/main.yml` pins a **commit**, not a branch: `2a667032d` (2026-10-16, *"convert :
+respect Mistral format for DeepseekV2Model"*), two commits after the `b11696`
+tag (`git describe`: `b11696-2-g2a667032d`). The vendored patch set below only
+applies cleanly to that revision, so every `site.yml` run checks out the same tree instead of
 following upstream. The role only rebuilds when its recorded build signature
 changes (see below). The role default carries the same commit, so a host that
 omits the variable still builds the revision the patch set was written for;
