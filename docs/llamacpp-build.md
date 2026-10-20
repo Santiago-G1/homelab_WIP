@@ -10,7 +10,9 @@ here.
 `b11696`), not a branch: the vendored patch set below only applies cleanly to
 that revision, so every `site.yml` run checks out the same tree instead of
 following upstream. The role only rebuilds when its recorded build signature
-changes (see below). To bump it, re-run `files/apply-p100-patches.sh` by hand
+changes (see below). The role default carries the same commit, so a host that
+omits the variable still builds the revision the patch set was written for;
+keep the two in step. To bump it, re-run `files/apply-p100-patches.sh` by hand
 against the new revision to see which patches still apply, then expect a full
 CUDA rebuild.
 

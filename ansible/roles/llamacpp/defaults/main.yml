@@ -1,5 +1,9 @@
 ---
-llamacpp_version: master
+# Must match the revision the vendored set in files/patches-p100 applies to
+# (upstream b11696), because llamacpp_p100_patches is on by default: a host that
+# omits this variable would otherwise apply the patches to a floating tree.
+# Bumping it means re-running files/apply-p100-patches.sh by hand first.
+llamacpp_version: 2a667032dc788c3a071d538e0b572e45a3f12731
 llamacpp_port: 8080
 llamacpp_models_dir: /mnt/data/models
 llamacpp_models_max: 1

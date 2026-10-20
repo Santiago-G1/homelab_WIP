@@ -58,9 +58,8 @@ so a new model is data, not a build.
    `draft-mtp` presets are the VRAM-hungry ones.
 
 A full `site.yml --limit llm` is only for a new llama.cpp/CUDA version or
-changed build flags — it re-checks the pinned `llamacpp_version` (the role
-defaults to `master`, the AI host pins a commit) and can trigger a long
-compile. See `llamacpp-build.md`.
+changed build flags — it re-checks the pinned `llamacpp_version` and can
+trigger a long compile. See `llamacpp-build.md`.
 
 ## Switching the agent's model
 
