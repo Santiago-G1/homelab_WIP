@@ -42,7 +42,10 @@ docker_networks:
 # ZeroClaw talks to LiteLLM by container name over the shared ai-stack network.
 # zeroclaw_model and the virtual key's scope come from models.yml.
 zeroclaw_litellm_uri: http://litellm-proxy:4000/v1
-zeroclaw_telegram_user_id: "5221861970"  # numeric ID, survives a name change
+# The Telegram account allowed to talk to the agent (numeric ID, which
+# survives a display-name change). The value is a secret: it lives in
+# vault_zeroclaw_telegram_user_id, not here.
+zeroclaw_telegram_user_id: "{{ vault_zeroclaw_telegram_user_id }}"
 
 stacks:
   - name: litellm

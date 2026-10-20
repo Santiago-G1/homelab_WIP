@@ -101,7 +101,8 @@ docker compose exec zeroclaw zeroclaw security status --agent default
 ### Telegram
 
 The bot (`channels.telegram.home`) is authorized for one identity, the numeric
-user ID in `zeroclaw_telegram_user_id` (`host_vars/llm.yml`), through
+user ID in `zeroclaw_telegram_user_id` (`host_vars/llm/main.yml`, value kept in
+`vault_zeroclaw_telegram_user_id`), through
 `peer_groups.telegram_home`. An empty peer set would deny everyone and make the
 channel mint a first-user `/bind` code instead, so the ID is pre-authorized on
 purpose; add more IDs (or usernames) to `external_peers` to widen it. A

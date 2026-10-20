@@ -38,3 +38,7 @@ vault_zeroclaw_litellm_api_key: sk-replace-me
 
 # ZeroClaw Telegram bot token from @BotFather (<id>:<secret>); rendered as ZEROCLAW_TELEGRAM_BOT_TOKEN
 vault_zeroclaw_telegram_bot_token: 123456789:replace-me
+
+# Telegram account allowed to talk to the agent (external_peers in the
+# ZeroClaw config). Numeric ID only: it survives a display-name change.
+vault_zeroclaw_telegram_user_id: 123456789
