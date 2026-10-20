@@ -6,16 +6,16 @@ here.
 
 ## Version
 
-`llamacpp_version` in `host_vars/llm/main.yml` pins a **commit**, not a branch: `2a667032d` (2026-10-16, *"convert :
-respect Mistral format for DeepseekV2Model"*), two commits after the `b11696`
-tag (`git describe`: `b11696-2-g2a667032d`). The vendored patch set below only
-applies cleanly to that revision, so every `site.yml` run checks out the same tree instead of
-following upstream. The role only rebuilds when its recorded build signature
-changes (see below). The role default carries the same commit, so a host that
-omits the variable still builds the revision the patch set was written for;
-keep the two in step. To bump it, re-run `files/apply-p100-patches.sh` by hand
-against the new revision to see which patches still apply, then expect a full
-CUDA rebuild.
+`llamacpp_version` in `host_vars/llm/main.yml` pins a **commit**, not a branch:
+`2a667032d` (2026-10-16, PR #30669), two commits after the `b11696` tag
+(`git describe`: `b11696-2-g2a667032d`). The vendored patch set below only
+applies cleanly to that revision, so every `site.yml` run checks out the same
+tree instead of following upstream. The role only rebuilds when its recorded
+build signature changes (see below). The role default carries the same commit,
+so a host that omits the variable still builds the revision the patch set was
+written for; keep the two in step. To bump it, re-run
+`files/apply-p100-patches.sh` by hand against the new revision to see which
+patches still apply, then expect a full CUDA rebuild.
 
 ## CUDA 12 on Debian trixie
 
