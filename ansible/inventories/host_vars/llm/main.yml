@@ -1,0 +1,97 @@
+---
+# Tesla P100 (Pascal, compute 6.0). llama.cpp is built and runs bare metal
+# (roles/llamacpp) in router mode; the LiteLLM and ZeroClaw stacks next to it
+# are Compose projects. Models are declared once in models.yml.
+
+# Must match the driver on the Proxmox host (R580 is the last Pascal branch).
+nvidia_driver_version: "580.159.04"
+
+# CUDA 12.x is the last line that targets Pascal; Debian 12's repo ships it
+# even on trixie. See docs/llamacpp-build.md.
+cuda_toolkit_package: cuda-toolkit-12-8
+cuda_repo_distro: debian12
+llamacpp_cuda_root: /usr/local/cuda-12.8
+llamacpp_cuda_arch: "60-real"
+
+# Pinned: the vendored P100 patch set applies cleanly to this commit only.
+# It is 2a667032d ("convert : respect Mistral format for DeepseekV2Model",
+# 2026-10-16), two commits AFTER the b11696 tag. b11696 is a different, earlier
+# tree, so do not "restore" it to the tag. Bump it and re-run
+# ansible/roles/llamacpp/files/apply-p100-patches.sh by hand to re-check.
+llamacpp_version: 2a667032dc788c3a071d538e0b572e45a3f12731
+llamacpp_port: 8080
+llamacpp_build_jobs: 2          # nvcc is memory hungry; 2 is the safe value here
+
+llamacpp_models_dir: /mnt/data/models   # /tank/cloud/llm on the PVE host
+llamacpp_models_max: 1                  # one model resident at a time
+llamacpp_preset_file: /etc/llama/models.ini
+
+llamacpp_global_args:
+  n-gpu-layers: 99
+  c: 8192
+  flash-attn: "on"
+
+# sm_60 has no dp4a; the runtime heuristic already picks the best GEMM.
+llamacpp_cuda_force_mmq: "OFF"
+
+# LiteLLM publishes the router on :4000 with API keys and accounting.
+litellm_api_base: "http://{{ ansible_host }}:{{ llamacpp_port }}/v1"
+litellm_backend_api_key: "sk-llamacpp"   # the router wants no real key
+
+docker_networks:
+  - ai-stack
+
+# ZeroClaw talks to LiteLLM by container name over the shared ai-stack network.
+# zeroclaw_model and the virtual key's scope come from models.yml.
+zeroclaw_litellm_uri: http://litellm-proxy:4000/v1
+# The Telegram account allowed to talk to the agent (numeric ID, which
+# survives a display-name change). The value is a secret: it lives in
+# vault_zeroclaw_telegram_user_id, not here.
+zeroclaw_telegram_user_id: "{{ vault_zeroclaw_telegram_user_id }}"
+
+stacks:
+  - name: litellm
+    src: ai-services/litellm
+    files:
+      - { template: litellm-config.yaml.j2, dest: config.yaml }
+    env:
+      LITELLM_DB_PASSWORD: "{{ vault_litellm_db_password }}"
+      LITELLM_MASTER_KEY: "{{ vault_litellm_master_key }}"
+      LITELLM_SALT_KEY: "{{ vault_litellm_salt_key }}"
+    # The key stays scoped to the agent's model; roles/stacks reconciles it.
+    agent_keys:
+      - value: "{{ vault_zeroclaw_litellm_api_key }}"
+        models: ["{{ zeroclaw_model }}"]
+
+  - name: zeroclaw
+    src: ai-services/zeroclaw
+    build_services: [zeroclaw, sandbox]
+    dirs:
+      - { path: data/.zeroclaw }
+      - { path: workspace }
+    files:
+      - { template: zeroclaw-config.toml.j2, dest: data/.zeroclaw/config.toml }
+    env:
+      ZEROCLAW_LITELLM_API_KEY: "{{ vault_zeroclaw_litellm_api_key }}"
+      ZEROCLAW_TELEGRAM_BOT_TOKEN: "{{ vault_zeroclaw_telegram_bot_token }}"
+
+  # It talks to the GPU through the PVE host over SSH: an unprivileged
+  # container cannot set the power limit itself (nvidia-smi -pl answers
+  # "Insufficient Permissions"), and the same key reaches Immich ML and
+  # Jellyfin. See the bootstrap note in ansible/README.md.
+  - name: gpu-panel
+    src: app-services/gpu-panel
+    build: true
+    env:
+      PANEL_USER: admin
+      PANEL_PASSWORD: "{{ vault_gpu_panel_password }}"
+      PANEL_TOKEN: "{{ vault_gpu_panel_token }}"
+      LLAMA_URL: "http://{{ ansible_host }}:{{ llamacpp_port }}"
+      # Models the dashboard may name: exactly the ones models.yml declares, so
+      # any other .gguf the router serves still loads, counts and unloads but is
+      # never printed.
+      LLAMA_PUBLIC_MODELS: "{{ llm_models | map(attribute='name') | join(',') }},image_models"
+
+health_checks:
+  - { name: litellm, url: "http://127.0.0.1:4000/health/liveliness" }
+  - { name: gpu-panel, url: "http://127.0.0.1:8099/api/session" }

@@ -5,6 +5,21 @@
     state: directory
     mode: "0755"
 
+# A `files` dest must not be a directory in the source: rsync would replace
+# the bind-mounted file with it and the stack would fail to mount.
+- name: "{{ stack.name }} | assert no rendered file is a directory in the source"
+  ansible.builtin.assert:
+    that: not ((compose_src_root ~ '/' ~ stack.src ~ '/' ~ item.dest) is directory)
+    fail_msg: >-
+      {{ stack.src }}/{{ item.dest }} is a directory in the repo, but Ansible
+      renders it as a file: delete it (empty directories are not tracked by
+      git) or drop the `files` entry.
+  loop: "{{ stack.files | default([]) }}"
+  loop_control:
+    label: "{{ item.dest }}"
+  delegate_to: localhost
+  when: stack.files is defined
+
 # rsync (not copy) so the rendered .env is never overwritten by the repo's
 # local .env, which would make the role flap between the two files.
 - name: "{{ stack.name }} | sync the Compose project"
@@ -52,9 +67,25 @@
     label: "{{ item.dest }}"
   register: stack_files
 
+# Images built from a Dockerfile in the project (a thin layer over an upstream
+# image, or an image the service never runs directly). Services gated behind a
+# Compose profile are built here on purpose: the profile keeps them out of
+# `up`, and only their image is wanted. BuildKit prints its progress to stderr
+# and reuses its cache, so the task reports changed only when a layer was
+# actually rebuilt.
+- name: "{{ stack.name }} | build the images declared for the stack"
+  ansible.builtin.command:
+    cmd: >-
+      docker compose --profile {{ stack.build_profile | default('tools') }}
+      build {{ stack.build_services | join(' ') }}
+    chdir: "{{ stacks_root }}/{{ stack.name }}"
+  when: (stack.build_services | default([])) | length > 0
+  register: stack_build
+  changed_when: "'Successfully built' in stack_build.stdout"
+
 - name: "{{ stack.name }} | bring the stack up"
   ansible.builtin.command:
-    cmd: "docker compose up -d --remove-orphans"
+    cmd: "docker compose up -d --remove-orphans{{ ' --build' if stack.build | default(false) else '' }}"
     chdir: "{{ stacks_root }}/{{ stack.name }}"
   register: compose_up
   changed_when: >-
@@ -69,3 +100,27 @@
     chdir: "{{ stacks_root }}/{{ stack.name }}"
   when: stack_files.changed | default(false) or stack_sync.changed | default(false)
   changed_when: true
+
+# LiteLLM keeps a key's model allowlist in its database, not config.yaml, so
+# this reassigns each `agent_keys` entry through the admin API after `up`.
+- name: "{{ stack.name }} | reconcile the virtual keys' model access"
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ stack.admin_port | default(4000) }}/key/update"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ vault_litellm_master_key }}"
+    body_format: json
+    body:
+      key: "{{ item.value }}"
+      models: "{{ item.models }}"
+    status_code: [200]
+  loop: "{{ stack.agent_keys | default([]) }}"
+  loop_control:
+    label: agent key
+  register: key_reconcile
+  until: key_reconcile is succeeded
+  retries: 12
+  delay: 5
+  no_log: true
+  changed_when: false
+  when: stack.agent_keys is defined

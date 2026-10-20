@@ -1,0 +1,60 @@
+# ZeroClaw agent runtime, next to the LiteLLM proxy it talks to.
+# See README.md for the sandbox model and the trade-offs.
+services:
+  zeroclaw:
+    image: zeroclaw:debian-docker
+    build:
+      context: ./image
+    container_name: zeroclaw
+    # Root on purpose: it rewrites its config on pairing and needs the Docker
+    # socket for the sandbox, which is the real trust boundary here.
+    user: "0:0"
+    restart: unless-stopped
+
+    environment:
+      # Secrets only, as schema-mirror overrides (ZEROCLAW_<a.b.c>); the
+      # rendered config.toml stays secret-free.
+      - ZEROCLAW_providers__models__litellm__local__api_key=${ZEROCLAW_LITELLM_API_KEY:?ZEROCLAW_LITELLM_API_KEY is required}
+      - ZEROCLAW_channels__telegram__home__bot_token=${ZEROCLAW_TELEGRAM_BOT_TOKEN:?ZEROCLAW_TELEGRAM_BOT_TOKEN is required}
+      - ZEROCLAW_gateway__host=0.0.0.0
+      - ZEROCLAW_gateway__allow_public_bind=true
+
+    volumes:
+      - ./data:/zeroclaw-data
+      # Same absolute path as on the host: the sandbox bind-mount is resolved
+      # by the host daemon.
+      - ./workspace:/opt/docker/zeroclaw/workspace
+      # Needed by the Docker sandbox backend (one `docker run` per command).
+      - /var/run/docker.sock:/var/run/docker.sock
+
+    ports:
+      - "42617:42617"   # pairing required; Caddy is the intended entry point
+
+    networks:
+      - ai-stack
+
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 1G
+
+    # The upstream image declares no HEALTHCHECK.
+    healthcheck:
+      test: ["CMD", "zeroclaw", "status", "--format=exit-code"]
+      interval: 60s
+      timeout: 15s
+      retries: 3
+      start_period: 30s
+
+  # Owns the sandbox image build only; the profile keeps it out of `up`.
+  sandbox:
+    image: zeroclaw-sandbox:1
+    build:
+      context: ./sandbox
+    profiles: ["tools"]
+    restart: "no"
+
+networks:
+  ai-stack:
+    external: true

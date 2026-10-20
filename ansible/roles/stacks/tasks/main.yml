@@ -14,9 +14,13 @@
   changed_when: network_create.rc == 0
   failed_when: network_create.rc != 0 and 'already exists' not in network_create.stderr
 
-- name: Deploy every stack declared for this host
+# `stacks_only` narrows the loop to a subset of this host's stacks (used by
+# playbooks/llm-models.yml). Empty/undefined means every stack.
+- name: Deploy the stacks declared for this host
   ansible.builtin.include_tasks: stack.yml
-  loop: "{{ stacks | default([]) }}"
+  loop: >-
+    {{ stacks | default([]) if (stacks_only | default([]) | length == 0)
+       else (stacks | default([]) | selectattr('name', 'in', stacks_only) | list) }}
   loop_control:
     loop_var: stack
     label: "{{ stack.name }}"

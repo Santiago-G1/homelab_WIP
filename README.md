@@ -38,7 +38,8 @@ The infrastructure is segmented into distinct layers managed via automated pipel
 - **Cloudflare (192.168.10.6):** Cloudflare Tunnel (Handles external exposure for internal services like Navidrome)
 
 ### Monitoring Services
-- **Monitor (192.168.10.10):** Prometheus (9090), Grafana (3000)
+- **Monitor (192.168.10.10):** Prometheus (9090), Grafana (3000), Glance dashboard (8080)
+  - Glance is the single entry point for the lab: service availability, per-group bookmarks, homelab-wide metrics (read from Prometheus), DNS numbers, upstream releases, the GPU control panel (widget + embedded UI) and the LocalLLaMA/LocalLLM feeds. See [`docs/dashboard.md`](docs/dashboard.md).
 
 ### Media Services
 - **Arrsuite (192.168.10.20):** qBittorrent (8080), Radarr (7878), Sonarr (8989), Prowlarr (9696), Bazarr (6767), Seerr (5055), Flaresolverr (8191), Slskd (5030), Calibre (8082)
@@ -49,11 +50,14 @@ The infrastructure is segmented into distinct layers managed via automated pipel
 - **Vaultwarden (192.168.10.23):** Vaultwarden (8000)
 - **Radicale (192.168.10.24):** Radicale (5232)
 - **Quantum Filebrowser (192.168.10.25):** Quantum Filebrowser (8080), Syncthing (8384)
-- **AI-Stack (192.168.10.26):** llama.cpp server in router mode (8080), LiteLLM (4000)
+- **AI-Stack (192.168.10.26):** llama.cpp server in router mode (8080), LiteLLM (4000), GPU control panel (8099)
 
 ---
 
 ## Technical Pipeline (Implementation Workflow)
+
+### Service catalog
+`ansible/inventories/group_vars/all/services.yml` declares every published web service once (subdomain, backend, title, icon, dashboard group, availability path, upstream release). Both the Caddy route table and the Glance dashboard are rendered from it, so adding a service is a one-file change.
 
 ### 1. Infrastructure Provisioning (Terraform)
 - **Network Services:** Core DNS, reverse proxies, and networking routing.

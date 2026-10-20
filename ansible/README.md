@@ -11,12 +11,14 @@ Docker Compose projects from `docker-compose/` are deployed to `/opt/docker/<sta
 | `inventories/group_vars/all/main.yml` | Shared settings (timezone, packages, paths). |
 | `inventories/group_vars/all/vault.yml` | Vault-encrypted secrets rendered into each stack `.env`. |
 | `inventories/host_vars/<host>.yml` | Stacks deployed on that container, with their env and data dirs. |
+| `inventories/host_vars/llm/models.yml` | The only file to edit to change which local models are served. |
 | `roles/common` | Timezone, base packages, admin SSH keys, sshd hardening. |
 | `roles/docker` | Docker Engine from the official Debian repository. |
 | `roles/stacks` | Syncs a Compose project, renders `.env`, creates data dirs, brings it up. |
 | `roles/node_exporter` | Prometheus node exporter as a systemd service (binary release). |
 | `playbooks/bootstrap.yml` | Installs Python on freshly created containers. |
 | `playbooks/site.yml` | Base configuration, Docker and every declared stack. |
+| `playbooks/llm-models.yml` | Local llama.cpp model changes, without recompiling. |
 | `playbooks/verify.yml` | End-to-end check: running containers and HTTP endpoints. |
 
 ## Prerequisites
@@ -34,6 +36,18 @@ Docker Compose projects from `docker-compose/` are deployed to `/opt/docker/<sta
 
    ```bash
    pct exec <vmid> -- bash -c "mkdir -p /root/.ssh && echo '<devops pubkey>' >> /root/.ssh/authorized_keys"
+   ```
+
+   The GPU control panel on the AI host also needs the *private* key (it drives
+   `nvidia-smi` on the PVE node and the other consumers of the card over SSH)
+   and the host keys, because it connects non-interactively. Scan them instead
+   of copying a `known_hosts` that may still hold a recreated container's old
+   key:
+
+   ```bash
+   pct push 126 /root/.ssh/id_ed25519 /root/.ssh/id_ed25519 --perms 600
+   pct exec 126 -- bash -c "ssh-keyscan -t ed25519 \
+     192.168.10.2 192.168.10.21 192.168.10.22 >> /root/.ssh/known_hosts"
    ```
 
 2. **Tank permissions.** Bind mounts under `/tank` are shared with the containers
@@ -70,6 +84,20 @@ ansible-playbook playbooks/verify.yml      # end-to-end verification
 ```
 
 Limit a run with `--limit <host>` and preview with `--check --diff`.
+
+## Adding a local model
+
+Models are declared once in `inventories/host_vars/llm/models.yml`; LiteLLM's
+model list, the router presets and ZeroClaw's model are all derived from it. Add
+the `.gguf` to the AI host's models directory, add its name to that file, then:
+
+```bash
+ansible-playbook playbooks/llm-models.yml   # no rebuild
+```
+
+A full `site.yml --limit llm` is only for a new llama.cpp/CUDA version or changed
+build flags, and it can trigger a long compile. Full guide, including the shared
+P100 and the agent's model: `docs/llm-models.md`.
 
 ## Secrets
 

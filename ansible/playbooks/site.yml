@@ -6,6 +6,13 @@
     - common
     - node_exporter
 
+# NVIDIA userspace driver where the Tesla P100 is used. Runs before the stacks
+# that bind-mount its libraries.
+- name: GPU hosts (NVIDIA userspace driver)
+  hosts: gpu
+  roles:
+    - nvidia
+
 # Docker Engine plus every Compose project declared in host_vars/.
 - name: Docker hosts
   hosts: docker_hosts

@@ -1,0 +1,14 @@
+---
+# Model changes without recompiling llama.cpp: skips the source build in
+# roles/llamacpp and re-deploys only the LiteLLM and ZeroClaw stacks on the AI
+# host. Models are declared in host_vars/llm/models.yml; see docs/llm-models.md.
+- name: Local model changes on the AI host (no rebuild)
+  hosts: ai
+  vars:
+    llamacpp_skip_build: true
+    stacks_only:
+      - litellm
+      - zeroclaw
+  roles:
+    - llamacpp
+    - stacks

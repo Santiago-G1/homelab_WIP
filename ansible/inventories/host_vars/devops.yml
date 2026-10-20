@@ -1,0 +1,4 @@
+---
+# The control node runs Ansible itself and declares no Compose stacks: the GPU
+# control panel moved to the AI host (see host_vars/llm/main.yml), which is the
+# container that owns the P100. Every other stack lives with its own container.
