@@ -6,9 +6,13 @@ here.
 
 ## Version
 
-`llamacpp_version` is `master` in `host_vars/llm/main.yml`, so a `site.yml` run
-re-fetches the branch and rebuilds whenever upstream moved. Pin a `bXXXX` tag
-for reproducible builds.
+`llamacpp_version` in `host_vars/llm/main.yml` pins a **commit** (upstream
+`b11696`), not a branch: the vendored patch set below only applies cleanly to
+that revision, so every `site.yml` run checks out the same tree instead of
+following upstream. The role only rebuilds when its recorded build signature
+changes (see below). To bump it, re-run `files/apply-p100-patches.sh` by hand
+against the new revision to see which patches still apply, then expect a full
+CUDA rebuild.
 
 ## CUDA 12 on Debian trixie
 
