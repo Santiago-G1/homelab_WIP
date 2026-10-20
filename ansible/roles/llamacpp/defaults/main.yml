@@ -20,6 +20,13 @@ llamacpp_cuda_force_mmq: "OFF"         # sm_60 has no dp4a: forcing MMQ only slo
 llamacpp_cpu_flags: "-march=ivybridge -mtune=ivybridge -O3 -fopenmp -pipe -funroll-loops"
 llamacpp_build_jobs: 4
 llamacpp_build_targets: [llama-server, llama-bench, llama-cli]
+
+# P100 (GP100, sm_60) patch set: the subset of
+# github.com/shinbunbun/llama-cpp-p100-patches that applies to the pinned
+# upstream commit, plus the fp16 carve-out from llama.cpp#25593. Vendored in
+# files/patches-p100/ and applied in filename order. See docs/llamacpp-build.md.
+llamacpp_p100_patches: true
+llamacpp_patch_dir: /opt/llama.cpp-patches
 llamacpp_cmake_args:
   - -DCMAKE_BUILD_TYPE=Release
   - -DCMAKE_C_COMPILER=clang
@@ -45,6 +52,8 @@ llamacpp_cmake_args:
   - "-DCMAKE_CUDA_COMPILER={{ llamacpp_cuda_root }}/bin/nvcc"
   - "-DGGML_CUDA_FORCE_MMQ={{ llamacpp_cuda_force_mmq }}"
   - -DGGML_CUDA_FA=ON
+  - -DGGML_CUDA_FA_ALL_QUANTS=ON
+  - "-DCMAKE_CUDA_FLAGS=-O3 -Xptxas -O3"
   - -DGGML_CUDA_GRAPHS=ON
   - -DCMAKE_CUDA_HOST_COMPILER=/usr/bin/g++
   - -DGGML_CCACHE=OFF

@@ -54,13 +54,57 @@
         force: true
       register: llamacpp_src
 
-    # Changing any build flag triggers a rebuild.
-    - name: Record the build flags
+    # The patch set lives in the working tree (git apply --3way stages it), so a
+    # previous run leaves the checkout dirty. Start from the pinned commit every
+    # time; applying the patches below is what makes the tree patched.
+    - name: Reset the llama.cpp tree to the pinned commit
+      ansible.builtin.command: git reset --hard {{ llamacpp_version }}
+      args:
+        chdir: /opt/llama.cpp
+      changed_when: false
+
+    # The applier is idempotent and cheap, so it runs on every build.
+    # ---- rebuild decision -------------------------------------------------
+    # Everything above is keyed off a signature of (upstream rev, cmake flags,
+    # targets, patch set, carve-out script). The tree is only reset and re-patched
+    # when that changes: re-applying the patches touches every file's mtime and
+    # would make ninja rebuild the whole CUDA tree on every playbook run.
+    - name: Install the P100 patch set
       ansible.builtin.copy:
-        content: "{{ llamacpp_cmake_args | join('\n') }}\n{{ llamacpp_build_targets | join(' ') }}\n"
-        dest: /opt/llama.cpp/.ansible-build-flags
+        src: "{{ item }}"
+        dest: "{{ llamacpp_patch_dir }}/"
         mode: "0644"
-      register: llamacpp_flags
+      with_fileglob: patches-p100/*.patch
+      when: llamacpp_p100_patches
+
+    - name: Install the P100 patch applier
+      ansible.builtin.copy:
+        src: apply-p100-patches.sh
+        dest: "{{ llamacpp_patch_dir }}/apply.sh"
+        mode: "0755"
+      when: llamacpp_p100_patches
+
+    - name: Install the sm_60 fp16 carve-out
+      ansible.builtin.copy:
+        src: carveout-sm60-fp16.py
+        dest: "{{ llamacpp_patch_dir }}/carveout-sm60-fp16.py"
+        mode: "0755"
+      when: llamacpp_p100_patches
+
+    - name: Collect the patch set signature
+      ansible.builtin.find:
+        paths: "{{ llamacpp_patch_dir }}"
+        patterns: "*.patch"
+        get_checksum: true
+      register: llamacpp_patch_files
+      when: llamacpp_p100_patches
+
+    - name: Stat the carve-out script
+      ansible.builtin.stat:
+        path: "{{ llamacpp_patch_dir }}/carveout-sm60-fp16.py"
+        get_checksum: true
+      register: llamacpp_carveout_script
+      when: llamacpp_p100_patches
 
     - name: Check whether the binary exists
       ansible.builtin.stat:
@@ -74,9 +118,41 @@
         state: absent
       when: llamacpp_bin.stat.exists and llamacpp_bin.stat.size | default(1) == 0
 
-    - name: Set the rebuild condition
+    - name: Read the recorded build signature
+      ansible.builtin.slurp:
+        src: /opt/llama.cpp/.ansible-build-flags
+      register: llamacpp_flags_recorded
+      failed_when: false
+
+    - name: Set the build signature
       ansible.builtin.set_fact:
-        llamacpp_rebuild: "{{ llamacpp_src.changed or llamacpp_flags.changed or not llamacpp_bin.stat.exists or llamacpp_bin.stat.size | default(1) == 0 }}"
+        llamacpp_signature: "{{ llamacpp_version }}\n{{ llamacpp_cmake_args | join('\n') }}\n{{ llamacpp_build_targets | join(' ') }}\n{{ llamacpp_patch_files.files | default([]) | map(attribute='checksum') | join('\n') }}\n{{ llamacpp_carveout_script.stat.checksum | default('none') }}\n"
+
+    - name: Decide whether to rebuild
+      ansible.builtin.set_fact:
+        llamacpp_rebuild: >-
+          {{ (llamacpp_flags_recorded.content | default('') | b64decode) != llamacpp_signature
+              or not llamacpp_bin.stat.exists
+              or llamacpp_bin.stat.size | default(1) == 0 }}
+
+    - name: Reset the llama.cpp tree to the pinned commit
+      ansible.builtin.command: git reset --hard {{ llamacpp_version }}
+      args:
+        chdir: /opt/llama.cpp
+      changed_when: false
+      when: llamacpp_rebuild
+
+    - name: Apply the P100 patch set
+      ansible.builtin.command: "{{ llamacpp_patch_dir }}/apply.sh"
+      args:
+        chdir: /opt/llama.cpp
+      when: llamacpp_p100_patches and llamacpp_rebuild
+      changed_when: true
+
+    - name: Carve sm_60 out of the fp16 fast path (attention + mmvf)
+      ansible.builtin.command: "{{ llamacpp_patch_dir }}/carveout-sm60-fp16.py"
+      when: llamacpp_p100_patches and llamacpp_rebuild
+      changed_when: true
 
     - name: Configure the build
       ansible.builtin.command:
@@ -98,6 +174,14 @@
       when: llamacpp_rebuild
       changed_when: true
       notify: restart llama-server
+
+    # Written only after a successful build, so a failed build is retried.
+    - name: Record the build signature
+      ansible.builtin.copy:
+        content: "{{ llamacpp_version }}\n{{ llamacpp_cmake_args | join('\n') }}\n{{ llamacpp_build_targets | join(' ') }}\n{{ llamacpp_patch_files.files | default([]) | map(attribute='checksum') | join('\n') }}\n{{ llamacpp_carveout_script.stat.checksum | default('none') }}\n"
+        dest: /opt/llama.cpp/.ansible-build-flags
+        mode: "0644"
+      when: llamacpp_rebuild
 
 # Outside the block: the service runs as this user, and llm-models.yml needs it.
 - name: Service user

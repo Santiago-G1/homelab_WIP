@@ -8,9 +8,31 @@
 #   args  per-model llama-server options (default: llamacpp_global_args).
 #   agent set on exactly one model: the one ZeroClaw talks to.
 llm_models:
+  # Bigger ubatch means fewer graph launches. Measured on the P100 @ 512
+  # defaults: 9B pp2048 614 -> 781 t/s at ub 2048; the 12-13 GiB models become
+  # unstable there (VRAM pressure), so they stay at 1024: 35B-A3B pp2048
+  # 486 -> 669 t/s, 27B pp2048 134 -> 153 t/s. Decode is unaffected.
   - name: Qwen3.5-9B-UD-Q4_K_XL
+    args:
+      n-gpu-layers: 99
+      ctx-size: 8192
+      flash-attn: "on"
+      batch-size: 4096
+      ubatch-size: 2048
   - name: Qwen3.6-35B-A3B-UD-IQ3_S
+    args:
+      n-gpu-layers: 99
+      ctx-size: 8192
+      flash-attn: "on"
+      batch-size: 2048
+      ubatch-size: 1024
   - name: Qwen3.8-27B-UD-IQ4_XS
+    args:
+      n-gpu-layers: 99
+      ctx-size: 8192
+      flash-attn: "on"
+      batch-size: 2048
+      ubatch-size: 1024
   - name: Qwen3.8-27B-GSQ-RCO-IQ3_S-mtp
     args:
       n-gpu-layers: 99

@@ -46,3 +46,62 @@ than its objects; the role deletes a zero-size binary so make rebuilds it
 so it loads one `.gguf` on demand. `models.ini.j2` renders `llamacpp_global_args`
 plus each model's `args` from `llm_models` in
 `ansible/inventories/host_vars/llm/models.yml`. See `llm-models.md`.
+
+## The P100 (sm_60) patch set
+
+`roles/llamacpp/files/patches-p100/` vendors the part of
+[shinbunbun/llama-cpp-p100-patches](https://github.com/shinbunbun/llama-cpp-p100-patches)
+that applies to the pinned commit, plus the fp16 carve-out from
+[llama.cpp#25593](https://github.com/ggml-org/llama.cpp/issues/25593). It is
+applied by `files/apply-p100-patches.sh` right after the checkout, in filename
+order, idempotently; `.ansible-build-flags` includes their checksums, so editing
+or adding a patch rebuilds without touching anything else.
+
+Why it matters on this card: GP100 is the only Pascal chip **without DP4A**
+(so llama.cpp emulates the int8 dot product and falls back to cuBLAS for dense
+matmuls) while it does have full-rate HFMA2. The patches attack exactly that
+asymmetry. Measured here (llama-bench, best of 3 interleaved rounds,
+`-ngl 99 -fa on`, ub 512, same flags both arms):
+
+| model | test | stock b11696 | patched | |
+|---|---|---:|---:|---|
+| Qwen3.5 9B Q4_K | pp512 | 620 | 622 | — |
+| | pp2048 | 615 | 615 | — |
+| | tg128 | 33.2 | **43.4** | +31 % |
+| 35B-A3B IQ3_S | pp512 | 496 | 501 | +1 % |
+| | pp2048 | 497 | 458 | −8 % (known trade-off of the set) |
+| | tg128 | 46.0 | **60.0** | +30 % |
+
+End to end through `llama-server` with the MTP model (draft-mtp n=3, KV q8_0,
+8k ctx): 15.9 → **22.2 t/s** (+39 %).
+
+`99-p100-fp32-attn-mmvf.patch` extends the existing sm_61 carve-out to sm_60 in
+the first two `FAST_FP16` gates (`common.cuh`): `FAST_FP16_AVAILABLE` (device
+macro, used by the flash-attention kernels) and `fast_fp16_available()`
+(mmvf). Same root cause as [llama.cpp#25593](https://github.com/ggml-org/llama.cpp/issues/25593):
+GP100 has fast fp16 hardware, so llama.cpp did quality-sensitive math in fp16,
+which is ~0.0023 median KLD against an fp32 truth base.
+
+Measured here on a 9B Q4_K (`-ngl 99 -fa on`, ub 512, same flags both arms):
+pp512 649.6 -> 648.4, pp2048 644.6 -> 640.3, tg128 44.74 -> 44.86. Free.
+
+**The third gate is deliberately NOT patched.**
+`fast_fp16_hardware_available()` selects the cuBLAS compute type, and on GP100
+fp32 GEMM costs ~40 % prefill: 9B pp2048 644.6 -> 386.8 t/s. Forcing MMQ to
+avoid cuBLAS instead collapses dense prefill (9B pp512 202 t/s). So the weight
+path on this card stays fp16 in exchange for prefill speed; fixing its precision
+needs an fp32-accumulate GEMM at fp16 rate, which Pascal does not have.
+
+### ubatch
+
+`llamacpp_model_overrides` carries the per-model `batch-size`/`ubatch-size` from
+`models.yml`. On this card the ubatch is worth more than most flags: 9B pp2048
+614 → 781 t/s at 2048; the 12-13 GiB models must stay at 1024 (at 2048 VRAM
+pressure makes prefill erratic) and gain 486 → 669 (35B-A3B) and 134 → 153 (27B).
+Decode does not move with the ubatch.
+
+### Benchmarking gotcha
+
+If the weights live on spinning storage, preload the `.gguf`
+(`dd if=model of=/dev/null`) before a `llama-bench` run, or the 12-14 GiB models
+are read from disk mid-test and prefill scatters by ±150 t/s.

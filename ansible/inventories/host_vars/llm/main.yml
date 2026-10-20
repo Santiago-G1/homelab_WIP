@@ -13,9 +13,12 @@ cuda_repo_distro: debian12
 llamacpp_cuda_root: /usr/local/cuda-12.8
 llamacpp_cuda_arch: "60-real"
 
-llamacpp_version: master         # pin a bXXXX tag for reproducible builds
+# Pinned: the vendored P100 patch set applies cleanly to this commit only
+# (b11696, "convert: respect Mistral format for DeepseekV2Model"). Bump it and
+# re-run ansible/roles/llamacpp/files/apply-p100-patches.sh by hand to re-check.
+llamacpp_version: 2a667032dc788c3a071d538e0b572e45a3f12731
 llamacpp_port: 8080
-llamacpp_build_jobs: 4
+llamacpp_build_jobs: 2          # nvcc is memory hungry; 2 is the safe value here
 
 llamacpp_models_dir: /mnt/data/models   # /tank/cloud/llm on the PVE host
 llamacpp_models_max: 1                  # one model resident at a time
