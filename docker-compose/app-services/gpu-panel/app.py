@@ -33,6 +33,12 @@ PVE_HOST = os.environ.get("PVE_HOST", "root@192.168.10.2")
 IMMICH_HOST = os.environ.get("IMMICH_HOST", "root@192.168.10.22")
 FRONTEND_HOST = os.environ.get("FRONTEND_HOST", "root@192.168.10.21")
 LLAMA_URL = os.environ.get("LLAMA_URL", "http://192.168.10.26:8080")
+# llama-server is a systemd unit on the AI container, so its output only exists in
+# that container's journald. The panel reaches it the same way it reaches
+# nvidia-smi: over SSH to the PVE node, which then enters the container.
+AI_CTID = os.environ.get("AI_CTID", "126")
+LLAMA_LOG_UNIT = os.environ.get("LLAMA_LOG_UNIT", "llama-server")
+LLAMA_LOG_MAX = 2000
 PANEL_USER = os.environ.get("PANEL_USER", "admin")
 PANEL_PASSWORD = os.environ.get("PANEL_PASSWORD", "")
 PANEL_TOKEN = os.environ.get("PANEL_TOKEN", "")
@@ -231,6 +237,26 @@ def llama_unload_all():
         r = httpx.post(f"{LLAMA_URL}/models/unload", json={"model": m["id"]}, timeout=60)
         out.append({"model": m["id"], "http": r.status_code})
     return out
+
+
+def llama_logs(lines=200):
+    """Last N journald lines of the llama.cpp unit (newest last).
+
+    The cap is enforced here, not in the browser, so a stray request cannot pull
+    an unbounded journal through two shells.
+    """
+    try:
+        lines = max(20, min(int(lines), LLAMA_LOG_MAX))
+    except (TypeError, ValueError):
+        raise HTTPException(400, "lines must be an integer")
+    p = ssh(
+        PVE_HOST,
+        f"pct exec {AI_CTID} -- journalctl -u {LLAMA_LOG_UNIT} -n {lines} --no-pager -o short-iso",
+        timeout=25,
+    )
+    if p.returncode != 0:
+        raise HTTPException(502, (p.stderr or p.stdout).strip() or "journalctl failed")
+    return [line for line in p.stdout.splitlines() if line.strip()]
 
 
 def listed_models(models):
@@ -561,6 +587,13 @@ def set_power(body: dict = Body(...), _: str = Depends(require_auth)):
 def llama_unload(_: str = Depends(require_auth)):
     unloaded = llama_unload_all()
     return {"unloaded": model_names([{"id": u["model"]} for u in unloaded])}
+
+
+@app.get("/api/llama/logs")
+def llama_logs_api(lines: int = 200, _: str = Depends(require_auth)):
+    """Tail of the llama.cpp service log, for debugging a load or a crash."""
+    out = llama_logs(lines)
+    return {"unit": LLAMA_LOG_UNIT, "container": AI_CTID, "count": len(out), "lines": out}
 
 
 @app.post("/api/immich/ml/{action}")

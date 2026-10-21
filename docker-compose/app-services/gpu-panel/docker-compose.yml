@@ -17,6 +17,10 @@ services:
       # The router's address comes from the inventory (the container is not
       # llama.cpp, so its own localhost is not it); required, like the secrets.
       - LLAMA_URL=${LLAMA_URL:?LLAMA_URL is required}
+      # Where the llama.cpp logs are read from: its systemd unit on the AI
+      # container. The defaults match this lab, so .env needs no new entry.
+      - AI_CTID=${AI_CTID:-126}
+      - LLAMA_LOG_UNIT=${LLAMA_LOG_UNIT:-llama-server}
       - JELLYFIN_FALLBACK=${JELLYFIN_FALLBACK:-vaapi}
     volumes:
       # The container's SSH key is what reaches the PVE host and the other GPU
