@@ -5,7 +5,7 @@
 # README.md for why the limiter is off and what the pinned tag buys.
 services:
   searxng:
-    image: searxng/searxng:2026.10.19-81371861f
+    image: searxng/searxng:2026.10.19-81371861f@sha256:5ed0323b5f5f8701264ef65e239a2bd83cb57098f2b971fa30bf79c06eeae271
     container_name: searxng
     restart: unless-stopped
 

@@ -18,6 +18,9 @@ module "caddy" {
   cpu_cores  = 2
   memory     = 1048
   swap       = 512
+  # The image is compiled here (xcaddy pulls the Caddy tree and the Cloudflare
+  # module), and a Go build does not fit in the module's default 8 GB.
+  disk_size = 12
 }
 
 module "tailscale" {

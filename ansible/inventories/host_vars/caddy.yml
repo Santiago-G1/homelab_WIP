@@ -4,6 +4,9 @@
 stacks:
   - name: caddy
     src: network-services/caddy
+    # The image is built from the Dockerfile in the project (Caddy + the
+    # Cloudflare DNS module), so a change there has to rebuild it.
+    build: true
     files:
       - { template: caddy-Caddyfile.j2, dest: Caddyfile }
     env:
