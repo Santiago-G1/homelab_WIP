@@ -198,6 +198,18 @@ homelab_services:
     release: BerriAI/litellm
     verify: true
 
+  - host: search
+    backend: 192.168.10.26:8081
+    title: SearXNG
+    icon: di:searxng
+    group: AI
+    path: /healthz
+    release: searxng/searxng
+    note: >-
+      Web search for the agent; the limiter is off, so this is LAN-only and must
+      not become a public hostname in the tunnel.
+    verify: true
+
   - host: agent
     backend: 192.168.10.26:42617
     title: ZeroClaw

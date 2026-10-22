@@ -33,6 +33,11 @@ vault_slskd_username: SOULSEEK-NAME
 vault_sync_mount: /path/to/data
 vault_tailscale_auth_key: CHANGE-ME
 
+# SearXNG session/signing key (server.secret_key), rendered as SEARXNG_SECRET.
+# It must be random, and it never goes into the rendered settings.yml:
+#   openssl rand -hex 32
+vault_searxng_secret_key: CHANGE-ME
+
 # ZeroClaw -> LiteLLM virtual key (sk-...); rendered as ZEROCLAW_LITELLM_API_KEY
 vault_zeroclaw_litellm_api_key: sk-replace-me
 

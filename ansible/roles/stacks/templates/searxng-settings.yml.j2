@@ -1,0 +1,47 @@
+{#
+   SearXNG settings, rendered by Ansible for the AI host.
+
+   Only what differs from upstream's defaults is declared: the image ships the
+   full settings.yml and `use_default_settings` merges the two, so an engine or
+   default that changes upstream does not need a patch here. The merged file is
+   checked at boot; `docker compose logs searxng` is where a bad key shows up.
+
+   No secret: `server.secret_key` is deliberately absent. The image's settings
+   loader overrides it from SEARXNG_SECRET, which arrives through the stack's
+   .env (mode 600) from group_vars/all/vault.yml.
+-#}
+use_default_settings:
+  engines:
+    # Both need tooling this image does not ship (a Tor client), but upstream
+    # still registers them: every worker logs a registration error at boot.
+    remove:
+      - ahmia
+      - torch
+
+general:
+  # Shown in the UI title and in the JSON's "search" block.
+  instance_name: "{{ searxng_instance_name }}"
+
+server:
+  # Not a public instance: no bot detection, no per-client limits. The limiter
+  # also needs a valkey/redis to count across workers, and the only client here
+  # is the agent. Revisit both if this is ever published outside the LAN.
+  limiter: false
+  public_instance: false
+  image_proxy: true
+
+search:
+  safe_search: 0
+  # Every autocomplete backend is a third-party request per keystroke and the
+  # agent never types: leave it off.
+  autocomplete: ""
+  # JSON is what ZeroClaw's web_search tool speaks; upstream ships HTML only.
+  formats:
+    - html
+    - json
+
+outgoing:
+  # A single hanging engine must not hold the agent's tool call: ZeroClaw gives
+  # up after 15s (web_search.timeout_secs in the rendered config.toml).
+  request_timeout: 6.0
+  max_request_timeout: 12.0

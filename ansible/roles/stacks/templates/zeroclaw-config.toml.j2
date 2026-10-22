@@ -37,6 +37,17 @@ max_tool_iterations = 12
 # llamacpp ctx-size (see zeroclaw_max_context_tokens in host_vars).
 max_context_tokens = {{ zeroclaw_max_context_tokens | default(24000) }}
 
+[web_search]
+# DuckDuckGo's HTML endpoint starts answering empty results for this daemon
+# after a handful of queries from the same IP, so search goes through the
+# SearXNG instance on the shared network. See the searxng stack's README.
+search_provider = "searxng"
+searxng_instance_url = "{{ zeroclaw_searxng_instance_url }}"
+max_results = 5
+# SearXNG caps a search at 12s (outgoing.max_request_timeout); do not wait
+# longer than the answer is worth.
+timeout_secs = 15
+
 [channels.telegram.home]
 enabled = true
 
