@@ -1,0 +1,35 @@
+{#
+   Filebrowser config, rendered by Ansible for the cloud container.
+
+   This file used to sit in the repo as plain YAML, which left the OnlyOffice
+   integration pointing at the placeholder "https://your.domain.com": the
+   editor's public URL is this file's `integrations.office.url`, so it has to
+   be the published name. It comes from the catalog entry whose `host` is
+   `cloud`, the same entry Caddy and Glance read.
+
+   Secrets stay out of here on purpose: filebrowser does not expand variables in
+   config.yaml, so the admin password and the JWT secret arrive as environment
+   variables (see docker-compose.yml).
+-#}
+{% set cloud = homelab_services | selectattr('host', 'equalto', 'cloud') | first %}
+http:
+  port: 80
+  internalUrl: "http://filebrowser:80"
+
+server:
+  sources:
+    - path: "/folder"
+      name: "Nube"
+
+auth:
+  adminUsername: admin
+  methods:
+    password:
+      enabled: true
+
+integrations:
+  office:
+    # What the browser loads the editor from; must be the published name, not
+    # the container address.
+    url: "https://{{ cloud.host }}.{{ vault_domainname_hs }}"
+    internalUrl: "http://onlyoffice:80"

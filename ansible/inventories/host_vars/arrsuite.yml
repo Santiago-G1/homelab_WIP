@@ -1,5 +1,5 @@
 ---
-# Every *arr stack joins this network ansible create it directly
+# Every *arr stack joins this network; Ansible creates it before the stacks.
 docker_networks:
   - soulsync-network
 

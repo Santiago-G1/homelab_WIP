@@ -33,7 +33,7 @@ The infrastructure is segmented into distinct layers managed via automated pipel
 
 ### Network Services
 - **Blocky (192.168.10.3):** DNS resolver and ad-blocker, API/DoH/metrics on port 4000
-- **Caddy (192.168.10.4):** reverse proxy for `*.domain.com` (ports 80/443, config in `docker-compose/network-services/caddy`)
+- **Caddy (192.168.10.4):** reverse proxy for every `<host>.<zone>` in the service catalog (ports 80/443, config in `docker-compose/network-services/caddy`; the zone is `vault_domainname_hs`)
 - **Tailscale (192.168.10.5):** Tailscale mesh VPN node
 - **Cloudflare (192.168.10.6):** Cloudflare Tunnel (Handles external exposure for internal services like Navidrome)
 
