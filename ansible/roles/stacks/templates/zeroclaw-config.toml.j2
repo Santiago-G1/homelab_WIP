@@ -33,7 +33,9 @@ sandbox_image = "zeroclaw-sandbox:1"
 [runtime_profiles.agent]
 agentic = true
 max_tool_iterations = 12
-max_context_tokens = 24000   # well under the 64K the model advertises
+# The agent's window, not the server's: leave room for the reply inside
+# llamacpp ctx-size (see zeroclaw_max_context_tokens in host_vars).
+max_context_tokens = {{ zeroclaw_max_context_tokens | default(24000) }}
 
 [channels.telegram.home]
 enabled = true

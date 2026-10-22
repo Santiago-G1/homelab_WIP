@@ -44,6 +44,9 @@ docker_networks:
 # ZeroClaw talks to LiteLLM by container name over the shared ai-stack network.
 # zeroclaw_model and the virtual key's scope come from models.yml.
 zeroclaw_litellm_uri: http://litellm-proxy:4000/v1
+# Below the router's ctx-size for the agent model (131072): the rest is
+# headroom for the reply, which on a reasoning model is not small.
+zeroclaw_max_context_tokens: 114688
 # The Telegram account allowed to talk to the agent (numeric ID, which
 # survives a display-name change). The value is a secret: it lives in
 # vault_zeroclaw_telegram_user_id, not here.
