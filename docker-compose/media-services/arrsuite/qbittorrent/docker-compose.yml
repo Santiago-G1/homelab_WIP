@@ -5,7 +5,7 @@ services:
     environment:
       - PUID=1000
       - PGID=1000
-      - TZ=Etc/UTC
+      - TZ=${TZ:-Etc/UTC}
       - WEBUI_PORT=8080
     volumes:
       - /opt/docker/qbittorrent/data:/config

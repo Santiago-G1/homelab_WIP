@@ -50,12 +50,13 @@
   loop_control:
     label: "{{ item.path }}"
 
+# Rendered for every stack: stack_env_common (zone, timezone) applies even when
+# the stack declares no `env` of its own.
 - name: "{{ stack.name }} | render .env"
   ansible.builtin.template:
     src: env.j2
     dest: "{{ stacks_root }}/{{ stack.name }}/.env"
     mode: "0600"
-  when: stack.env is defined
 
 - name: "{{ stack.name }} | render extra configuration files"
   ansible.builtin.template:

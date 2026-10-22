@@ -3,6 +3,19 @@
 
 timezone: America/Bogota
 
+# The lab's LAN, in CIDR form: the Tailscale subnet router advertises it.
+lan_cidr: 192.168.10.0/24
+
+# Repo of this lab, for the dashboard's "!lab" shortcut (Glance).
+homelab_repo: Santiago-G1/homelab_WIP
+
+# Environment every stack gets, merged under its own `env` entry by
+# roles/stacks. Keeps the zone and the timezone out of every host_vars file and
+# out of each compose file: containers read them from the rendered .env.
+stack_env_common:
+  DOMAINNAME_HS: "{{ vault_domainname_hs }}"
+  TZ: "{{ timezone }}"
+
 # Where each Docker Compose project is deployed on the target host.
 stacks_root: /opt/docker
 compose_src_root: "{{ playbook_dir }}/../../docker-compose"

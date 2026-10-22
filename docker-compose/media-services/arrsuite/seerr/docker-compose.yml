@@ -4,7 +4,7 @@ services:
     container_name: seerr
     environment:
       - LOG_LEVEL=debug
-      - TZ=Etc/UTC
+      - TZ=${TZ:-Etc/UTC}
     ports:
       - "5055:5055"
     volumes:

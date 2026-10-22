@@ -3,7 +3,7 @@ services:
     image: gotson/komga:latest
     container_name: komga
     environment:
-      - TZ=Etc/UTC
+      - TZ=${TZ:-Etc/UTC}
     volumes:
       - ./config:/config
       - /mnt/media/comics:/data

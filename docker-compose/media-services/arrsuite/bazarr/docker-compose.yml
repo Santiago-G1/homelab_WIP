@@ -5,7 +5,7 @@ services:
     environment:
       - PUID=1000
       - PGID=1000
-      - TZ=Etc/UTC
+      - TZ=${TZ:-Etc/UTC}
     volumes:
       - /opt/docker/bazarr/data:/config
       - /mnt/data:/data

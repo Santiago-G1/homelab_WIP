@@ -3,7 +3,7 @@ services:
     image: slskd/slskd:latest
     container_name: slskd
     environment:
-      - TZ=Etc/UTC
+      - TZ=${TZ:-Etc/UTC}
       - PUID=1000
       - PGID=1000   
       - SLSKD_REMOTE_CONFIGURATION=true

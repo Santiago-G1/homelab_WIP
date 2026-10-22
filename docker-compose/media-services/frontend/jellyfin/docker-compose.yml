@@ -3,7 +3,7 @@ services:
     image: lscr.io/linuxserver/jellyfin:latest
     container_name: jellyfin
     environment:
-      - TZ=Etc/UTC
+      - TZ=${TZ:-Etc/UTC}
     volumes:
       - ./config:/config
       - /mnt/media/series:/data/tvshows

@@ -6,7 +6,7 @@ services:
       - ND_MUSICFOLDER=/music
       - ND_DATAFOLDER=/data
       - ND_LOGLEVEL=info
-      - TZ=Etc/UTC
+      - TZ=${TZ:-Etc/UTC}
     volumes:
       - ./config:/data
       - /mnt/media/music:/music:ro

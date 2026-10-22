@@ -8,7 +8,8 @@ stacks:
       - { template: caddy-Caddyfile.j2, dest: Caddyfile }
     env:
       CLOUDFLARE_API_TOKEN: "{{ vault_cloudflare_api_token }}"
-      DOMAINNAME_HS:        "{{vault_domainname_hs}}"
+      # DOMAINNAME_HS is not declared here: every stack gets it, and the
+      # timezone, from stack_env_common in group_vars/all/main.yml.
 
 # Reached through the proxy with real SNI, so these prove the route table works.
 # The catalog decides which services are worth probing.

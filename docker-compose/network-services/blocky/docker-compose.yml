@@ -12,5 +12,5 @@ services:
       - ./config.yml:/app/config.yml:ro
       - ./querylog:/app/querylog
     environment:
-      - TZ=Etc/UTC
+      - TZ=${TZ:-Etc/UTC}
       - DOMAINNAME_HS=${DOMAINNAME_HS:?DOMAINNAME_HS is required}
