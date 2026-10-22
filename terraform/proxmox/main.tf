@@ -27,6 +27,14 @@ variable "proxmox_password" {
   sensitive   = true
 }
 
+# The address the provider reaches the node on over SSH; it is not always the
+# same name the API is published under (NAT, split DNS).
+variable "proxmox_ssh_address" {
+  description = "SSH address of the Proxmox node"
+  type        = string
+  default     = "192.168.10.2"
+}
+
 provider "proxmox" {
   endpoint = var.proxmox_api_url
   username = var.proxmox_username
@@ -38,7 +46,7 @@ provider "proxmox" {
     username = "root"
     node {
       name    = "pve"
-      address = "192.168.10.2" # change for your pve ip
+      address = var.proxmox_ssh_address
     }
   }
 }

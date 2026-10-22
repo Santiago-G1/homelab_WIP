@@ -123,6 +123,15 @@ stacks:
       PANEL_PASSWORD: "{{ vault_gpu_panel_password }}"
       PANEL_TOKEN: "{{ vault_gpu_panel_token }}"
       LLAMA_URL: "http://{{ ansible_host }}:{{ llamacpp_port }}"
+      # The panel drives the card over SSH: the PVE node owns nvidia-smi and the
+      # power limit, and Immich/Jellyfin are the other consumers of the GPU. The
+      # addresses come from the inventory, never from the panel's own defaults.
+      PVE_HOST: "root@{{ hostvars['pve'].ansible_host }}"
+      IMMICH_HOST: "root@{{ hostvars['immich'].ansible_host }}"
+      FRONTEND_HOST: "root@{{ hostvars['frontend'].ansible_host }}"
+      # Proxmox VM ID of this container (terraform/proxmox/lxc_ai.tf): the panel
+      # enters it to read llama-server's journald logs.
+      AI_CTID: "126"
       # Models the dashboard may name: exactly the ones models.yml declares, so
       # any other .gguf the router serves still loads, counts and unloads but is
       # never printed.

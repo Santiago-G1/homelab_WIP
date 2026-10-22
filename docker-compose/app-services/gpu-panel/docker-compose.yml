@@ -7,19 +7,22 @@ services:
     ports:
       - "8099:8099"
     environment:
-      - TZ=Etc/UTC
+      - TZ=${TZ:-Etc/UTC}
       - PANEL_USER=${PANEL_USER:-admin}
       - PANEL_PASSWORD=${PANEL_PASSWORD:?PANEL_PASSWORD is required}
       - PANEL_TOKEN=${PANEL_TOKEN:?PANEL_TOKEN is required}
       # Which models the dashboard may name, and where Jellyfin goes when the LLM
       # owns the P100. The values live in the rendered .env, never in this file.
       - LLAMA_PUBLIC_MODELS=${LLAMA_PUBLIC_MODELS:-}
-      # The router's address comes from the inventory (the container is not
-      # llama.cpp, so its own localhost is not it); required, like the secrets.
+      # Addresses come from the inventory (the container is not llama.cpp, so
+      # its own localhost is not it); required, like the secrets.
       - LLAMA_URL=${LLAMA_URL:?LLAMA_URL is required}
+      - PVE_HOST=${PVE_HOST:?PVE_HOST is required}
+      - IMMICH_HOST=${IMMICH_HOST:?IMMICH_HOST is required}
+      - FRONTEND_HOST=${FRONTEND_HOST:?FRONTEND_HOST is required}
       # Where the llama.cpp logs are read from: its systemd unit on the AI
-      # container. The defaults match this lab, so .env needs no new entry.
-      - AI_CTID=${AI_CTID:-126}
+      # container, entered by its Proxmox VM ID.
+      - AI_CTID=${AI_CTID:?AI_CTID is required}
       - LLAMA_LOG_UNIT=${LLAMA_LOG_UNIT:-llama-server}
       - JELLYFIN_FALLBACK=${JELLYFIN_FALLBACK:-vaapi}
     volumes:

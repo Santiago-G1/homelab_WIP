@@ -33,12 +33,13 @@ filtering:
     - AAAA
     - ANY
 
-# AdGuard rewrites: every *.domain.com name
-# resolves to the reverse proxy (Blocky resolves subdomains of a mapping too).
+# AdGuard rewrites: every *.<zone> name resolves to the reverse proxy
+# (Blocky resolves subdomains of a mapping too). The address comes from the
+# inventory, so moving the proxy is a one-line change in hosts.ini.
 customDNS:
   customTTL: 1h
   mapping:
-    "{{ vault_domainname_hs }}": 192.168.10.4
+    "{{ vault_domainname_hs }}": {{ hostvars['caddy'].ansible_host }}
 
 # The filters AdGuard had enabled. HostlistsRegistry serves them in AdGuard
 # syntax, which Blocky cannot parse, so these are the same HaGeZi lists in their
