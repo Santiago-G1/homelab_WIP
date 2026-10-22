@@ -8,7 +8,9 @@
 # tracker all follow from it.
 #
 #   host     subdomain label; the published name is <host>.<vault_domainname_hs>
-#   backend  address Caddy proxies to (the container's LAN address)
+#   server   inventory hostname the service runs on; its LAN address comes from
+#            hostvars, never from this file
+#   port     published port, from the service_ports map below
 #   title    name shown in the dashboard
 #   icon     di: dashboard-icons, sh: selfh.st, si: simple-icons, mdi: material
 #   group    dashboard section; the bookmarks and monitors are grouped by it
@@ -24,10 +26,43 @@
 # so only 4xx codes need to be listed.
 ok_status_codes: [401, 403]
 
+# Every LAN port Ansible has to know about, in one place: the catalog's backends
+# below and each host's health checks in host_vars read from here, so a service
+# that moves to another port is a one-line change. The compose file of the stack
+# still owns the published port (that is what Docker does); this map has to
+# match it, which is what playbooks/verify.yml checks end to end.
+service_ports:
+  blocky: 4000
+  glance: 8080
+  grafana: 3000
+  prometheus: 9090
+  jellyfin: 8096
+  navidrome: 4533
+  komga: 25600
+  immich: 2283
+  qbittorrent: 8080
+  sonarr: 8989
+  radarr: 7878
+  prowlarr: 9696
+  bazarr: 6767
+  seerr: 5055
+  calibre: 8082
+  slskd: 5030
+  vaultwarden: 8000
+  radicale: 5232
+  filebrowser: 80
+  onlyoffice: 8080
+  syncthing: 8384
+  gpu_panel: 8099
+  litellm: 4000
+  searxng: 8081
+  zeroclaw: 42617
+
 homelab_services:
   # --- network -------------------------------------------------------------
   - host: blocky
-    backend: 192.168.10.3:4000
+    server: blocky
+    port: "{{ service_ports.blocky }}"
     title: Blocky (DNS)
     icon: di:blocky
     group: Network
@@ -37,7 +72,8 @@ homelab_services:
 
   # --- monitoring ----------------------------------------------------------
   - host: home
-    backend: 192.168.10.10:8080
+    server: monitoring
+    port: "{{ service_ports.glance }}"
     title: Dashboard
     icon: di:glance
     group: Monitoring
@@ -46,7 +82,8 @@ homelab_services:
     verify: true
 
   - host: grafana
-    backend: 192.168.10.10:3000
+    server: monitoring
+    port: "{{ service_ports.grafana }}"
     title: Grafana
     icon: di:grafana
     group: Monitoring
@@ -56,7 +93,8 @@ homelab_services:
 
   # --- media ---------------------------------------------------------------
   - host: movies
-    backend: 192.168.10.21:8096
+    server: frontend
+    port: "{{ service_ports.jellyfin }}"
     title: Jellyfin
     icon: di:jellyfin
     group: Media
@@ -64,7 +102,8 @@ homelab_services:
     release: jellyfin/jellyfin
 
   - host: music
-    backend: 192.168.10.21:4533
+    server: frontend
+    port: "{{ service_ports.navidrome }}"
     title: Navidrome
     icon: di:navidrome
     group: Media
@@ -73,14 +112,16 @@ homelab_services:
     verify: true
 
   - host: komga
-    backend: 192.168.10.21:25600
+    server: frontend
+    port: "{{ service_ports.komga }}"
     title: Komga
     icon: di:komga
     group: Media
     release: gotson/komga
 
   - host: immich
-    backend: 192.168.10.22:2283
+    server: immich
+    port: "{{ service_ports.immich }}"
     title: Immich
     icon: di:immich
     group: Media
@@ -89,7 +130,8 @@ homelab_services:
     verify: true
 
   - host: torrent
-    backend: 192.168.10.20:8080
+    server: arrsuite
+    port: "{{ service_ports.qbittorrent }}"
     title: qBittorrent
     icon: di:qbittorrent
     group: Media
@@ -97,49 +139,56 @@ homelab_services:
     verify: true
 
   - host: sonarr
-    backend: 192.168.10.20:8989
+    server: arrsuite
+    port: "{{ service_ports.sonarr }}"
     title: Sonarr
     icon: di:sonarr
     group: Media
     release: Sonarr/Sonarr
 
   - host: radarr
-    backend: 192.168.10.20:7878
+    server: arrsuite
+    port: "{{ service_ports.radarr }}"
     title: Radarr
     icon: di:radarr
     group: Media
     release: Radarr/Radarr
 
   - host: prowlarr
-    backend: 192.168.10.20:9696
+    server: arrsuite
+    port: "{{ service_ports.prowlarr }}"
     title: Prowlarr
     icon: di:prowlarr
     group: Media
     release: Prowlarr/Prowlarr
 
   - host: bazarr
-    backend: 192.168.10.20:6767
+    server: arrsuite
+    port: "{{ service_ports.bazarr }}"
     title: Bazarr
     icon: di:bazarr
     group: Media
     release: morpheus65535/bazarr
 
   - host: seerr
-    backend: 192.168.10.20:5055
+    server: arrsuite
+    port: "{{ service_ports.seerr }}"
     title: Seerr
     icon: di:seerr
     group: Media
     release: seerr-team/seerr
 
   - host: calibre
-    backend: 192.168.10.20:8082
+    server: arrsuite
+    port: "{{ service_ports.calibre }}"
     title: Calibre-Web
     icon: di:calibre-web
     group: Media
     release: janeczku/calibre-web
 
   - host: slskd
-    backend: 192.168.10.20:5030
+    server: arrsuite
+    port: "{{ service_ports.slskd }}"
     title: slskd
     icon: di:slskd
     group: Media
@@ -147,7 +196,8 @@ homelab_services:
 
   # --- apps ----------------------------------------------------------------
   - host: password
-    backend: 192.168.10.23:8000
+    server: vaultwarden
+    port: "{{ service_ports.vaultwarden }}"
     title: Vaultwarden
     icon: di:vaultwarden
     group: Apps
@@ -156,21 +206,24 @@ homelab_services:
     verify: true
 
   - host: calendar
-    backend: 192.168.10.24:5232
+    server: radicale
+    port: "{{ service_ports.radicale }}"
     title: Radicale
     icon: di:radicale
     group: Apps
     note: CalDAV/CardDAV; / redirects to the collection listing.
 
   - host: cloud
-    backend: 192.168.10.25:80
+    server: cloud_service
+    port: "{{ service_ports.filebrowser }}"
     title: Filebrowser
     icon: di:filebrowser
     group: Apps
     release: filebrowser/filebrowser
 
   - host: sync
-    backend: 192.168.10.25:8384
+    server: cloud_service
+    port: "{{ service_ports.syncthing }}"
     title: Syncthing
     icon: di:syncthing
     group: Apps
@@ -179,7 +232,8 @@ homelab_services:
 
   # --- ai ------------------------------------------------------------------
   - host: gpu
-    backend: 192.168.10.26:8099
+    server: llm
+    port: "{{ service_ports.gpu_panel }}"
     title: GPU panel
     icon: sh:nvidia
     group: AI
@@ -190,7 +244,8 @@ homelab_services:
     verify: true
 
   - host: litellm
-    backend: 192.168.10.26:4000
+    server: llm
+    port: "{{ service_ports.litellm }}"
     title: LiteLLM
     icon: sh:litellm
     group: AI
@@ -199,7 +254,8 @@ homelab_services:
     verify: true
 
   - host: search
-    backend: 192.168.10.26:8081
+    server: llm
+    port: "{{ service_ports.searxng }}"
     title: SearXNG
     icon: di:searxng
     group: AI
@@ -211,7 +267,8 @@ homelab_services:
     verify: true
 
   - host: agent
-    backend: 192.168.10.26:42617
+    server: llm
+    port: "{{ service_ports.zeroclaw }}"
     title: ZeroClaw
     icon: mdi:robot
     group: AI

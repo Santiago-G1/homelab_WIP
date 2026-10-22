@@ -4,4 +4,4 @@ stacks:
     src: app-services/vaultwarden
 
 health_checks:
-  - { name: vaultwarden, url: "http://127.0.0.1:8000/" }
+  - { name: vaultwarden, url: "http://127.0.0.1:{{ service_ports.vaultwarden }}/" }

@@ -36,7 +36,10 @@ llamacpp_cuda_force_mmq: "OFF"
 
 # LiteLLM publishes the router on :4000 with API keys and accounting.
 litellm_api_base: "http://{{ ansible_host }}:{{ llamacpp_port }}/v1"
-litellm_backend_api_key: "sk-llamacpp"   # the router wants no real key
+# Not a secret worth protecting (the router accepts anything and does not leave
+# the host), but a literal "sk-..." in a public repository is what secret
+# scanners flag: it lives in the vault like the rest of the keys.
+litellm_backend_api_key: "{{ vault_litellm_backend_api_key }}"
 
 docker_networks:
   - ai-stack
@@ -52,7 +55,7 @@ zeroclaw_max_context_tokens: 114688
 # Caddy and Glance reach: llama.cpp already owns 8080 on the LAN interface.
 searxng_host: searxng
 searxng_port: 8080
-searxng_publish_port: 8081
+searxng_publish_port: "{{ service_ports.searxng }}"
 searxng_instance_name: "Homelab search"
 # Absolute links the HTML UI prints; matches the catalog entry in
 # group_vars/all/services.yml (`search`).
@@ -138,6 +141,6 @@ stacks:
       LLAMA_PUBLIC_MODELS: "{{ llm_models | map(attribute='name') | join(',') }},image_models"
 
 health_checks:
-  - { name: litellm, url: "http://127.0.0.1:4000/health/liveliness" }
-  - { name: searxng, url: "http://127.0.0.1:{{ searxng_publish_port }}/healthz" }
-  - { name: gpu-panel, url: "http://127.0.0.1:8099/api/session" }
+  - { name: litellm,   url: "http://127.0.0.1:{{ service_ports.litellm }}/health/liveliness" }
+  - { name: searxng,   url: "http://127.0.0.1:{{ service_ports.searxng }}/healthz" }
+  - { name: gpu-panel, url: "http://127.0.0.1:{{ service_ports.gpu_panel }}/api/session" }

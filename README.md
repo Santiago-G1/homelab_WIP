@@ -57,7 +57,7 @@ The infrastructure is segmented into distinct layers managed via automated pipel
 ## Technical Pipeline (Implementation Workflow)
 
 ### Service catalog
-`ansible/inventories/group_vars/all/services.yml` declares every published web service once (subdomain, backend, title, icon, dashboard group, availability path, upstream release). Both the Caddy route table and the Glance dashboard are rendered from it, so adding a service is a one-file change.
+`ansible/inventories/group_vars/all/services.yml` declares every published web service once (subdomain, host, port, title, icon, dashboard group, availability path, upstream release), and `service_ports` in the same file is the one place the LAN ports live: the host address comes from `hosts.ini`, never from the catalog. Both the Caddy route table and the Glance dashboard are rendered from it, so adding a service is a one-file change.
 
 ### 1. Infrastructure Provisioning (Terraform)
 - **Network Services:** Core DNS, reverse proxies, and networking routing.

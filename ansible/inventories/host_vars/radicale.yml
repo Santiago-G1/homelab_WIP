@@ -4,4 +4,4 @@ stacks:
     src: app-services/radicale
 
 health_checks:
-  - { name: radicale, url: "http://127.0.0.1:5232/" }
+  - { name: radicale, url: "http://127.0.0.1:{{ service_ports.radicale }}/" }

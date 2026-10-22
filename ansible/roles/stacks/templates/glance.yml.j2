@@ -16,8 +16,8 @@
 {% set gpu_panel = homelab_services | selectattr('host', 'equalto', 'gpu') | first %}
 {% set llm_host = hostvars['llm'].ansible_host %}
 {% set domain = vault_domainname_hs %}
-{% set prometheus_query_url = 'http://' ~ monitoring_host ~ ':9090/api/v1/query' %}
-{% set gpu_panel_url = 'http://' ~ gpu_panel.backend %}
+{% set prometheus_query_url = 'http://' ~ monitoring_host ~ ':' ~ service_ports.prometheus ~ '/api/v1/query' %}
+{% set gpu_panel_url = 'http://' ~ hostvars[gpu_panel.server].ansible_host ~ ':' ~ gpu_panel.port %}
 {% set llama_url = 'http://' ~ llm_host ~ ':' ~ hostvars['llm'].llamacpp_port %}
 {% set alt_status_codes = ok_status_codes | join(', ') %}
 

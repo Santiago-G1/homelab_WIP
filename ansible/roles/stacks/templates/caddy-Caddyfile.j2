@@ -1,8 +1,10 @@
 {#
    Caddy's site configuration, rendered from the service catalog in
    inventories/group_vars/all/services.yml. Caddy fills in {$DOMAINNAME_HS}
-   (the zone) from its own environment; the subdomain labels and their backends
-   come from the catalog, which is the same list the Glance dashboard reads.
+   (the zone) from its own environment; the subdomain labels, the host they run
+   on and their ports come from the catalog, which is the same list the Glance
+   dashboard reads. The host address is looked up in the inventory here, so a
+   container that moves needs no change to this file.
 -#}
 # The route table lives in the (routes) snippet below: one line per hostname.
 
@@ -21,7 +23,7 @@
 {% if service.note is defined %}
 		# {{ service.note }}
 {% endif %}
-		{{ service.host }}.{$DOMAINNAME_HS} {{ service.backend }}
+		{{ service.host }}.{$DOMAINNAME_HS} {{ hostvars[service.server].ansible_host }}:{{ service.port }}
 {% endfor %}
 	}
 	reverse_proxy {backend}

@@ -16,7 +16,8 @@ for everything published through Caddy. A new service is one entry:
 
 ```yaml
   - host: myapp                # becomes myapp.<domain>
-    backend: 192.168.10.30:8080
+    server: myhost             # inventory hostname (hosts.ini); its IP comes from there
+    port: "{{ service_ports.myapp }}"   # add myapp to the service_ports map
     title: My app
     icon: di:myapp             # di: dashboard-icons, sh: selfh.st, si:, mdi:
     group: Apps                # bookmark / monitor section

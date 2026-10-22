@@ -25,6 +25,6 @@ stacks:
     env:
       SYNC_MOUNT: "{{ vault_sync_mount }}"
 health_checks:
-  - { name: filebrowser, url: "http://127.0.0.1:80/" }
-  - { name: onlyoffice, url: "http://127.0.0.1:8080/healthcheck" }
-  - { name: syncthing, url: "http://127.0.0.1:8384/" }
+  - { name: filebrowser, url: "http://127.0.0.1:{{ service_ports.filebrowser }}/" }
+  - { name: onlyoffice,  url: "http://127.0.0.1:{{ service_ports.onlyoffice }}/healthcheck" }
+  - { name: syncthing,   url: "http://127.0.0.1:{{ service_ports.syncthing }}/" }

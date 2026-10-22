@@ -23,12 +23,14 @@ stacks:
       SLSKD_PASSWORD: "{{ vault_slskd_password }}"
       SLSKD_API_KEY: "{{ vault_slskd_api_key }}"
 
+# Ports come from service_ports (group_vars/all/services.yml), the same map the
+# catalog uses, so a service that moves does not leave a stale check behind.
 health_checks:
-  - { name: bazarr, url: "http://127.0.0.1:6767/" }
-  - { name: prowlarr, url: "http://127.0.0.1:9696/" }
-  - { name: radarr, url: "http://127.0.0.1:7878/" }
-  - { name: sonarr, url: "http://127.0.0.1:8989/" }
-  - { name: qbittorrent, url: "http://127.0.0.1:8080/" }
-  - { name: seerr, url: "http://127.0.0.1:5055/" }
-  - { name: slskd, url: "http://127.0.0.1:5030/" }
-  - { name: calibre, url: "http://127.0.0.1:8082/" }
+  - { name: bazarr,      url: "http://127.0.0.1:{{ service_ports.bazarr }}/" }
+  - { name: prowlarr,    url: "http://127.0.0.1:{{ service_ports.prowlarr }}/" }
+  - { name: radarr,      url: "http://127.0.0.1:{{ service_ports.radarr }}/" }
+  - { name: sonarr,      url: "http://127.0.0.1:{{ service_ports.sonarr }}/" }
+  - { name: qbittorrent, url: "http://127.0.0.1:{{ service_ports.qbittorrent }}/" }
+  - { name: seerr,       url: "http://127.0.0.1:{{ service_ports.seerr }}/" }
+  - { name: slskd,       url: "http://127.0.0.1:{{ service_ports.slskd }}/" }
+  - { name: calibre,     url: "http://127.0.0.1:{{ service_ports.calibre }}/" }
