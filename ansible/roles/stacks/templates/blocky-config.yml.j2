@@ -5,19 +5,26 @@
 # unchanged: same upstream, same blocklists, same rewrites.
 
 # AdGuard upstream_dns / bootstrap_dns / upstream_mode: parallel.
+#
+# Quad9's *unfiltered* endpoint (dns10 = 9.9.9.10 / 149.112.112.10) over DoH. It
+# replaces the Mullvad endpoint this lab used, which is being retired. Unfiltered
+# on purpose: the filtering here is Blocky's own blocklist, so the upstream must
+# not drop names behind its back (dns.quad9.net blocks malware on its side). DoH
+# keeps every query off the ISP's resolver.
 upstreams:
   groups:
     default:
-      - https://base.dns.mullvad.net/dns-query
+      - https://dns10.quad9.net/dns-query
 
-# Used to resolve the DoH upstream and the blocklist URLs. The Mullvad servers
-# only answer their own DoH queries for some names (they cannot resolve
-# cdn.jsdelivr.net), so a public resolver comes first.
+# Plain DNS, used only to resolve the DoH endpoint's own hostname
+# (dns10.quad9.net) and the blocklist URLs: the DoH upstream cannot bootstrap
+# itself. Quad9's unfiltered addresses come first; 1.1.1.1 is the last resort.
 bootstrapDns:
-  - 1.1.1.1
-  - 9.9.9.9
+  - 9.9.9.10
+  - 149.112.112.10
   - 194.242.2.6
   - 194.242.2.4
+  - 1.1.1.1
 
 ports:
   dns: 53
