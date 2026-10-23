@@ -14,7 +14,7 @@ services:
       - 1.1.1.1
       - 9.9.9.9
     environment:
-      - TZ=Etc/UTC
+      - TZ=${TZ:-Etc/UTC}
       # Used by the TLS DNS-01 challenge (see the Caddyfile).
       - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN:?CLOUDFLARE_API_TOKEN is required}
       - DOMAINNAME_HS=${DOMAINNAME_HS:?DOMAINNAME_HS is required}

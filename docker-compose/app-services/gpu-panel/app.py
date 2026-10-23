@@ -1,4 +1,4 @@
-"""GPU control panel for the domain.com lab.
+"""GPU control panel for the lab.
 
 Runs on the AI container, next to llama.cpp, and drives the Tesla P100 through
 the PVE node: that is where nvidia-smi and the power limit live (an unprivileged
@@ -29,10 +29,18 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 
-PVE_HOST = os.environ.get("PVE_HOST", "root@192.168.10.2")
-IMMICH_HOST = os.environ.get("IMMICH_HOST", "root@192.168.10.22")
-FRONTEND_HOST = os.environ.get("FRONTEND_HOST", "root@192.168.10.21")
-LLAMA_URL = os.environ.get("LLAMA_URL", "http://192.168.10.26:8080")
+# Every address is required from the environment: roles/stacks renders them into
+# the stack .env from the inventory, so this file never carries the lab's IPs.
+PVE_HOST = os.environ["PVE_HOST"]
+IMMICH_HOST = os.environ["IMMICH_HOST"]
+FRONTEND_HOST = os.environ["FRONTEND_HOST"]
+LLAMA_URL = os.environ["LLAMA_URL"]
+# llama-server is a systemd unit on the AI container, so its output only exists in
+# that container's journald. The panel reaches it the same way it reaches
+# nvidia-smi: over SSH to the PVE node, which then enters the container.
+AI_CTID = os.environ["AI_CTID"]
+LLAMA_LOG_UNIT = os.environ.get("LLAMA_LOG_UNIT", "llama-server")
+LLAMA_LOG_MAX = 2000
 PANEL_USER = os.environ.get("PANEL_USER", "admin")
 PANEL_PASSWORD = os.environ.get("PANEL_PASSWORD", "")
 PANEL_TOKEN = os.environ.get("PANEL_TOKEN", "")
@@ -87,7 +95,7 @@ busy_samples = deque(maxlen=240)
 last_busy = time.time()
 llm_blocked = False
 
-app = FastAPI(title="domain.com GPU control")
+app = FastAPI(title="GPU control panel")
 
 
 # --------------------------------------------------------------------------- #
@@ -231,6 +239,26 @@ def llama_unload_all():
         r = httpx.post(f"{LLAMA_URL}/models/unload", json={"model": m["id"]}, timeout=60)
         out.append({"model": m["id"], "http": r.status_code})
     return out
+
+
+def llama_logs(lines=200):
+    """Last N journald lines of the llama.cpp unit (newest last).
+
+    The cap is enforced here, not in the browser, so a stray request cannot pull
+    an unbounded journal through two shells.
+    """
+    try:
+        lines = max(20, min(int(lines), LLAMA_LOG_MAX))
+    except (TypeError, ValueError):
+        raise HTTPException(400, "lines must be an integer")
+    p = ssh(
+        PVE_HOST,
+        f"pct exec {AI_CTID} -- journalctl -u {LLAMA_LOG_UNIT} -n {lines} --no-pager -o short-iso",
+        timeout=25,
+    )
+    if p.returncode != 0:
+        raise HTTPException(502, (p.stderr or p.stdout).strip() or "journalctl failed")
+    return [line for line in p.stdout.splitlines() if line.strip()]
 
 
 def listed_models(models):
@@ -561,6 +589,13 @@ def set_power(body: dict = Body(...), _: str = Depends(require_auth)):
 def llama_unload(_: str = Depends(require_auth)):
     unloaded = llama_unload_all()
     return {"unloaded": model_names([{"id": u["model"]} for u in unloaded])}
+
+
+@app.get("/api/llama/logs")
+def llama_logs_api(lines: int = 200, _: str = Depends(require_auth)):
+    """Tail of the llama.cpp service log, for debugging a load or a crash."""
+    out = llama_logs(lines)
+    return {"unit": LLAMA_LOG_UNIT, "container": AI_CTID, "count": len(out), "lines": out}
 
 
 @app.post("/api/immich/ml/{action}")

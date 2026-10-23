@@ -13,4 +13,4 @@ stacks:
       DB_DATABASE_NAME: "{{ vault_immich_db_database_name }}"
 
 health_checks:
-  - { name: immich-server, url: "http://127.0.0.1:2283/api/server/ping" }
+  - { name: immich-server, url: "http://127.0.0.1:{{ service_ports.immich }}/api/server/ping" }

@@ -124,7 +124,8 @@ is no notification channel configured on purpose.
 
 Certificates are issued by Let's Encrypt through the Cloudflare DNS-01 challenge
 (the token lives in the vault as `vault_cloudflare_api_token`), including the
-`*.domain.com` wildcard, so there is nothing to install on client devices.
+`*.<vault_domainname_hs>` wildcard, so there is nothing to install on client
+devices and a new catalog entry needs no certificate work.
 
 The Grafana admin password is the image default (`admin`/`admin`) until the first
 login changes it.

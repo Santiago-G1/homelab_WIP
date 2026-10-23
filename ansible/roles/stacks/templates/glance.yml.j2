@@ -16,8 +16,8 @@
 {% set gpu_panel = homelab_services | selectattr('host', 'equalto', 'gpu') | first %}
 {% set llm_host = hostvars['llm'].ansible_host %}
 {% set domain = vault_domainname_hs %}
-{% set prometheus_query_url = 'http://' ~ monitoring_host ~ ':9090/api/v1/query' %}
-{% set gpu_panel_url = 'http://' ~ gpu_panel.backend %}
+{% set prometheus_query_url = 'http://' ~ monitoring_host ~ ':' ~ service_ports.prometheus ~ '/api/v1/query' %}
+{% set gpu_panel_url = 'http://' ~ hostvars[gpu_panel.server].ansible_host ~ ':' ~ gpu_panel.port %}
 {% set llama_url = 'http://' ~ llm_host ~ ':' ~ hostvars['llm'].llamacpp_port %}
 {% set alt_status_codes = ok_status_codes | join(', ') %}
 
@@ -71,7 +71,7 @@ pages:
         bangs:
           - { title: YouTube, shortcut: "!yt", url: "https://www.youtube.com/results?search_query={QUERY}" }
           - { title: GitHub, shortcut: "!gh", url: "https://github.com/search?q={QUERY}" }
-          - { title: Homelab repo, shortcut: "!lab", url: "https://github.com/Santiago-G1/homelab_WIP/search?q={QUERY}" }
+          - { title: Homelab repo, shortcut: "!lab", url: "https://github.com/{{ homelab_repo }}/search?q={QUERY}" }
     columns:
       - size: small
         widgets:

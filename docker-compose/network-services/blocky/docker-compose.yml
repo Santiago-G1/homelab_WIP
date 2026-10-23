@@ -1,6 +1,6 @@
 services:
   blocky:
-    image: spx01/blocky:latest
+    image: spx01/blocky:v0.35.0@sha256:4f165b63db0d76c96ecc47c7a8f57caeedc003a912bdce29abb0e283ce02e16b
     container_name: blocky
     restart: unless-stopped
     ports:
@@ -12,5 +12,5 @@ services:
       - ./config.yml:/app/config.yml:ro
       - ./querylog:/app/querylog
     environment:
-      - TZ=Etc/UTC
+      - TZ=${TZ:-Etc/UTC}
       - DOMAINNAME_HS=${DOMAINNAME_HS:?DOMAINNAME_HS is required}

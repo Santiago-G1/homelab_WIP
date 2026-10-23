@@ -33,7 +33,7 @@ The infrastructure is segmented into distinct layers managed via automated pipel
 
 ### Network Services
 - **Blocky (192.168.10.3):** DNS resolver and ad-blocker, API/DoH/metrics on port 4000
-- **Caddy (192.168.10.4):** reverse proxy for `*.domain.com` (ports 80/443, config in `docker-compose/network-services/caddy`)
+- **Caddy (192.168.10.4):** reverse proxy for every `<host>.<zone>` in the service catalog (ports 80/443, config in `docker-compose/network-services/caddy`; the zone is `vault_domainname_hs`)
 - **Tailscale (192.168.10.5):** Tailscale mesh VPN node
 - **Cloudflare (192.168.10.6):** Cloudflare Tunnel (Handles external exposure for internal services like Navidrome)
 
@@ -50,14 +50,14 @@ The infrastructure is segmented into distinct layers managed via automated pipel
 - **Vaultwarden (192.168.10.23):** Vaultwarden (8000)
 - **Radicale (192.168.10.24):** Radicale (5232)
 - **Quantum Filebrowser (192.168.10.25):** Quantum Filebrowser (8080), Syncthing (8384)
-- **AI-Stack (192.168.10.26):** llama.cpp server in router mode (8080), LiteLLM (4000), GPU control panel (8099)
+- **AI-Stack (192.168.10.26):** llama.cpp server in router mode (8080), LiteLLM (4000), SearXNG (8081), GPU control panel (8099)
 
 ---
 
 ## Technical Pipeline (Implementation Workflow)
 
 ### Service catalog
-`ansible/inventories/group_vars/all/services.yml` declares every published web service once (subdomain, backend, title, icon, dashboard group, availability path, upstream release). Both the Caddy route table and the Glance dashboard are rendered from it, so adding a service is a one-file change.
+`ansible/inventories/group_vars/all/services.yml` declares every published web service once (subdomain, host, port, title, icon, dashboard group, availability path, upstream release), and `service_ports` in the same file is the one place the LAN ports live: the host address comes from `hosts.ini`, never from the catalog. Both the Caddy route table and the Glance dashboard are rendered from it, so adding a service is a one-file change.
 
 ### 1. Infrastructure Provisioning (Terraform)
 - **Network Services:** Core DNS, reverse proxies, and networking routing.

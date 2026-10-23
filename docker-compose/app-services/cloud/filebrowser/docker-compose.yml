@@ -1,6 +1,6 @@
 services:
   filebrowser:
-    image: gtstef/filebrowser:beta
+    image: gtstef/filebrowser:2.0.8-beta@sha256:5a18725e2482cf23682758e59c8be3153364eb8ea8eb080f9dc17cd1c06a6bc0
     container_name: filebrowser
     environment:
       - FILEBROWSER_CONFIG=/home/filebrowser/data/config.yaml
@@ -16,7 +16,7 @@ services:
       - onlyoffice
 
   onlyoffice:
-    image: onlyoffice/documentserver:latest
+    image: onlyoffice/documentserver:9.4.0.1@sha256:3ab6ebc7c605e5a32b7ae3ff19daed4925090245acc8100ce2230bd766c88212
     container_name: onlyoffice
     restart: unless-stopped
     ports:

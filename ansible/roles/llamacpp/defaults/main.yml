@@ -23,7 +23,9 @@ llamacpp_cuda_root: /usr/local/cuda-12.8
 llamacpp_cuda_arch: "60-real"          # Tesla P100 = 60
 llamacpp_cuda_force_mmq: "OFF"         # sm_60 has no dp4a: forcing MMQ only slows dense models down
 llamacpp_cpu_flags: "-march=ivybridge -mtune=ivybridge -O3 -fopenmp -pipe -funroll-loops"
-llamacpp_build_jobs: 4
+# nvcc is memory hungry and this host has reset under 4 parallel LTO jobs:
+# 2 is the safe value, and host_vars/llm keeps it explicit for the AI host.
+llamacpp_build_jobs: 2
 llamacpp_build_targets: [llama-server, llama-bench, llama-cli]
 
 # P100 (GP100, sm_60) patch set: the subset of

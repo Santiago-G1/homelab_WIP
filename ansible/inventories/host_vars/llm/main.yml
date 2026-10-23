@@ -36,7 +36,10 @@ llamacpp_cuda_force_mmq: "OFF"
 
 # LiteLLM publishes the router on :4000 with API keys and accounting.
 litellm_api_base: "http://{{ ansible_host }}:{{ llamacpp_port }}/v1"
-litellm_backend_api_key: "sk-llamacpp"   # the router wants no real key
+# Not a secret worth protecting (the router accepts anything and does not leave
+# the host), but a literal "sk-..." in a public repository is what secret
+# scanners flag: it lives in the vault like the rest of the keys.
+litellm_backend_api_key: "{{ vault_litellm_backend_api_key }}"
 
 docker_networks:
   - ai-stack
@@ -44,6 +47,24 @@ docker_networks:
 # ZeroClaw talks to LiteLLM by container name over the shared ai-stack network.
 # zeroclaw_model and the virtual key's scope come from models.yml.
 zeroclaw_litellm_uri: http://litellm-proxy:4000/v1
+# Below the router's ctx-size for the agent model (131072): the rest is
+# headroom for the reply, which on a reasoning model is not small.
+zeroclaw_max_context_tokens: 114688
+
+# SearXNG, one instance for every agent on this host. The published port is what
+# Caddy and Glance reach: llama.cpp already owns 8080 on the LAN interface.
+searxng_host: searxng
+searxng_port: 8080
+searxng_publish_port: "{{ service_ports.searxng }}"
+searxng_instance_name: "Homelab search"
+# Absolute links the HTML UI prints; matches the catalog entry in
+# group_vars/all/services.yml (`search`).
+searxng_base_url: "https://search.{{ vault_domainname_hs }}/"
+# ZeroClaw's web_search tool asks SearXNG instead of DuckDuckGo, which
+# rate-limits the daemon after a handful of queries. Same network, so the
+# container name is the whole address; the port is SearXNG's own, not the
+# published one.
+zeroclaw_searxng_instance_url: "http://{{ searxng_host }}:{{ searxng_port }}"
 # The Telegram account allowed to talk to the agent (numeric ID, which
 # survives a display-name change). The value is a secret: it lives in
 # vault_zeroclaw_telegram_user_id, not here.
@@ -62,6 +83,24 @@ stacks:
     agent_keys:
       - value: "{{ vault_zeroclaw_litellm_api_key }}"
         models: ["{{ zeroclaw_model }}"]
+
+  # Web search for the agent. secret_key is the one secret and it arrives as an
+  # env override, so the rendered settings.yml has nothing to hide.
+  - name: searxng
+    src: ai-services/searxng
+    dirs:
+      # The rendered settings.yml is a file: Ansible does not create its
+      # directory (the stack role only syncs and renders into what exists).
+      - { path: config }
+      # `searxng` in the image, which the entrypoint would otherwise chown on
+      # every start (and it must stay writable for the compiled theme).
+      - { path: data/cache, owner: "977", group: "977" }
+    files:
+      - { template: searxng-settings.yml.j2, dest: config/settings.yml }
+    env:
+      SEARXNG_SECRET: "{{ vault_searxng_secret_key }}"
+      SEARXNG_BASE_URL: "{{ searxng_base_url }}"
+      SEARXNG_PUBLISH_PORT: "{{ searxng_publish_port }}"
 
   - name: zeroclaw
     src: ai-services/zeroclaw
@@ -87,11 +126,21 @@ stacks:
       PANEL_PASSWORD: "{{ vault_gpu_panel_password }}"
       PANEL_TOKEN: "{{ vault_gpu_panel_token }}"
       LLAMA_URL: "http://{{ ansible_host }}:{{ llamacpp_port }}"
+      # The panel drives the card over SSH: the PVE node owns nvidia-smi and the
+      # power limit, and Immich/Jellyfin are the other consumers of the GPU. The
+      # addresses come from the inventory, never from the panel's own defaults.
+      PVE_HOST: "root@{{ hostvars['pve'].ansible_host }}"
+      IMMICH_HOST: "root@{{ hostvars['immich'].ansible_host }}"
+      FRONTEND_HOST: "root@{{ hostvars['frontend'].ansible_host }}"
+      # Proxmox VM ID of this container (terraform/proxmox/lxc_ai.tf): the panel
+      # enters it to read llama-server's journald logs.
+      AI_CTID: "126"
       # Models the dashboard may name: exactly the ones models.yml declares, so
       # any other .gguf the router serves still loads, counts and unloads but is
       # never printed.
       LLAMA_PUBLIC_MODELS: "{{ llm_models | map(attribute='name') | join(',') }},image_models"
 
 health_checks:
-  - { name: litellm, url: "http://127.0.0.1:4000/health/liveliness" }
-  - { name: gpu-panel, url: "http://127.0.0.1:8099/api/session" }
+  - { name: litellm,   url: "http://127.0.0.1:{{ service_ports.litellm }}/health/liveliness" }
+  - { name: searxng,   url: "http://127.0.0.1:{{ service_ports.searxng }}/healthz" }
+  - { name: gpu-panel, url: "http://127.0.0.1:{{ service_ports.gpu_panel }}/api/session" }

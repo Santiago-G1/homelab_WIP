@@ -3,7 +3,7 @@ prometheus_jobs:
   - { job: prometheus,    targets: ["localhost:9090"] }
   - { job: node_exporter, targets: "{{ node_exporter_targets }}" }
   # Addresses come from the inventory, like the exporter targets above.
-  - { job: blocky,        targets: ["{{ hostvars['blocky'].ansible_host }}:4000"] }
+  - { job: blocky,        targets: ["{{ hostvars['blocky'].ansible_host }}:{{ service_ports.blocky }}"] }
   - { job: llama,         targets: ["{{ hostvars['llm'].ansible_host }}:{{ hostvars['llm'].llamacpp_port }}"] }  # llama-server --metrics
 
 # The dashboard's own login; the password and the session key live in the vault.
@@ -46,6 +46,6 @@ stacks:
       GPU_PANEL_TOKEN: "{{ vault_gpu_panel_token }}"
 
 health_checks:
-  - { name: prometheus, url: "http://127.0.0.1:9090/-/healthy" }
-  - { name: grafana,    url: "http://127.0.0.1:3000/api/health" }
-  - { name: glance,     url: "http://127.0.0.1:8080/api/healthz" }
+  - { name: prometheus, url: "http://127.0.0.1:{{ service_ports.prometheus }}/-/healthy" }
+  - { name: grafana,    url: "http://127.0.0.1:{{ service_ports.grafana }}/api/health" }
+  - { name: glance,     url: "http://127.0.0.1:{{ service_ports.glance }}/api/healthz" }

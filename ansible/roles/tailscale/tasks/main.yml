@@ -42,6 +42,9 @@
     --accept-dns=false
   when: tailscale_ip.rc != 0
   changed_when: true
+  # The auth key is on the command line: keep it out of the play output and the
+  # ansible.log, the one place Ansible would print it verbatim.
+  no_log: true
 
 - name: Show the tailnet status
   ansible.builtin.command: tailscale status --peers=false

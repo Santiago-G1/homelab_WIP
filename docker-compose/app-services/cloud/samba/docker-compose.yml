@@ -1,6 +1,6 @@
 services:
   samba:
-    image: dockurr/samba
+    image: dockurr/samba:4.23.10@sha256:404f91bdf317d390241a41165579cd25199f34171b44677d877c75dc40184042
     container_name: samba
     environment:
       UID: "1000"

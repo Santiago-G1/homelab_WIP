@@ -1,0 +1,54 @@
+# SearXNG: the web search backend for the agent on this host.
+#
+# ZeroClaw's web_search tool asks it for JSON over the shared `ai-stack`
+# network; the HTML UI is usable through Caddy but is not the point. See
+# README.md for why the limiter is off and what the pinned tag buys.
+services:
+  searxng:
+    image: searxng/searxng:2026.10.19-81371861f@sha256:5ed0323b5f5f8701264ef65e239a2bd83cb57098f2b971fa30bf79c06eeae271
+    container_name: searxng
+    restart: unless-stopped
+
+    environment:
+      # The rendered settings.yml carries no secret: the image's settings
+      # loader overrides server.secret_key from this variable, which reaches
+      # the container through the stack's .env (mode 600) from the vault.
+      - SEARXNG_SECRET=${SEARXNG_SECRET:?SEARXNG_SECRET is required}
+      # Absolute links in the HTML UI are built from it. The JSON API does not
+      # depend on it, so an unreachable public name is not a problem.
+      - SEARXNG_BASE_URL=${SEARXNG_BASE_URL:-http://searxng:8080/}
+
+    volumes:
+      # Rendered by Ansible (roles/stacks); read-only on purpose, nothing at
+      # runtime is expected to touch it.
+      - ./config/settings.yml:/etc/searxng/settings.yml:ro
+      # Compiled theme/locales: kept so a restart does not rebuild them and the
+      # container layer stays disposable.
+      - ./data/cache:/var/cache/searxng
+
+    ports:
+      # 8080 on this host is llama.cpp, so the instance is published next to it.
+      # Caddy (CT 104) and Glance (CT 110) reach it here; the agent does not
+      # need the port, it resolves `searxng` on ai-stack.
+      - "${SEARXNG_PUBLISH_PORT:-8081}:8080"
+
+    networks:
+      - ai-stack
+
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 512M
+
+    healthcheck:
+      # /healthz is the endpoint SearXNG exposes for orchestration.
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+networks:
+  ai-stack:
+    external: true

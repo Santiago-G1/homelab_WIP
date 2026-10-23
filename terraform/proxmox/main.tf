@@ -27,18 +27,35 @@ variable "proxmox_password" {
   sensitive   = true
 }
 
+# The address the provider reaches the node on over SSH; it is not always the
+# same name the API is published under (NAT, split DNS).
+# The node's API certificate is self-signed in a plain homelab, which is what
+# insecure = true tolerates. Set it to false once the PVE node has a trusted
+# certificate (or the CA is installed on the machine running Terraform).
+variable "proxmox_tls_insecure" {
+  description = "Skip TLS verification of the Proxmox API certificate"
+  type        = bool
+  default     = true
+}
+
+variable "proxmox_ssh_address" {
+  description = "SSH address of the Proxmox node"
+  type        = string
+  default     = "192.168.10.2"
+}
+
 provider "proxmox" {
   endpoint = var.proxmox_api_url
   username = var.proxmox_username
   password = var.proxmox_password
-  insecure = true
+  insecure = var.proxmox_tls_insecure
 
   ssh {
     agent    = true
     username = "root"
     node {
       name    = "pve"
-      address = "192.168.10.2" # change for your pve ip
+      address = var.proxmox_ssh_address
     }
   }
 }

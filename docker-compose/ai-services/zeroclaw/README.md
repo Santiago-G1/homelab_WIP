@@ -76,6 +76,17 @@ Three consequences worth knowing:
    network only by editing the backend, not the config: `--network none` is
    hardcoded in the backend.
 
+## Web search
+
+`web_search` in the rendered `config.toml` points at the SearXNG stack on the
+same `ai-stack` network (`http://searxng:8080`) instead of the built-in
+default, DuckDuckGo's HTML endpoint, which throttles this daemon after a handful
+of queries with empty results. Nothing to configure here beyond the URL: the
+instance enables the JSON format the tool speaks. SearXNG itself lives in
+`ai-services/searxng` (see its README for the limiter and exposure rules); both
+stacks deploy together with
+`ansible-playbook playbooks/llm-models.yml -e '{"stacks_only":["searxng","zeroclaw"]}'`.
+
 ## Operating
 
 ```sh

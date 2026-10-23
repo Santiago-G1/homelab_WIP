@@ -1,9 +1,9 @@
 services:
   komga:
-    image: gotson/komga:latest
+    image: gotson/komga:latest@sha256:c9ad2e0a0efdbb60a79b990836bd2b3d48b1f47677d2e5008579daa10a85e8e8
     container_name: komga
     environment:
-      - TZ=Etc/UTC
+      - TZ=${TZ:-Etc/UTC}
     volumes:
       - ./config:/config
       - /mnt/media/comics:/data

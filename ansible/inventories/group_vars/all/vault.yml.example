@@ -19,9 +19,14 @@ vault_immich_db_database_name: immich_prod_db
 vault_immich_db_password: postgres
 vault_immich_db_username: postgres
 vault_immich_upload_location: /path/to/immich
-vault_immich_version: v3
+# Exact Immich tag: the server and the machine-learning image must match, and a
+# floating "release"/"v3" lets them drift apart between pulls.
+vault_immich_version: v3.2.2
 vault_litellm_db_password: change-me
 vault_litellm_master_key: sk-change-me
+# Backend key the router sends to llama.cpp, which ignores it. Not a real
+# secret, but it looks like one, so it stays out of the tracked files.
+vault_litellm_backend_api_key: sk-llamacpp
 vault_litellm_salt_key: change-me
 vault_llm_mount: /path/to/data
 vault_onlyoffice_jwt_secret: CHANGE-ME
@@ -32,6 +37,11 @@ vault_slskd_password: SOULSEEK-PASSWORD
 vault_slskd_username: SOULSEEK-NAME
 vault_sync_mount: /path/to/data
 vault_tailscale_auth_key: CHANGE-ME
+
+# SearXNG session/signing key (server.secret_key), rendered as SEARXNG_SECRET.
+# It must be random, and it never goes into the rendered settings.yml:
+#   openssl rand -hex 32
+vault_searxng_secret_key: CHANGE-ME
 
 # ZeroClaw -> LiteLLM virtual key (sk-...); rendered as ZEROCLAW_LITELLM_API_KEY
 vault_zeroclaw_litellm_api_key: sk-replace-me

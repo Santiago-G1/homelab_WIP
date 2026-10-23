@@ -1,13 +1,16 @@
 ---
 # node_exporter ships as a static Go binary, so it is installed from the release
 # archive with a systemd unit instead of as a container.
-- name: Check whether node_exporter is installed
-  ansible.builtin.stat:
-    path: /usr/local/bin/node_exporter
-  register: node_exporter_binary
+# Compare the binary's own version instead of just its presence: bumping
+# node_exporter_version would otherwise be a no-op on hosts that already have one.
+- name: Check the installed node_exporter version
+  ansible.builtin.command: /usr/local/bin/node_exporter --version
+  register: node_exporter_installed
+  changed_when: false
+  failed_when: false
 
 - name: Install node_exporter
-  when: not node_exporter_binary.stat.exists
+  when: node_exporter_version not in (node_exporter_installed.stdout | default(''))
   block:
     - name: Download the release archive
       ansible.builtin.get_url:

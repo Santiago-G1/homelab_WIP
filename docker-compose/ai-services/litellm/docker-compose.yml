@@ -1,7 +1,7 @@
 services:
   # DBLiteLLM
   litellm-db:
-    image: postgres:16-alpine
+    image: postgres:16.15-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea
     container_name: litellm-db
     restart: unless-stopped
     environment:
@@ -20,7 +20,7 @@ services:
 
   # LiteLLM Proxy
   litellm:
-    image: ghcr.io/berriai/litellm:main-latest
+    image: ghcr.io/berriai/litellm:main-latest@sha256:af8050ea45707c42a0572c5cceaa5cebaa89cee4c5cd0585cf879a529804b898
     container_name: litellm-proxy
     restart: unless-stopped
     ports:
