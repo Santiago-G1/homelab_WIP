@@ -1,10 +1,8 @@
 ---
-# Must match the revision the vendored set in files/patches-p100 applies to
-# (2a667032d, two commits AFTER the b11696 tag - not the tag itself), because
-# llamacpp_p100_patches is on by default: a host that omits this variable would
-# otherwise apply the patches to a floating tree. Bumping it means re-running
-# files/apply-p100-patches.sh by hand first.
-llamacpp_version: 2a667032dc788c3a071d538e0b572e45a3f12731
+# llama.cpp ref to build: any tag, branch or commit. The P100 patch set below is
+# cut per upstream ref and tagged with the same name, so this single variable
+# moves both trees. See "Bumping llama.cpp" in docs/llamacpp-build.md.
+llamacpp_version: v0.7.0
 llamacpp_port: 8080
 llamacpp_models_dir: /mnt/data/models
 llamacpp_models_max: 1
@@ -27,13 +25,31 @@ llamacpp_cpu_flags: "-march=ivybridge -mtune=ivybridge -O3 -fopenmp -pipe -funro
 # 2 is the safe value, and host_vars/llm keeps it explicit for the AI host.
 llamacpp_build_jobs: 2
 llamacpp_build_targets: [llama-server, llama-bench, llama-cli]
+llamacpp_tools_dir: /opt/llama.cpp-tools
 
-# P100 (GP100, sm_60) patch set: the subset of
-# github.com/shinbunbun/llama-cpp-p100-patches that applies to the pinned
-# upstream commit, plus the fp16 carve-out from llama.cpp#25593. Vendored in
-# files/patches-p100/ and applied in filename order. See docs/llamacpp-build.md.
+# P100 (GP100, sm_60) patch set. Not vendored here: it is maintained upstream,
+# rebased for every llama.cpp ref, and tagged with that ref's name. The default
+# therefore follows llamacpp_version, so bumping the version above is the whole
+# upgrade. Pin a commit here instead of a tag for a byte-reproducible build —
+# upstream does move its tags when it re-cuts one.
+#
+# shinbunbun/llama-cpp-p100-patches is the original set; this fork keeps one tag
+# per upstream ref (git ls-remote --tags) and documents what each rebase drops.
 llamacpp_p100_patches: true
-llamacpp_patch_dir: /opt/llama.cpp-patches
+llamacpp_p100_patches_repo: https://github.com/sbendhiba/llama-cpp-pascal-patches
+llamacpp_p100_patches_version: "{{ llamacpp_version }}"
+llamacpp_p100_patches_dir: /opt/llama.cpp-patches
+# Patch file names that may be skipped when they no longer apply. Empty: every
+# patch is required and the build stops at the first one that does not land.
+llamacpp_p100_patches_optional: []
+# Last resort while trying a ref the set was not cut for: skip the patches that
+# no longer apply instead of failing. The tree is then only partially patched.
+llamacpp_p100_patches_ignore_missing: false
+# The local sm_60 fp16 carve-out (files/carveout-sm60-fp16.py) warns and carries
+# on when it cannot find the gates it edits, because a gate upstream moved is a
+# precision problem rather than a build failure. Set this to fail instead.
+llamacpp_p100_carveout_strict: false
+
 llamacpp_cmake_args:
   - -DCMAKE_BUILD_TYPE=Release
   - -DCMAKE_C_COMPILER=clang

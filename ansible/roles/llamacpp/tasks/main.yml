@@ -7,7 +7,7 @@
   block:
     - name: Build dependencies
       ansible.builtin.apt:
-        name: [build-essential, cmake, git, clang, lld, llvm, libomp-dev, libcurl4-openssl-dev, gnupg]
+        name: [build-essential, cmake, git, patch, clang, lld, llvm, libomp-dev, libcurl4-openssl-dev, gnupg]
         state: present
         update_cache: true
         cache_valid_time: 3600
@@ -52,59 +52,83 @@
         dest: /opt/llama.cpp
         version: "{{ llamacpp_version }}"
         force: true
-      register: llamacpp_src
 
-    # The patch set lives in the working tree (git apply --3way stages it), so a
-    # previous run leaves the checkout dirty. Start from the pinned commit every
-    # time; applying the patches below is what makes the tree patched.
-    - name: Reset the llama.cpp tree to the pinned commit
-      ansible.builtin.command: git reset --hard {{ llamacpp_version }}
-      args:
-        chdir: /opt/llama.cpp
+    - name: Tools directory
+      ansible.builtin.file:
+        path: "{{ llamacpp_tools_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Install the patch applier and the fp16 carve-out
+      ansible.builtin.copy:
+        src: "{{ item.src }}"
+        dest: "{{ llamacpp_tools_dir }}/{{ item.dest }}"
+        mode: "0755"
+      loop:
+        - { src: apply-patches.sh, dest: apply-patches.sh }
+        - { src: carveout-sm60-fp16.py, dest: carveout-sm60-fp16.py }
+      loop_control:
+        label: "{{ item.dest }}"
+
+    # The patch set is cut per llama.cpp ref and tagged with that ref's name, so
+    # the default tag is llamacpp_version. Checking the ref before cloning turns
+    # "bump llama.cpp to a ref the patch set has no tag for" into a one-line
+    # error instead of a git failure, and names the way out.
+    - name: List the patch set's refs
+      ansible.builtin.command:
+        argv: [git, ls-remote, "--tags", "--heads", "{{ llamacpp_p100_patches_repo }}"]
+      register: llamacpp_patches_refs
       changed_when: false
+      check_mode: false
+      when:
+        - llamacpp_p100_patches
+        - not (llamacpp_p100_patches_version | regex_search('^[0-9a-f]{7,40}$'))
 
-    # The applier is idempotent and cheap, so it runs on every build.
-    # ---- rebuild decision -------------------------------------------------
-    # Everything above is keyed off a signature of (upstream rev, cmake flags,
-    # targets, patch set, carve-out script). The tree is only reset and re-patched
-    # when that changes: re-applying the patches touches every file's mtime and
-    # would make ninja rebuild the whole CUDA tree on every playbook run.
-    - name: Install the P100 patch set
-      ansible.builtin.copy:
-        src: "{{ item }}"
-        dest: "{{ llamacpp_patch_dir }}/"
-        mode: "0644"
-      with_fileglob: patches-p100/*.patch
+    - name: Fail when the patch set has no ref for this llama.cpp version
+      ansible.builtin.assert:
+        that:
+          - ('refs/tags/' ~ llamacpp_p100_patches_version) in llamacpp_patches_refs.stdout
+            or ('refs/heads/' ~ llamacpp_p100_patches_version) in llamacpp_patches_refs.stdout
+        fail_msg: >-
+          {{ llamacpp_p100_patches_repo }} has no tag or branch
+          '{{ llamacpp_p100_patches_version }}' (derived from llamacpp_version).
+          The set is cut per llama.cpp ref: build a ref it has a tag for, or set
+          llamacpp_p100_patches: false to build stock. See "Bumping llama.cpp" in
+          docs/llamacpp-build.md.
+      when:
+        - llamacpp_p100_patches
+        - not (llamacpp_p100_patches_version | regex_search('^[0-9a-f]{7,40}$'))
+
+    - name: Fetch the P100 patch set
+      ansible.builtin.git:
+        repo: "{{ llamacpp_p100_patches_repo }}"
+        dest: "{{ llamacpp_p100_patches_dir }}"
+        version: "{{ llamacpp_p100_patches_version }}"
+        force: true
       when: llamacpp_p100_patches
 
-    - name: Install the P100 patch applier
-      ansible.builtin.copy:
-        src: apply-p100-patches.sh
-        dest: "{{ llamacpp_patch_dir }}/apply.sh"
-        mode: "0755"
-      when: llamacpp_p100_patches
-
-    - name: Install the sm_60 fp16 carve-out
-      ansible.builtin.copy:
-        src: carveout-sm60-fp16.py
-        dest: "{{ llamacpp_patch_dir }}/carveout-sm60-fp16.py"
-        mode: "0755"
+    - name: Read the patch set's commit
+      ansible.builtin.command:
+        argv: [git, rev-parse, HEAD]
+      args:
+        chdir: "{{ llamacpp_p100_patches_dir }}"
+      register: llamacpp_patches_head
+      changed_when: false
       when: llamacpp_p100_patches
 
     - name: Collect the patch set signature
       ansible.builtin.find:
-        paths: "{{ llamacpp_patch_dir }}"
+        paths: "{{ llamacpp_p100_patches_dir }}/patches"
         patterns: "*.patch"
         get_checksum: true
       register: llamacpp_patch_files
       when: llamacpp_p100_patches
 
-    - name: Stat the carve-out script
+    - name: Stat the fp16 carve-out
       ansible.builtin.stat:
-        path: "{{ llamacpp_patch_dir }}/carveout-sm60-fp16.py"
+        path: "{{ llamacpp_tools_dir }}/carveout-sm60-fp16.py"
         get_checksum: true
       register: llamacpp_carveout_script
-      when: llamacpp_p100_patches
 
     - name: Check whether the binary exists
       ansible.builtin.stat:
@@ -124,9 +148,21 @@
       register: llamacpp_flags_recorded
       failed_when: false
 
+    # ---- rebuild decision -------------------------------------------------
+    # Everything below is keyed off a signature of (upstream ref, patch set ref
+    # and commit, cmake flags, targets, patch checksums, carve-out script). The
+    # tree is only reset and re-patched when that changes: re-applying the
+    # patches touches every file's mtime and would make ninja rebuild the whole
+    # CUDA tree on every playbook run.
     - name: Set the build signature
       ansible.builtin.set_fact:
-        llamacpp_signature: "{{ llamacpp_version }}\n{{ llamacpp_cmake_args | join('\n') }}\n{{ llamacpp_build_targets | join(' ') }}\n{{ llamacpp_patch_files.files | default([]) | map(attribute='checksum') | join('\n') }}\n{{ llamacpp_carveout_script.stat.checksum | default('none') }}\n"
+        llamacpp_signature: |
+          llama.cpp {{ llamacpp_version }}
+          patches {{ llamacpp_p100_patches_version if llamacpp_p100_patches else 'none' }} @ {{ llamacpp_patches_head.stdout | default('') }}
+          {{ llamacpp_cmake_args | join('\n') }}
+          {{ llamacpp_build_targets | join(' ') }}
+          {{ llamacpp_patch_files.files | default([]) | map(attribute='checksum') | join('\n') }}
+          {{ llamacpp_carveout_script.stat.checksum | default('none') }}
 
     - name: Decide whether to rebuild
       ansible.builtin.set_fact:
@@ -135,7 +171,7 @@
               or not llamacpp_bin.stat.exists
               or llamacpp_bin.stat.size | default(1) == 0 }}
 
-    - name: Reset the llama.cpp tree to the pinned commit
+    - name: Reset the llama.cpp tree to the requested ref
       ansible.builtin.command: git reset --hard {{ llamacpp_version }}
       args:
         chdir: /opt/llama.cpp
@@ -143,14 +179,39 @@
       when: llamacpp_rebuild
 
     - name: Apply the P100 patch set
-      ansible.builtin.command: "{{ llamacpp_patch_dir }}/apply.sh"
+      ansible.builtin.command:
+        argv: "{{ [llamacpp_tools_dir ~ '/apply-patches.sh', llamacpp_p100_patches_dir ~ '/patches'] }}"
       args:
         chdir: /opt/llama.cpp
+      environment:
+        LLAMACPP_PATCH_OPTIONAL: "{{ llamacpp_p100_patches_optional | join(' ') }}"
+        LLAMACPP_PATCH_IGNORE_MISSING: "{{ '1' if llamacpp_p100_patches_ignore_missing else '' }}"
+      register: llamacpp_patch_result
       when: llamacpp_p100_patches and llamacpp_rebuild
       changed_when: true
 
+    # Wrapped in a warning rather than a failure because the tree still builds;
+    # but the numbers in docs/llamacpp-build.md no longer describe it.
+    - name: Report a partially patched tree
+      ansible.builtin.debug:
+        msg:
+          - "llamacpp_p100_patches_ignore_missing is on: a patch that no longer applies was skipped"
+          - "{{ llamacpp_patch_result.stdout_lines | default([]) | join(' | ') }}"
+      when:
+        - llamacpp_p100_patches_ignore_missing
+        - llamacpp_rebuild
+        - "'skipped:' in (llamacpp_patch_result.stdout | default(''))"
+
+    - name: Build the carve-out argv
+      ansible.builtin.set_fact:
+        llamacpp_carveout_argv: >-
+          {{ [llamacpp_tools_dir ~ '/carveout-sm60-fp16.py']
+             + (['--strict'] if llamacpp_p100_carveout_strict else [])
+             + ['/opt/llama.cpp'] }}
+
     - name: Carve sm_60 out of the fp16 fast path (attention + mmvf)
-      ansible.builtin.command: "{{ llamacpp_patch_dir }}/carveout-sm60-fp16.py"
+      ansible.builtin.command:
+        argv: "{{ llamacpp_carveout_argv }}"
       when: llamacpp_p100_patches and llamacpp_rebuild
       changed_when: true
 
@@ -178,7 +239,7 @@
     # Written only after a successful build, so a failed build is retried.
     - name: Record the build signature
       ansible.builtin.copy:
-        content: "{{ llamacpp_version }}\n{{ llamacpp_cmake_args | join('\n') }}\n{{ llamacpp_build_targets | join(' ') }}\n{{ llamacpp_patch_files.files | default([]) | map(attribute='checksum') | join('\n') }}\n{{ llamacpp_carveout_script.stat.checksum | default('none') }}\n"
+        content: "{{ llamacpp_signature }}"
         dest: /opt/llama.cpp/.ansible-build-flags
         mode: "0644"
       when: llamacpp_rebuild
