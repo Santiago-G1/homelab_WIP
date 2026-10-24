@@ -137,6 +137,30 @@ repo's README (`What to expect`) and `docs/patches.md`.
 End to end through `llama-server` with the MTP model (draft-mtp n=3, KV q8_0,
 8k ctx): 15.9 → **22.2 t/s** (+39 %).
 
+### Measured on this host: 19 patches (master) -> 41 patches (v0.7.0)
+
+The upgrade itself, A/B on the same card: `-ngl 99 -fa on -t 4 -p 512,2048
+-n 128 -r 3`, each model preloaded and given a discarded warmup run, 2
+interleaved rounds with the arm order reversed, median of 6 reps, 44-47 °C. The
+old arm is the previous binary (master `2a667032d`, build 11698, + the 19
+patches) kept at `/opt/p100bench/bin-masterp` and run with its own libraries.
+
+| model | test | old 19p | new 41p | |
+|---|---|---:|---:|---|
+| Qwen3.5 9B Q4_K | pp512 | 586.2 | **652.5** | **+11.3 %** |
+| | pp2048 | 577.2 | **645.1** | **+11.8 %** |
+| | tg128 | 40.86 | 40.64 | −0.5 % |
+| Qwen3.6 35B-A3B IQ3_S | pp512 | 456.3 | 456.8 | +0.1 % |
+| | pp2048 | 436.3 | 437.2 | +0.2 % |
+| | tg128 | 55.27 | 54.72 | −1.0 % |
+
+Decode is parity because both arms already carried the decode patches (01, 02,
+12): the 22 extra patches buy dense prefill, not decode. The point of the change
+is that the tree moves again without a hand rebase — this is what moving costs.
+Both arms land ~6 % below the October table above for the same old binary
+(best-of-3 then, median and a warm cache now), so compare the A/B deltas here,
+not across tables.
+
 ### The fp16 carve-out (still local, deliberately)
 
 `files/carveout-sm60-fp16.py` extends the existing sm_61 carve-out to sm_60 in
