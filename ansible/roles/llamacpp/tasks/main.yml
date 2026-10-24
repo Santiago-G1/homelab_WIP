@@ -99,6 +99,23 @@
         - llamacpp_p100_patches
         - not (llamacpp_p100_patches_version | regex_search('^[0-9a-f]{7,40}$'))
 
+    # The previous role dropped its vendored patch files in this same path, and
+    # git clone refuses a non-empty destination. Anything there that is not a
+    # checkout of the patch set is that role's leftover.
+    - name: Check whether the patch set directory is a checkout
+      ansible.builtin.stat:
+        path: "{{ llamacpp_p100_patches_dir }}/.git"
+      register: llamacpp_patches_dotgit
+      when: llamacpp_p100_patches
+
+    - name: Drop a legacy vendored patch directory
+      ansible.builtin.file:
+        path: "{{ llamacpp_p100_patches_dir }}"
+        state: absent
+      when:
+        - llamacpp_p100_patches
+        - not llamacpp_patches_dotgit.stat.exists
+
     - name: Fetch the P100 patch set
       ansible.builtin.git:
         repo: "{{ llamacpp_p100_patches_repo }}"
