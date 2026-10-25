@@ -4,86 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>GPU Control</title>
-<style>
-  :root { --bg:#0e1116; --card:#171c24; --line:#252c38; --fg:#e6e9ef; --mut:#8b95a5;
-          --ok:#3fb950; --warn:#d29922; --bad:#f85149; --acc:#58a6ff; }
-  * { box-sizing:border-box; }
-  body { margin:0; background:var(--bg); color:var(--fg);
-         font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
-  header { display:flex; align-items:center; gap:12px; padding:16px 22px;
-           border-bottom:1px solid var(--line); }
-  header h1 { margin:0; font-size:17px; font-weight:600; letter-spacing:.2px; }
-  header .dot { width:9px; height:9px; border-radius:50%; background:var(--ok); }
-  header .dot.busy { background:var(--warn); animation:pulse .8s ease-in-out infinite alternate; }
-  @keyframes pulse { from { opacity:.35; } to { opacity:1; } }
-  header .sub { color:var(--mut); margin-left:auto; font-variant-numeric:tabular-nums; }
-  main { padding:18px 22px 40px; max-width:1200px; margin:0 auto; }
-  h2 { font-size:12px; text-transform:uppercase; letter-spacing:.9px; color:var(--mut);
-       margin:22px 0 10px; font-weight:600; }
-  .grid { display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px; }
-  .card .k { color:var(--mut); font-size:12px; }
-  .card .v { font-size:20px; font-weight:600; margin-top:4px; font-variant-numeric:tabular-nums; }
-  .bar { height:7px; background:#0b0e13; border-radius:5px; overflow:hidden; margin-top:8px; }
-  .bar > i { display:block; height:100%; background:var(--acc); }
-  .two { display:grid; gap:12px; grid-template-columns:1fr 1fr; }
-  @media (max-width:760px){ .two { grid-template-columns:1fr; } }
-  table { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }
-  th,td { text-align:left; padding:7px 8px; border-bottom:1px solid var(--line); font-size:13px; }
-  th { color:var(--mut); font-weight:600; font-size:12px; }
-  button { background:#21262d; color:var(--fg); border:1px solid var(--line);
-           border-radius:7px; padding:7px 12px; cursor:pointer; font-size:13px;
-           transition:background .12s, border-color .12s, transform .06s, box-shadow .12s;
-           -webkit-tap-highlight-color:transparent; }
-  button:hover:not(:disabled) { border-color:#3b4351; }
-  button:active:not(:disabled) { transform:translateY(1px) scale(.985); }
-  button:focus-visible { outline:2px solid var(--acc); outline-offset:2px; }
-  button:disabled { opacity:.5; cursor:not-allowed; }
-  button.pri { background:#1f6feb; border-color:#1f6feb; }
-  button.warn { background:#8b2c2c; border-color:#8b2c2c; }
-  button.on { background:#238636; border-color:#238636; }
-  /* Activated/toggled button: ring + dot, applied from the real backend state. */
-  button[aria-pressed="true"] { background:#1f6feb; border-color:var(--acc); color:#fff;
-                               box-shadow:0 0 0 3px rgba(88,166,255,.20); }
-  button[aria-pressed="true"]::before { content:"●"; font-size:9px; color:#cfe3ff;
-                                        margin-right:6px; vertical-align:middle; }
-  button[aria-pressed="true"].on { background:#238636; border-color:#2ea043; }
-  button[aria-pressed="true"].warn { background:#a13a3a; border-color:#c95050; }
-  button.busy { position:relative; color:transparent !important; box-shadow:none; }
-  button.busy::after { content:""; position:absolute; inset:0; margin:auto; width:13px; height:13px;
-                       border:2px solid rgba(255,255,255,.35); border-top-color:#fff;
-                       border-radius:50%; animation:spin .7s linear infinite; }
-  @keyframes spin { to { transform:rotate(360deg); } }
-  @media (prefers-reduced-motion: reduce) {
-    button.busy::after { animation-duration:2s; }
-    header .dot.busy { animation:none; }
-  }
-  .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-  .pill { font-size:11px; padding:2px 8px; border-radius:20px; border:1px solid var(--line); color:var(--mut); }
-  .pill.ok { color:var(--ok); border-color:#1d3d24; }
-  .pill.off { color:var(--bad); border-color:#4a2323; }
-  .pill.acc { color:var(--acc); border-color:#1d3a5e; }
-  input[type=range] { width:100%; }
-  input[type=number] { background:#0b0e13; color:var(--fg); border:1px solid var(--line);
-                       border-radius:6px; padding:5px 7px; }
-  #msg { position:fixed; right:18px; bottom:18px; background:#1f6feb; color:#fff;
-         padding:10px 14px; border-radius:8px; opacity:0; transition:opacity .2s; max-width:380px;
-         font-size:13px; pointer-events:none; }
-  #msg.show { opacity:1; }
-  #msg.err { background:#8b2c2c; }
-  #msg.busy { background:#33415a; }
-  .mono { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
-  select { background:#0b0e13; color:var(--fg); border:1px solid var(--line);
-           border-radius:6px; padding:5px 7px; }
-  /* llama.cpp log tail: fixed height + scroll, so a chatty model load cannot
-     push the rest of the dashboard off screen. */
-  pre#log-out { margin:10px 0 0; background:#0b0e13; border:1px solid var(--line); border-radius:8px;
-                padding:10px 12px; max-height:400px; overflow:auto; font-size:11.5px; line-height:1.5;
-                white-space:pre; color:#c9d1d9; }
-  pre#log-out .w { color:var(--warn); }
-  pre#log-out .e { color:var(--bad); }
-  footer { color:var(--mut); font-size:12px; padding:0 22px 30px; max-width:1200px; margin:0 auto; }
-</style>
+<link rel="stylesheet" href="/static/panel.css">
 </head>
 <body>
 <header>
@@ -92,6 +13,18 @@
   <span class="sub" id="gpu-name">loading…</span>
   <button id="logout" title="End this browser's session">Sign out</button>
 </header>
+<div class="shell">
+<nav class="side">
+  <a href="/" class="on">Dashboard</a>
+  <a href="/howto">How to use</a>
+  <span class="nav-label">On this page</span>
+  <a href="#modes">GPU modes</a>
+  <a href="#consumers">Consumers</a>
+  <a href="#comfy">ComfyUI</a>
+  <a href="#jellyfin">Jellyfin</a>
+  <a href="#auto">Auto-switch</a>
+  <a href="#logs">llama.cpp logs</a>
+</nav>
 <main>
   <h2>Card</h2>
   <div class="grid" id="gpu-cards"></div>
@@ -109,7 +42,7 @@
     </div>
   </div>
 
-  <h2>Idle auto-switch</h2>
+  <h2 id="auto">Idle auto-switch</h2>
   <div class="card">
     <div class="row" id="auto">
       <button id="auto-toggle">—</button>
@@ -117,6 +50,8 @@
         <input type="number" id="llm-idle" min="0" max="1440" style="width:72px"> min idle</label>
       <label class="k">Stop Immich ML after
         <input type="number" id="ml-idle" min="0" max="1440" style="width:72px"> min (0 = off)</label>
+      <label class="k">Release the P100 from ComfyUI after
+        <input type="number" id="comfy-idle" min="0" max="1440" style="width:72px"> min idle</label>
       <button class="pri" id="auto-save">Save</button>
     </div>
     <div class="k" style="margin-top:10px">GPU idle for <b id="idle-s" class="mono">—</b></div>
@@ -128,7 +63,7 @@
   <div class="card"><table><thead><tr><th>PID</th><th>Process</th><th>VRAM</th></tr></thead>
     <tbody id="procs"><tr><td colspan="3" class="k">—</td></tr></tbody></table></div>
 
-  <h2>Consumers</h2>
+  <h2 id="consumers">Consumers</h2>
   <div class="two">
     <div class="card">
       <div class="k">llama.cpp <span id="llama-pill" class="pill">—</span></div>
@@ -146,7 +81,7 @@
     </div>
   </div>
 
-  <h2>GPU modes <span class="pill acc" id="mode-now">—</span></h2>
+  <h2 id="modes">GPU modes <span class="pill acc" id="mode-now">—</span></h2>
   <div class="card">
     <div class="row" id="modes">
       <button class="pri" data-mode="llm">LLM (llama.cpp)</button>
@@ -158,16 +93,11 @@
       The marked button reflects the real state of the machine (recalculated every 5 s), not the last click.
     </div>
     <div class="k" style="margin-top:6px">
-      <b>LLM</b>: Immich ML stops (it shares the P100 through CUDA) and Jellyfin moves to the iGPU (VAAPI):
-      the P100 is left to llama.cpp without losing hardware transcoding.
-      <b>Media</b>: unloads the llama.cpp models and turns Immich ML + Jellyfin (NVENC on the P100) on.
-      <b>Shared</b>: Immich ML + Jellyfin NVENC without unloading the LLM (only fits with a small one).
-      <b>Image</b>: unloads the LLM, stops Immich ML, moves Jellyfin to the iGPU and starts
-      ComfyUI: a diffusion model needs the whole card (llama.cpp alone holds ~15.8 of 16 GB).
+      <a href="/howto#modes">What each mode stops and starts →</a>
     </div>
   </div>
 
-  <h2>ComfyUI <span class="pill" id="comfy-pill">—</span></h2>
+  <h2 id="comfy">ComfyUI <span class="pill" id="comfy-pill">—</span></h2>
   <div class="card">
     <div class="row" id="comfy">
       <button class="on" data-comfy="start">Start (Image mode)</button>
@@ -181,19 +111,16 @@
       torch: <b id="comfy-torch" class="mono">—</b>
     </div>
     <div class="k" style="margin-top:6px">
-      On image generation: SDXL GGUF (unet) + SDXL CLIP/VAE from
-      <span class="mono">/mnt/data/models/image_models</span>, fp16 and PyTorch
-      cross-attention — the only fast combination on a Pascal card.
+      <a href="/howto#comfy">How to generate images →</a>
     </div>
   </div>
 
-  <h2>Jellyfin</h2>
+  <h2 id="jellyfin">Jellyfin</h2>
   <div class="card">
     <div class="k">Current hardware acceleration: <b id="jf-accel" class="mono">—</b></div>
     <div class="k" style="margin-top:6px">
-      NVENC uses the <b>P100</b> (the same card as llama.cpp and Immich ML); VAAPI uses the
-      <b>Intel iGPU</b>, which is a different device. When the LLM takes the P100, Jellyfin
-      drops only to the iGPU, never to CPU.
+      NVENC runs on the P100, VAAPI on the Intel iGPU.
+      <a href="/howto#jellyfin">Which one to pick →</a>
     </div>
     <div class="row" id="jf" style="margin-top:10px">
       <button class="on" data-accel="nvenc">NVIDIA NVENC · P100</button>
@@ -202,7 +129,7 @@
     </div>
   </div>
 
-  <h2>llama.cpp logs</h2>
+  <h2 id="logs">llama.cpp logs</h2>
   <div class="card">
     <div class="row" style="justify-content:space-between">
       <div class="row">
@@ -218,11 +145,12 @@
     </div>
     <pre id="log-out" class="mono">loading…</pre>
     <div class="k" style="margin-top:8px">
-      Tail of the <b>llama-server</b> unit on the AI container. Load times, model switches,
-      OOM and CUDA errors end up here; warnings are amber, errors red.
+      <b>llama-server</b> journal on the AI container. Amber = warning, red = error.
+      <a href="/howto#logs">What to look for →</a>
     </div>
   </div>
 </main>
+</div>
 <footer class="mono">GET /api/status · automation: Authorization: Bearer &lt;token&gt;</footer>
 <div id="msg"></div>
 
@@ -424,6 +352,7 @@ async function refresh() {
   autoState = s.auto || {};
   $('llm-idle').value = autoState.llama_idle_min;
   $('ml-idle').value = autoState.ml_idle_min;
+  $('comfy-idle').value = autoState.comfy_idle_min ?? 0;
   $('idle-s').textContent = human(autoState.idle_seconds || 0);
   $('last-action').textContent =
     autoState.last_action ? `${autoState.last_action} (${autoState.last_action_at})` : '—';
@@ -544,8 +473,10 @@ $('auto-toggle').onclick = () => act($('auto-toggle'), '/api/auto', {enabled: !a
 
 $('auto-save').onclick = () => {
   const llama = Number($('llm-idle').value), ml = Number($('ml-idle').value);
-  act($('auto-save'), '/api/auto', {llama_idle_min: llama, ml_idle_min: ml},
-      {group: '#auto', pending: 'Saving thresholds…', done: `Thresholds saved (LLM ${llama} min, ML ${ml} min)`});
+  const comfy = Number($('comfy-idle').value);
+  act($('auto-save'), '/api/auto', {llama_idle_min: llama, ml_idle_min: ml, comfy_idle_min: comfy},
+      {group: '#auto', pending: 'Saving thresholds…',
+       done: `Thresholds saved (LLM ${llama} min, ML ${ml} min, ComfyUI ${comfy} min)`});
 };
 
 $('logout').onclick = async () => {

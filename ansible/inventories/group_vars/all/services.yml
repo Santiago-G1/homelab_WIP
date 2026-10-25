@@ -281,8 +281,9 @@ homelab_services:
     release: comfyanonymous/ComfyUI
     check: false
     note: >-
-      ComfyUI (SDXL on the P100). Shares the card with llama.cpp: use the GPU
-      panel's Image mode to free the GPU and start it. No auth, so LAN-only.
+      ComfyUI (SDXL on the P100). Shares the card with llama.cpp: Image mode
+      frees the GPU and starts it, and the panel stops it again when llama.cpp
+      is used or after its idle timer. No auth, so LAN-only.
 
   - host: agent
     server: llm

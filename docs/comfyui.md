@@ -117,6 +117,10 @@ pct exec 126 -- docker logs -f comfyui        # from the PVE node
 pct exec 126 -- nvidia-smi                    # who holds the card
 ```
 
+The panel's **How to use** page (sidebar, next to the dashboard) carries the
+per-mode explanation and the ComfyUI recipe; the dashboard itself only shows live
+state. `POST /api/auto` accepts `comfy_idle_min` next to the other two timers.
+
 Verify: `ansible-playbook playbooks/verify.yml` checks that the container exists
 and, when it is running, that `/system_stats` answers. The `comfy.` route is not
 in the availability widget on purpose: a stopped-but-healthy on-demand service
@@ -130,10 +134,15 @@ it stays LAN-only and must not be published in the Cloudflare tunnel.
 - Opening `comfy.` while the container is stopped answers **502**: the route is
 there, the service is not. Press Image mode first (or use the panel's ComfyUI
 card, whose Start button does exactly that).
-- Image mode and the LLM are mutually exclusive on a 16 GB card. While ComfyUI is
-up, a request to LiteLLM/llama.cpp tries to load ~13.6 GB and fails with
-`cudaMalloc failed: out of memory`; that is expected, and switching back to LLM
-mode stops ComfyUI and frees the card again.
+- Image mode and the LLM are mutually exclusive on a 16 GB card. **llama.cpp has
+priority**: as soon as the router reports a model `loading` (or `loaded`), the
+panel stops ComfyUI and Immich ML, so the LLM gets the whole card instead of
+failing with `cudaMalloc failed: out of memory`. ComfyUI is only stopped when its
+queue is empty, so a running generation is never killed mid-way (that one image
+would be lost; the next prompt after the LLM goes idle works again).
+- ComfyUI is also released by its own timer: `comfy_idle_min` (default 10 min,
+0 = never) stops it when the queue is empty and the card has been idle, so an
+Image session does not keep the LLM out.
 - The same applies to Immich ML: it is stopped in Image mode (it is CUDA) and
 only comes back in Media/Shared mode.
 - The container sees the **host's** RAM, not the CT's 12 GB limit
