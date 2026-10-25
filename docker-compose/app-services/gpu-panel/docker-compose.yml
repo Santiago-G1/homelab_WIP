@@ -25,6 +25,13 @@ services:
       - AI_CTID=${AI_CTID:?AI_CTID is required}
       - LLAMA_LOG_UNIT=${LLAMA_LOG_UNIT:-llama-server}
       - JELLYFIN_FALLBACK=${JELLYFIN_FALLBACK:-vaapi}
+      # ComfyUI is the fourth consumer of the card and the only on-demand one:
+      # its status is read over HTTP and it is started/stopped through the PVE
+      # host, next to nvidia-smi. COMFY_URL is the LAN address because the panel
+      # runs in its own container (127.0.0.1 would be itself).
+      - COMFY_URL=${COMFY_URL:-}
+      - COMFY_UI_URL=${COMFY_UI_URL:-}
+      - COMFY_CONTAINER=${COMFY_CONTAINER:-comfyui}
     volumes:
       # The container's SSH key is what reaches the PVE host and the other GPU
       # consumers; mounted read-only so the panel can only use it, not change it.

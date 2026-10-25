@@ -13,7 +13,8 @@
       ansible.builtin.command:
         cmd: docker compose ps -q
         chdir: "{{ stacks_root }}/{{ stack.name }}"
-      loop: "{{ stacks | default([]) }}"
+      loop: >-
+        {{ stacks | default([]) | rejectattr('name', 'in', stacks_on_demand | default([])) | list }}
       loop_control:
         loop_var: stack
         label: "{{ stack.name }}"
@@ -21,9 +22,29 @@
       changed_when: false
       failed_when: stack_ps.stdout | length == 0
 
+    # On-demand stacks (ComfyUI needs the whole P100, so the GPU panel starts it)
+    # are expected to be stopped: what must exist is their container.
+    - name: On-demand stacks have a container, running or not
+      ansible.builtin.command:
+        cmd: docker compose ps -a -q
+        chdir: "{{ stacks_root }}/{{ stack.name }}"
+      loop: >-
+        {{ stacks | default([]) | selectattr('name', 'in', stacks_on_demand | default([])) | list }}
+      loop_control:
+        loop_var: stack
+        label: "{{ stack.name }}"
+      register: ondemand_ps
+      changed_when: false
+      failed_when: ondemand_ps.stdout | length == 0
+
+    # Anything stopped on purpose is either a clean exit (0) or killed by the
+    # stop signal (143 = SIGTERM, 137 = SIGKILL), which is what the GPU panel
+    # does to the on-demand stacks and to Immich ML. Any other code is a crash.
     - name: No container is left in a failed state
       ansible.builtin.shell: |
-        docker ps -a --filter status=exited --filter status=dead --format '{{ "{{.Names}}" }}' | wc -l
+        docker ps -aq --filter status=exited --filter status=dead \
+          | xargs -r docker inspect -f '{{ "{{.Name}} {{.State.ExitCode}}" }}' \
+          | awk '$2 != 0 && $2 != 137 && $2 != 143' | wc -l
       register: failed_containers
       changed_when: false
       failed_when: failed_containers.stdout | int != 0
@@ -83,3 +104,18 @@
       ansible.builtin.uri:
         url: "http://127.0.0.1:{{ llamacpp_port }}/v1/models"
         status_code: 200
+
+    # ComfyUI is on demand (the GPU panel starts it when the card is free), so
+    # the check only runs while it is up; its container existing is verified by
+    # the docker_hosts play.
+    - name: ComfyUI container state
+      ansible.builtin.command: docker inspect -f '{{ "{{.State.Status}}" }}' comfyui
+      register: comfy_state
+      changed_when: false
+      failed_when: false
+
+    - name: ComfyUI answers its API while the panel has it up
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ service_ports.comfyui }}/system_stats"
+        status_code: 200
+      when: comfy_state.stdout | default('') == 'running'

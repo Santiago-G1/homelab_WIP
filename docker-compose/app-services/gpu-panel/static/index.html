@@ -152,6 +152,7 @@
       <button class="pri" data-mode="llm">LLM (llama.cpp)</button>
       <button class="pri" data-mode="media">Media (Immich + Jellyfin)</button>
       <button data-mode="balanced">Shared</button>
+      <button data-mode="image">Image (ComfyUI)</button>
     </div>
     <div class="k" style="margin-top:10px">
       The marked button reflects the real state of the machine (recalculated every 5 s), not the last click.
@@ -161,6 +162,28 @@
       the P100 is left to llama.cpp without losing hardware transcoding.
       <b>Media</b>: unloads the llama.cpp models and turns Immich ML + Jellyfin (NVENC on the P100) on.
       <b>Shared</b>: Immich ML + Jellyfin NVENC without unloading the LLM (only fits with a small one).
+      <b>Image</b>: unloads the LLM, stops Immich ML, moves Jellyfin to the iGPU and starts
+      ComfyUI: a diffusion model needs the whole card (llama.cpp alone holds ~15.8 of 16 GB).
+    </div>
+  </div>
+
+  <h2>ComfyUI <span class="pill" id="comfy-pill">—</span></h2>
+  <div class="card">
+    <div class="row" id="comfy">
+      <button class="on" data-comfy="start">Start (Image mode)</button>
+      <button data-comfy="restart">Restart</button>
+      <button class="warn" data-comfy="stop">Stop</button>
+      <button id="comfy-open">Open ComfyUI ↗</button>
+    </div>
+    <div class="k" style="margin-top:10px">
+      Queue: <b id="comfy-queue" class="mono">—</b> ·
+      VRAM it sees free: <b id="comfy-vram" class="mono">—</b> ·
+      torch: <b id="comfy-torch" class="mono">—</b>
+    </div>
+    <div class="k" style="margin-top:6px">
+      On image generation: SDXL GGUF (unet) + SDXL CLIP/VAE from
+      <span class="mono">/mnt/data/models/image_models</span>, fp16 and PyTorch
+      cross-attention — the only fast combination on a Pascal card.
     </div>
   </div>
 
@@ -216,6 +239,7 @@ const MODES = {
   llm: 'LLM (P100 for llama.cpp)',
   media: 'Media (Immich ML + Jellyfin NVENC)',
   balanced: 'Shared (LLM + media on the P100)',
+  image: 'Image (ComfyUI on the P100)',
   igpu: 'Media with Jellyfin on the iGPU',
   mixed: 'mixed / transitioning',
 };
@@ -325,6 +349,8 @@ function llamaCounts(s) {
 
 // Which state the machine is really in, derived from what the probes report.
 function deriveMode(s) {
+  // ComfyUI keeps the card while it is up, so it wins over every other reading.
+  if (str(s.comfyui && s.comfyui.state) === 'running') return 'image';
   const ml = str(s.immich_ml);
   const jf = str(s.jellyfin_accel);
   const loaded = llamaCounts(s).loaded;
@@ -424,6 +450,22 @@ async function refresh() {
   const jfNow = str(s.jellyfin_accel);
   $('jf-accel').textContent = jfNow ? `${jfNow} · ${deviceLabel(jfNow)}` : 'error';
 
+  const comfy = s.comfyui || {};
+  const cState = str(comfy.state) || 'unknown';
+  const cp = $('comfy-pill');
+  cp.textContent = cState;
+  cp.className = 'pill ' + (cState === 'running' ? 'ok' : 'off');
+  pressed('#comfy button[data-comfy]', (d) => (d.comfy === 'start' && cState === 'running')
+                                          || (d.comfy === 'stop' && cState !== 'running'));
+  $('comfy-queue').textContent = typeof comfy.queue === 'number' ? comfy.queue + ' prompt(s)' : '—';
+  $('comfy-vram').textContent = typeof comfy.vram_free === 'number'
+    ? `${(comfy.vram_free/1024).toFixed(1)} / ${(comfy.vram_total/1024).toFixed(1)} GiB` : '—';
+  $('comfy-torch').textContent = comfy.torch ? `${comfy.torch} · ${comfy.type || '?'}`
+    : (comfy.error ? 'no API yet' : '—');
+  const open = $('comfy-open');
+  open.disabled = !comfy.url;
+  open.dataset.url = comfy.url || '';
+
   // While an action is in flight the optimistic ring stays; once it finishes the
   // real state wins (so a failed switch visibly falls back).
   if (!inflight) paintState(s);
@@ -464,6 +506,28 @@ document.querySelectorAll('#modes button').forEach((b) => {
     act(b, '/api/mode/' + mode, null, {group: '#modes', pending: 'Switching to ' + MODES[mode] + '…', done: 'Mode: ' + MODES[mode]});
   };
 });
+
+document.querySelectorAll('#comfy button[data-comfy]').forEach((b) => {
+  b.onclick = () => {
+    const action = b.dataset.comfy;
+    const state = str(last && last.comfyui && last.comfyui.state);
+    if (action === 'start' && state === 'running') return skip('ComfyUI is already running');
+    if (action === 'stop' && state && state !== 'running') return skip('ComfyUI is already stopped');
+    if (action === 'start') {
+      // A bare start would OOM the first model load: the card has to be freed.
+      return act(b, '/api/mode/image', null,
+        {pending: 'Freeing the P100 and starting ComfyUI…', done: 'Image mode: ComfyUI is up'});
+    }
+    pressed('#comfy button[data-comfy]', (d) => d.comfy === action && action !== 'restart');
+    act(b, '/api/comfy/' + action, null,
+      {group: '#comfy', pending: 'ComfyUI: ' + action + '…', done: 'ComfyUI: ' + action});
+  };
+});
+
+$('comfy-open').onclick = () => {
+  const url = $('comfy-open').dataset.url;
+  if (url) window.open(url, '_blank', 'noopener');
+};
 
 document.querySelectorAll('#jf button').forEach((b) => {
   b.onclick = () => {

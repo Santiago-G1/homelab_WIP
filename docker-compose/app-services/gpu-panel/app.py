@@ -41,6 +41,12 @@ LLAMA_URL = os.environ["LLAMA_URL"]
 AI_CTID = os.environ["AI_CTID"]
 LLAMA_LOG_UNIT = os.environ.get("LLAMA_LOG_UNIT", "llama-server")
 LLAMA_LOG_MAX = 2000
+# ComfyUI is the fourth consumer of the card and the only one that needs it
+# alone: it is an on-demand stack (host_vars/llm/main.yml), started here and
+# stopped again when the card goes back to llama.cpp or to the media stacks.
+COMFY_URL = os.environ.get("COMFY_URL", "")
+COMFY_UI_URL = os.environ.get("COMFY_UI_URL", "")
+COMFY_CONTAINER = os.environ.get("COMFY_CONTAINER", "comfyui")
 PANEL_USER = os.environ.get("PANEL_USER", "admin")
 PANEL_PASSWORD = os.environ.get("PANEL_PASSWORD", "")
 PANEL_TOKEN = os.environ.get("PANEL_TOKEN", "")
@@ -283,6 +289,43 @@ def immich_ml_state():
     return p.stdout.strip() or "unknown"
 
 
+def comfy_state():
+    """The ComfyUI container lives in this same CT, so the walk is the same one
+    the panel already uses for nvidia-smi: SSH to the PVE node, enter the CT."""
+    p = ssh(PVE_HOST, f"pct exec {AI_CTID} -- docker inspect -f '{{{{.State.Status}}}}' {COMFY_CONTAINER}")
+    return p.stdout.strip() or "unknown"
+
+
+def comfy(action):
+    if action not in ("start", "stop", "restart"):
+        raise HTTPException(400, "action must be start, stop or restart")
+    p = ssh(PVE_HOST, f"pct exec {AI_CTID} -- docker {action} {COMFY_CONTAINER}", timeout=90)
+    if p.returncode != 0:
+        raise HTTPException(502, p.stderr.strip() or p.stdout.strip())
+    return {"action": action, "ok": True}
+
+
+def comfy_stats():
+    """State from ComfyUI itself: running, how much VRAM it sees free and how
+    many prompts are queued. Silently empty when the container is down."""
+    out = {"state": comfy_state()}
+    if not COMFY_URL or out["state"] != "running":
+        return out
+    try:
+        stats = httpx.get(f"{COMFY_URL}/system_stats", timeout=8).json()
+        device = (stats.get("devices") or [{}])[0]
+        out["device"] = device.get("name")
+        out["type"] = device.get("type")
+        out["vram_free"] = round((device.get("vram_free") or 0) / 2**20)
+        out["vram_total"] = round((device.get("vram_total") or 0) / 2**20)
+        out["torch"] = (stats.get("system") or {}).get("pytorch_version")
+        queue = httpx.get(f"{COMFY_URL}/queue", timeout=8).json()
+        out["queue"] = len(queue.get("queue_running") or []) + len(queue.get("queue_pending") or [])
+    except Exception as exc:  # noqa: BLE001 - a starting container has no API yet
+        out["error"] = str(exc)
+    return out
+
+
 def immich_ml(action):
     p = ssh(IMMICH_HOST, f"docker {action} {IMMICH_ML}")
     if p.returncode != 0:
@@ -394,10 +437,16 @@ def auto_tick():
     except Exception:
         models = []
 
+    # ComfyUI holds the card while it is up: handing it back to Immich ML here
+    # would fight the generation the user asked for.
+    comfy_up = False
+    with contextlib.suppress(Exception):
+        comfy_up = comfy_state() == "running"
+
     if models:
         if state["llama_idle_min"] and idle > state["llama_idle_min"] * 60:
             unloaded = llama_unload_all()
-            if unloaded:
+            if unloaded and not comfy_up:
                 back = {"accel": state.get("jellyfin_before_llm") or "nvenc"}
                 with contextlib.suppress(HTTPException):
                     immich_ml("start")
@@ -525,6 +574,11 @@ def status(_: str = Depends(require_auth)):
     except Exception as exc:  # noqa: BLE001 - surface the probe failure
         out["llama"] = {"error": str(exc)}
         out["llama_counts"] = {"error": str(exc)}
+    try:
+        out["comfyui"] = comfy_stats()
+        out["comfyui"]["url"] = COMFY_UI_URL
+    except Exception as exc:  # noqa: BLE001 - surface the probe failure
+        out["comfyui"] = {"state": "unknown", "error": str(exc)}
     return out
 
 
@@ -532,6 +586,13 @@ def status(_: str = Depends(require_auth)):
 def set_mode(mode: str, _: str = Depends(require_auth)):
     global llm_blocked
     result = {}
+    # Leaving Image mode means the P100 belongs to something else again, and
+    # ComfyUI would keep holding the card: stop it first.
+    if mode in ("llm", "media", "balanced"):
+        with contextlib.suppress(Exception):
+            if comfy_state() == "running":
+                result["comfyui"] = comfy("stop")
+
     if mode == "llm":
         result["immich_ml"] = immich_ml("stop")        # CUDA: it needs the P100
         result["jellyfin"] = jellyfin_release_p100()   # iGPU keeps transcoding
@@ -551,8 +612,20 @@ def set_mode(mode: str, _: str = Depends(require_auth)):
         state["jellyfin_before_llm"] = None
         llm_blocked = False
         record_action("mode Shared: Immich ML + Jellyfin (NVENC on the P100, LLM not unloaded) on")
+    elif mode == "image":
+        # Image generation needs the whole card: unload llama.cpp, stop the CUDA
+        # Immich workload and move Jellyfin to the iGPU (it keeps transcoding).
+        result["llama"] = llama_unload_all()
+        result["immich_ml"] = immich_ml("stop")
+        result["jellyfin"] = jellyfin_release_p100()
+        state["jellyfin_before_llm"] = None
+        result["comfyui"] = comfy("start")
+        llm_blocked = False
+        record_action("mode Image: llama.cpp unloaded, Immich ML stopped, "
+                      "Jellyfin on %s; ComfyUI started with the P100 to itself"
+                      % JELLYFIN_DEVICES[JELLYFIN_FALLBACK])
     else:
-        raise HTTPException(400, "mode must be llm, media or balanced")
+        raise HTTPException(400, "mode must be llm, media, balanced or image")
     return result
 
 
@@ -596,6 +669,11 @@ def llama_logs_api(lines: int = 200, _: str = Depends(require_auth)):
     """Tail of the llama.cpp service log, for debugging a load or a crash."""
     out = llama_logs(lines)
     return {"unit": LLAMA_LOG_UNIT, "container": AI_CTID, "count": len(out), "lines": out}
+
+
+@app.post("/api/comfy/{action}")
+def comfy_action(action: str, _: str = Depends(require_auth)):
+    return comfy(action)
 
 
 @app.post("/api/immich/ml/{action}")
