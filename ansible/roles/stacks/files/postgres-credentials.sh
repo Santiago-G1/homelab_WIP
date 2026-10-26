@@ -109,11 +109,13 @@ fi
 # Always converge the password: it is the one thing that keeps a cluster created
 # by an older .env from rejecting the credentials the stack was just deployed
 # with. Applied unconditionally, so it is not reported as changed.
-# The value travels in the environment and is read by psql with \getenv.
-docker exec -e PW="$PG_PASSWORD" -i "$CONTAINER" \
-  psql -U "$PG_ROLE" -d postgres -q -v ON_ERROR_STOP=1 <<SQL
-\getenv pw PW
-ALTER ROLE "$PG_ROLE" WITH PASSWORD :'pw';
+# The statement goes in through stdin, never on the command line where `ps`
+# would show it, and the quotes are doubled here because psql 14 has no \getenv
+# to read the value from the environment: this has to work on the oldest cluster
+# we run, not just on the newest one.
+escaped_password=$(printf '%s' "$PG_PASSWORD" | sed "s/'/''/g")
+docker exec -i "$CONTAINER" psql -U "$PG_ROLE" -d postgres -q -v ON_ERROR_STOP=1 <<SQL
+ALTER ROLE "$PG_ROLE" WITH PASSWORD '$escaped_password';
 SQL
 
 if [ "$(q "$PG_ROLE" 'select 1')" != "1" ]; then
