@@ -1,4 +1,9 @@
 ---
+# One network shared by the monitoring stacks: the Grafana datasource
+# addresses `prometheus:9090`, which only resolves inside a common network.
+docker_networks:
+  - homelab_monitoring
+
 prometheus_jobs:
   - { job: prometheus,    targets: ["localhost:9090"] }
   - { job: node_exporter, targets: "{{ node_exporter_targets }}" }

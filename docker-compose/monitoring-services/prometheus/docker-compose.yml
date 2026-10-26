@@ -11,13 +11,17 @@ services:
       - ./rules:/etc/prometheus/rules:ro
       - ./data:/prometheus
     networks:
-      - monitoring
+      - homelab_monitoring
     ports:
       - "9090:9090"
 
 volumes:
   prometheus_data:
 
+# Shared with the grafana stack (declared in host_vars/monitoring.yml and created
+# by roles/stacks). Without it each project gets its own network and Grafana's
+# `http://prometheus:9090` datasource resolves through DNS to the reverse proxy
+# instead of to this container.
 networks:
-  monitoring:
-    driver: bridge
+  homelab_monitoring:
+    external: true
