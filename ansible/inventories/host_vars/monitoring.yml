@@ -6,10 +6,14 @@ docker_networks:
 
 prometheus_jobs:
   - { job: prometheus,    targets: ["localhost:9090"] }
-  - { job: node_exporter, targets: "{{ node_exporter_targets }}" }
+  # One target per host, carrying its inventory name.
+  - { job: node_exporter, hosts: "{{ node_exporter_hosts }}", port: 9100 }
   # Addresses come from the inventory, like the exporter targets above.
   - { job: blocky,        targets: ["{{ hostvars['blocky'].ansible_host }}:{{ service_ports.blocky }}"] }
-  - { job: llama,         targets: ["{{ hostvars['llm'].ansible_host }}:{{ hostvars['llm'].llamacpp_port }}"] }  # llama-server --metrics
+  # No `llama` job on purpose: with --models-dir/--models-max (router mode) the
+  # metrics belong to the loaded model and are served on that model's own port,
+  # so :8080/metrics answers 400 `model name is missing` and the target would sit
+  # "down" while the server is perfectly healthy. The GPU panel reports LLM state.
 
 # The dashboard's own login; the password and the session key live in the vault.
 glance_admin_user: admin

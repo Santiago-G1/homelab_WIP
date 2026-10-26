@@ -12,6 +12,18 @@ scrape_configs:
 {% if job.metrics_path is defined %}
     metrics_path: {{ job.metrics_path }}
 {% endif %}
+{% if job.hosts is defined %}
+    # One static config per host so every series carries the name from the
+    # inventory: a panel that reads `immich` is worth more than one that reads
+    # `192.168.10.22`, and nothing else has to translate it.
+    static_configs:
+{% for host, address in job.hosts.items() %}
+      - targets: ['{{ address }}:{{ job.port | default(9100) }}']
+        labels:
+          host: {{ host }}
+{% endfor %}
+{% else %}
     static_configs:
       - targets: {{ job.targets | to_json }}
+{% endif %}
 {% endfor %}

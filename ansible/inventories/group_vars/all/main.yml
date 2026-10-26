@@ -53,3 +53,11 @@ node_exporter_targets: >-
      | map('extract', hostvars, 'ansible_host')
      | map('regex_replace', '$', ':9100')
      | list }}
+
+# The same hosts keyed by inventory name. A scrape target built from this one
+# carries its hostname as a label, so every panel can say `immich` instead of
+# `192.168.10.22` without translating anything downstream.
+node_exporter_hosts: >-
+  {{ dict((groups['lxc'] + groups['management'])
+     | zip((groups['lxc'] + groups['management'])
+     | map('extract', hostvars, 'ansible_host'))) }}
