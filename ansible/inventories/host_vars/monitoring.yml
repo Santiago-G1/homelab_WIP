@@ -30,6 +30,15 @@ stacks:
       GF_DATABASE_USER: "{{ vault_gf_database_user }}"
       GF_DATABASE_PASSWORD: "{{ vault_gf_database_password }}"
 
+    # The cluster in the mounted data dir is reconciled against these names
+    # before the app starts: an existing initdb never re-reads POSTGRES_USER.
+    postgres:
+      service: grafana_postgres
+      container: grafana_postgres
+      user_env: GF_DATABASE_USER
+      password_env: GF_DATABASE_PASSWORD
+      database_env: GF_DATABASE_NAME
+
   # Glance reads the same catalog as Caddy, so the route table, the
   # availability list, the bookmarks and the release tracker cannot drift.
   - name: glance
