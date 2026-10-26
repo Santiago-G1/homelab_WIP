@@ -17,7 +17,7 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 8,
+        "w": 6,
         "x": 0,
         "y": 0
       },
@@ -80,8 +80,8 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 8,
-        "x": 8,
+        "w": 6,
+        "x": 6,
         "y": 0
       },
       "targets": [
@@ -91,7 +91,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "count((100 * (1 - (node_filesystem_avail_bytes{fstype=~\"ext4|zfs\",mountpoint=~\"/|/mnt/.+\"} / node_filesystem_size_bytes{fstype=~\"ext4|zfs\",mountpoint=~\"/|/mnt/.+\"}))) > 85) or vector(0)",
+          "expr": "count((100 * (1 - (node_filesystem_avail_bytes{fstype=~\"ext4|zfs\",mountpoint=~\"/|/mnt/.+|/tank.*\"} / node_filesystem_size_bytes{fstype=~\"ext4|zfs\",mountpoint=~\"/|/mnt/.+|/tank.*\"}))) > 85) or vector(0)",
           "refId": "A",
           "range": false,
           "instant": true
@@ -143,8 +143,8 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 8,
-        "x": 16,
+        "w": 6,
+        "x": 12,
         "y": 0
       },
       "targets": [
@@ -155,6 +155,69 @@
           },
           "editorMode": "code",
           "expr": "sum(ALERTS{alertstate=\"firing\"}) or vector(0)",
+          "refId": "A",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "stat",
+      "title": "ZFS fuera de ONLINE",
+      "description": "Pools de ZFS que no estan online. Un pool degradado no se arregla solo.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "count((max by (zpool) (node_zfs_zpool_state{state=\"online\"})) == 0) or vector(0)",
           "refId": "A",
           "range": false,
           "instant": true
@@ -304,7 +367,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "100 * (1 - (node_filesystem_avail_bytes{fstype=~\"ext4|zfs\",mountpoint=~\"/|/mnt/.+\"} / node_filesystem_size_bytes{fstype=~\"ext4|zfs\",mountpoint=~\"/|/mnt/.+\"}))",
+          "expr": "topk(12, 100 * (1 - (node_filesystem_avail_bytes{fstype=~\"ext4|zfs\",mountpoint=~\"/|/mnt/.+|/tank.*\"} / node_filesystem_size_bytes{fstype=~\"ext4|zfs\",mountpoint=~\"/|/mnt/.+|/tank.*\"})))",
           "refId": "A",
           "range": false,
           "instant": true
