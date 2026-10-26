@@ -22,6 +22,9 @@ services:
       GF_DATABASE_NAME: ${GF_DATABASE_NAME}
       GF_DATABASE_USER: ${GF_DATABASE_USER}
       GF_DATABASE_PASSWORD: ${GF_DATABASE_PASSWORD}
+      # Open on the dashboard instead of the empty home. Static path, so it
+      # lives here and not in the rendered .env (the service has no env_file).
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/homelab-overview.json
     ports:
       - '3000:3000'
     volumes:
