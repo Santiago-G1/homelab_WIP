@@ -13,12 +13,8 @@ cuda_repo_distro: debian12
 llamacpp_cuda_root: /usr/local/cuda-12.8
 llamacpp_cuda_arch: "60-real"
 
-# Pinned: the vendored P100 patch set applies cleanly to this commit only.
-# It is 2a667032d ("convert : respect Mistral format for DeepseekV2Model",
-# 2026-10-16), two commits AFTER the b11696 tag. b11696 is a different, earlier
-# tree, so do not "restore" it to the tag. Bump it and re-run
-# ansible/roles/llamacpp/files/apply-p100-patches.sh by hand to re-check.
-llamacpp_version: 2a667032dc788c3a071d538e0b572e45a3f12731
+# llamacpp_version lives in roles/llamacpp/defaults: it is the one knob that
+# also selects the P100 patch set tag, so there is nothing to keep in step here.
 llamacpp_port: 8080
 llamacpp_build_jobs: 2          # nvcc is memory hungry; 2 is the safe value here
 
@@ -70,6 +66,34 @@ zeroclaw_searxng_instance_url: "http://{{ searxng_host }}:{{ searxng_port }}"
 # vault_zeroclaw_telegram_user_id, not here.
 zeroclaw_telegram_user_id: "{{ vault_zeroclaw_telegram_user_id }}"
 
+# ComfyUI (SDXL image generation) is the fourth consumer of the P100 and the
+# only one that needs the whole card: llama.cpp alone holds ~15.8 of the 16 GB.
+# It is therefore an on-demand stack, started by the GPU panel's Image mode.
+# Upstream images cannot be used: ComfyUI leaves torch unpinned and torch >= 2.8
+# dropped sm_60 (Pascal) from its CUDA wheels, so docker-compose/ai-services/
+# comfyui builds it on the last cu126/torch 2.7 line. See docs/comfyui.md.
+comfyui_version: v0.42.5
+# Pinned node commits, not tags: they are the versions that load the GGUF SDXL
+# unets and the IPAdapter pair the old ai-dock workspace used.
+comfyui_gguf_nodes_version: 6ea2651e7df66d7585f6ffee804b20e92fb38b8a
+comfyui_ipadapter_nodes_version: a0f451a5113cf9becb0847b92884cb10cbdec0ef
+comfyui_publish_port: "{{ service_ports.comfyui }}"
+comfyui_models_path: /mnt/data/image_models
+comfyui_workspace: /mnt/data/comfyui_workspace
+comfyui_output_path: /mnt/data/comfyui_output
+# fp16 is 2x fp32 on GP100 and ComfyUI still assumes fp32 is faster on Pascal on
+# Linux (comfy/model_management.py), so the build is forced to fp16. SDPA is the
+# only usable attention backend (xformers/flash need sm_70+), and the smart
+# memory offload plus the VRAM reserve keep the card usable next to the other
+# three consumers when a workflow finishes.
+comfyui_args: >-
+  --force-fp16 --use-pytorch-cross-attention --disable-smart-memory
+  --reserve-vram 0.75 --preview-method none --disable-auto-launch
+
+# Stacks the GPU panel starts on demand (verify.yml does not expect them up).
+stacks_on_demand:
+  - comfyui
+
 stacks:
   - name: litellm
     src: ai-services/litellm
@@ -101,6 +125,24 @@ stacks:
       SEARXNG_SECRET: "{{ vault_searxng_secret_key }}"
       SEARXNG_BASE_URL: "{{ searxng_base_url }}"
       SEARXNG_PUBLISH_PORT: "{{ searxng_publish_port }}"
+
+  # Image generation on the P100, on demand: the panel frees the card (unloads
+  # llama.cpp, stops Immich ML, moves Jellyfin to the iGPU) before starting it.
+  - name: comfyui
+    src: ai-services/comfyui
+    build: true
+    dirs:
+      # Persisted custom nodes; the image's own nodes are copied in at start.
+      - { path: custom_nodes }
+    env:
+      COMFYUI_VERSION: "{{ comfyui_version }}"
+      COMFYUI_GGUF_VERSION: "{{ comfyui_gguf_nodes_version }}"
+      COMFYUI_IPADAPTER_VERSION: "{{ comfyui_ipadapter_nodes_version }}"
+      COMFYUI_PUBLISH_PORT: "{{ comfyui_publish_port }}"
+      COMFYUI_ARGS: "{{ comfyui_args }}"
+      IMAGE_MODELS_PATH: "{{ comfyui_models_path }}"
+      WORKSPACE_PATH: "{{ comfyui_workspace }}"
+      OUTPUT_PATH: "{{ comfyui_output_path }}"
 
   - name: zeroclaw
     src: ai-services/zeroclaw
@@ -135,10 +177,18 @@ stacks:
       # Proxmox VM ID of this container (terraform/proxmox/lxc_ai.tf): the panel
       # enters it to read llama-server's journald logs.
       AI_CTID: "126"
+      # ComfyUI lives on this same container: the panel reaches it over the LAN
+      # address (not 127.0.0.1, which inside the panel container is itself) and
+      # starts/stops it through PVE_HOST + AI_CTID like the rest of the card's
+      # consumers.
+      COMFY_URL: "http://{{ ansible_host }}:{{ service_ports.comfyui }}"
+      COMFY_UI_URL: "https://comfy.{{ vault_domainname_hs }}/"
+      COMFY_CONTAINER: comfyui
       # Models the dashboard may name: exactly the ones models.yml declares, so
       # any other .gguf the router serves still loads, counts and unloads but is
-      # never printed.
-      LLAMA_PUBLIC_MODELS: "{{ llm_models | map(attribute='name') | join(',') }},image_models"
+      # never printed. The diffusion GGUFs live outside llamacpp_models_dir
+      # (/mnt/data/image_models) precisely so the router does not offer them.
+      LLAMA_PUBLIC_MODELS: "{{ llm_models | map(attribute='name') | join(',') }}"
 
 health_checks:
   - { name: litellm,   url: "http://127.0.0.1:{{ service_ports.litellm }}/health/liveliness" }

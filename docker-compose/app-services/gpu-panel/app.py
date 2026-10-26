@@ -26,6 +26,7 @@ from urllib.parse import urlparse
 import httpx
 from fastapi import Body, Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -41,6 +42,12 @@ LLAMA_URL = os.environ["LLAMA_URL"]
 AI_CTID = os.environ["AI_CTID"]
 LLAMA_LOG_UNIT = os.environ.get("LLAMA_LOG_UNIT", "llama-server")
 LLAMA_LOG_MAX = 2000
+# ComfyUI is the fourth consumer of the card and the only one that needs it
+# alone: it is an on-demand stack (host_vars/llm/main.yml), started here and
+# stopped again when the card goes back to llama.cpp or to the media stacks.
+COMFY_URL = os.environ.get("COMFY_URL", "")
+COMFY_UI_URL = os.environ.get("COMFY_UI_URL", "")
+COMFY_CONTAINER = os.environ.get("COMFY_CONTAINER", "comfyui")
 PANEL_USER = os.environ.get("PANEL_USER", "admin")
 PANEL_PASSWORD = os.environ.get("PANEL_PASSWORD", "")
 PANEL_TOKEN = os.environ.get("PANEL_TOKEN", "")
@@ -84,7 +91,10 @@ ML_QUEUES = ("faceDetection", "smartSearch", "ocr")
 # because the SQL/psql quoting does not survive nested shells otherwise.
 IMMICH_CFG_SCRIPT = r"""docker exec immich_postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atc "select value from system_metadata where key = '"'"'system-config'"'"';"'"""
 
-DEFAULTS = {"enabled": True, "llama_idle_min": 60, "ml_idle_min": 0, "last_action": None, "last_action_at": None, "revoked": {}, "jellyfin_before_llm": None}
+# comfy_idle_min: ComfyUI is on demand too. Its queue empty + the card idle for
+# this long means the P100 goes back to llama.cpp by itself, so an Image session
+# never leaves the LLM unable to load. 0 disables the timer.
+DEFAULTS = {"enabled": True, "llama_idle_min": 60, "ml_idle_min": 0, "comfy_idle_min": 10, "last_action": None, "last_action_at": None, "revoked": {}, "jellyfin_before_llm": None}
 
 # Sessions are signed with a key derived from the credentials, so rotating
 # either one logs every browser out and no extra secret has to be provisioned.
@@ -96,6 +106,9 @@ last_busy = time.time()
 llm_blocked = False
 
 app = FastAPI(title="GPU control panel")
+# The stylesheet is shared by the dashboard and the guide, so the two pages keep
+# the same look without duplicating a 100-line <style> block.
+app.mount("/static", StaticFiles(directory=os.path.join(APP_DIR, "static")), name="static")
 
 
 # --------------------------------------------------------------------------- #
@@ -283,6 +296,74 @@ def immich_ml_state():
     return p.stdout.strip() or "unknown"
 
 
+def comfy_state():
+    """The ComfyUI container lives in this same CT, so the walk is the same one
+    the panel already uses for nvidia-smi: SSH to the PVE node, enter the CT."""
+    p = ssh(PVE_HOST, f"pct exec {AI_CTID} -- docker inspect -f '{{{{.State.Status}}}}' {COMFY_CONTAINER}")
+    return p.stdout.strip() or "unknown"
+
+
+def comfy(action):
+    if action not in ("start", "stop", "restart"):
+        raise HTTPException(400, "action must be start, stop or restart")
+    p = ssh(PVE_HOST, f"pct exec {AI_CTID} -- docker {action} {COMFY_CONTAINER}", timeout=90)
+    if p.returncode != 0:
+        raise HTTPException(502, p.stderr.strip() or p.stdout.strip())
+    return {"action": action, "ok": True}
+
+
+def comfy_queue_depth():
+    """Prompts running or waiting in ComfyUI.
+
+    Stopping the container kills whatever it is doing, so the automatic hand-back
+    of the card only happens with an empty queue.
+    """
+    if not COMFY_URL:
+        return 0
+    try:
+        queue = httpx.get(f"{COMFY_URL}/queue", timeout=6).json()
+        return len(queue.get("queue_running") or []) + len(queue.get("queue_pending") or [])
+    except Exception:  # noqa: BLE001 - starting container has no API yet
+        return 0
+
+
+def comfy_release(why=None):
+    """Stop ComfyUI (only when idle) and hand the card back.
+
+    `why` is recorded as the last automatic action; the LLM-priority path passes
+    None because it folds the stop into its own message.
+    """
+    if comfy_queue_depth():
+        return False
+    with contextlib.suppress(HTTPException):
+        comfy("stop")
+        if why:
+            record_action(why)
+        return True
+    return False
+
+
+def comfy_stats():
+    """State from ComfyUI itself: running, how much VRAM it sees free and how
+    many prompts are queued. Silently empty when the container is down."""
+    out = {"state": comfy_state()}
+    if not COMFY_URL or out["state"] != "running":
+        return out
+    try:
+        stats = httpx.get(f"{COMFY_URL}/system_stats", timeout=8).json()
+        device = (stats.get("devices") or [{}])[0]
+        out["device"] = device.get("name")
+        out["type"] = device.get("type")
+        out["vram_free"] = round((device.get("vram_free") or 0) / 2**20)
+        out["vram_total"] = round((device.get("vram_total") or 0) / 2**20)
+        out["torch"] = (stats.get("system") or {}).get("pytorch_version")
+        queue = httpx.get(f"{COMFY_URL}/queue", timeout=8).json()
+        out["queue"] = len(queue.get("queue_running") or []) + len(queue.get("queue_pending") or [])
+    except Exception as exc:  # noqa: BLE001 - a starting container has no API yet
+        out["error"] = str(exc)
+    return out
+
+
 def immich_ml(action):
     p = ssh(IMMICH_HOST, f"docker {action} {IMMICH_ML}")
     if p.returncode != 0:
@@ -363,6 +444,7 @@ def auto_snapshot():
         "enabled": state["enabled"],
         "llama_idle_min": state["llama_idle_min"],
         "ml_idle_min": state["ml_idle_min"],
+        "comfy_idle_min": state["comfy_idle_min"],
         "last_action": state.get("last_action"),
         "last_action_at": state.get("last_action_at"),
         "idle_seconds": int(time.time() - last_busy),
@@ -390,14 +472,38 @@ def auto_tick():
     idle = time.time() - last_busy
 
     try:
-        models = llama_loaded()
+        models = llama_models()
     except Exception:
         models = []
+    # "loading" counts as in use: by the time the status is "loaded" the router
+    # has already asked for the VRAM, and a 13.6 GB model does not fit next to a
+    # 6 GB ComfyUI context. Freeing the card on the load, not after it fails, is
+    # what makes "llama.cpp gets the whole GPU whenever it is used" true.
+    in_use = [m for m in models if str(m.get("status", "")).lower().startswith("load")]
 
-    if models:
+    comfy_up = False
+    with contextlib.suppress(Exception):
+        comfy_up = comfy_state() == "running"
+
+    if in_use:
+        # llama.cpp has priority over every other consumer of the P100.
+        comfy_stopped = False
+        if comfy_up:
+            comfy_stopped = comfy_release(
+                None if not llm_blocked
+                else "LLM in use: ComfyUI stopped (P100 free for llama.cpp)")
+            comfy_up = comfy_up and not comfy_stopped
+        if not llm_blocked:
+            with contextlib.suppress(HTTPException):
+                immich_ml("stop")        # Immich ML is CUDA: it needs the P100
+                jellyfin_release_p100()  # Jellyfin keeps transcoding on the iGPU
+            llm_blocked = True
+            record_action("LLM in use: %sImmich ML stopped, Jellyfin on %s (P100 free for llama.cpp)"
+                          % ("ComfyUI stopped, " if comfy_stopped else "",
+                             JELLYFIN_DEVICES[JELLYFIN_FALLBACK]))
         if state["llama_idle_min"] and idle > state["llama_idle_min"] * 60:
             unloaded = llama_unload_all()
-            if unloaded:
+            if unloaded and not comfy_up:
                 back = {"accel": state.get("jellyfin_before_llm") or "nvenc"}
                 with contextlib.suppress(HTTPException):
                     immich_ml("start")
@@ -406,15 +512,13 @@ def auto_tick():
                 record_action("GPU idle %d min: unloaded %s, Immich ML on, Jellyfin back to %s"
                               % (idle // 60, ", ".join(model_names([{"id": u["model"]} for u in unloaded])),
                                  JELLYFIN_DEVICES.get(back.get("accel"), back.get("accel"))))
-        elif not llm_blocked:
-            with contextlib.suppress(HTTPException):
-                immich_ml("stop")        # Immich ML is CUDA: it needs the P100
-                jellyfin_release_p100()  # Jellyfin keeps transcoding on the iGPU
-            llm_blocked = True
-            record_action("LLM in use: Immich ML stopped, Jellyfin on %s (P100 free for llama.cpp)"
-                          % JELLYFIN_DEVICES[JELLYFIN_FALLBACK])
     else:
         llm_blocked = False
+        # ComfyUI is on demand as well: with an empty queue and an idle card, the
+        # P100 goes back by itself instead of waiting for someone to click.
+        if comfy_up and state["comfy_idle_min"] and idle > state["comfy_idle_min"] * 60:
+            if comfy_release("ComfyUI idle %d min: stopped, P100 free again" % (idle // 60)):
+                comfy_up = False
 
     if state["ml_idle_min"] and idle > state["ml_idle_min"] * 60:
         if immich_ml_state() == "running" and immich_ml_queue_active() == 0:
@@ -452,6 +556,18 @@ def index(request: Request):
     if not (read_session(request) or has_bearer(request)):
         return RedirectResponse("/login", status_code=303)
     return FileResponse(os.path.join(APP_DIR, "static", "index.html"), headers=NO_STORE)
+
+
+@app.get("/howto")
+def howto(request: Request):
+    """The guide: what each mode does and how to use the four consumers.
+
+    It used to be a wall of text inside the dashboard; a second page keeps the
+    dashboard to the live state, and the sidebar mirrors Glance's.
+    """
+    if not (read_session(request) or has_bearer(request)):
+        return RedirectResponse("/login?next=/howto", status_code=303)
+    return FileResponse(os.path.join(APP_DIR, "static", "howto.html"), headers=NO_STORE)
 
 
 @app.post("/api/login")
@@ -525,6 +641,11 @@ def status(_: str = Depends(require_auth)):
     except Exception as exc:  # noqa: BLE001 - surface the probe failure
         out["llama"] = {"error": str(exc)}
         out["llama_counts"] = {"error": str(exc)}
+    try:
+        out["comfyui"] = comfy_stats()
+        out["comfyui"]["url"] = COMFY_UI_URL
+    except Exception as exc:  # noqa: BLE001 - surface the probe failure
+        out["comfyui"] = {"state": "unknown", "error": str(exc)}
     return out
 
 
@@ -532,6 +653,13 @@ def status(_: str = Depends(require_auth)):
 def set_mode(mode: str, _: str = Depends(require_auth)):
     global llm_blocked
     result = {}
+    # Leaving Image mode means the P100 belongs to something else again, and
+    # ComfyUI would keep holding the card: stop it first.
+    if mode in ("llm", "media", "balanced"):
+        with contextlib.suppress(Exception):
+            if comfy_state() == "running":
+                result["comfyui"] = comfy("stop")
+
     if mode == "llm":
         result["immich_ml"] = immich_ml("stop")        # CUDA: it needs the P100
         result["jellyfin"] = jellyfin_release_p100()   # iGPU keeps transcoding
@@ -551,8 +679,20 @@ def set_mode(mode: str, _: str = Depends(require_auth)):
         state["jellyfin_before_llm"] = None
         llm_blocked = False
         record_action("mode Shared: Immich ML + Jellyfin (NVENC on the P100, LLM not unloaded) on")
+    elif mode == "image":
+        # Image generation needs the whole card: unload llama.cpp, stop the CUDA
+        # Immich workload and move Jellyfin to the iGPU (it keeps transcoding).
+        result["llama"] = llama_unload_all()
+        result["immich_ml"] = immich_ml("stop")
+        result["jellyfin"] = jellyfin_release_p100()
+        state["jellyfin_before_llm"] = None
+        result["comfyui"] = comfy("start")
+        llm_blocked = False
+        record_action("mode Image: llama.cpp unloaded, Immich ML stopped, "
+                      "Jellyfin on %s; ComfyUI started with the P100 to itself"
+                      % JELLYFIN_DEVICES[JELLYFIN_FALLBACK])
     else:
-        raise HTTPException(400, "mode must be llm, media or balanced")
+        raise HTTPException(400, "mode must be llm, media, balanced or image")
     return result
 
 
@@ -560,7 +700,7 @@ def set_mode(mode: str, _: str = Depends(require_auth)):
 def set_auto(body: dict = Body(...), _: str = Depends(require_auth)):
     if "enabled" in body:
         state["enabled"] = bool(body["enabled"])
-    for key in ("llama_idle_min", "ml_idle_min"):
+    for key in ("llama_idle_min", "ml_idle_min", "comfy_idle_min"):
         if key in body:
             value = int(body[key])
             if value < 0 or value > 1440:
@@ -596,6 +736,11 @@ def llama_logs_api(lines: int = 200, _: str = Depends(require_auth)):
     """Tail of the llama.cpp service log, for debugging a load or a crash."""
     out = llama_logs(lines)
     return {"unit": LLAMA_LOG_UNIT, "container": AI_CTID, "count": len(out), "lines": out}
+
+
+@app.post("/api/comfy/{action}")
+def comfy_action(action: str, _: str = Depends(require_auth)):
+    return comfy(action)
 
 
 @app.post("/api/immich/ml/{action}")

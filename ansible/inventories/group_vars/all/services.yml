@@ -57,6 +57,7 @@ service_ports:
   litellm: 4000
   searxng: 8081
   zeroclaw: 42617
+  comfyui: 8188
 
 homelab_services:
   # --- network -------------------------------------------------------------
@@ -265,6 +266,24 @@ homelab_services:
       Web search for the agent; the limiter is off, so this is LAN-only and must
       not become a public hostname in the tunnel.
     verify: true
+
+  # On demand: ComfyUI is an image-generation stack that needs the whole P100,
+  # so the GPU panel starts it as its own mode and stops it again when the card
+  # goes back to llama.cpp. That is why it is not in the availability widget or
+  # in verify's route checks (a stopped but healthy service would look DOWN).
+  - host: comfy
+    server: llm
+    port: "{{ service_ports.comfyui }}"
+    title: ComfyUI
+    icon: di:comfyui
+    group: AI
+    path: /system_stats
+    release: comfyanonymous/ComfyUI
+    check: false
+    note: >-
+      ComfyUI (SDXL on the P100). Shares the card with llama.cpp: Image mode
+      frees the GPU and starts it, and the panel stops it again when llama.cpp
+      is used or after its idle timer. No auth, so LAN-only.
 
   - host: agent
     server: llm

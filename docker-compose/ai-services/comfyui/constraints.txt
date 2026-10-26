@@ -1,0 +1,5 @@
+# ComfyUI lists `torch` and `torchvision` without versions. Torch >= 2.8 has no
+# sm_60 (Pascal) code in its CUDA 12.8/12.9 wheels, so the install is pinned to
+# the last line that targets this card and to the cu126 build that ships it.
+torch==2.7.1
+torchvision==0.22.1

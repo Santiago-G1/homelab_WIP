@@ -6,20 +6,24 @@
 
 # AdGuard upstream_dns / bootstrap_dns / upstream_mode: parallel.
 #
-# Quad9's *unfiltered* endpoint (dns10 = 9.9.9.10 / 149.112.112.10) over DoH. It
-# replaces the Mullvad endpoint this lab used, which is being retired. Unfiltered
-# on purpose: the filtering here is Blocky's own blocklist, so the upstream must
-# not drop names behind its back (dns.quad9.net blocks malware on its side). DoH
+# Quad9's *filtered* endpoint (dns.quad9.net = 9.9.9.9 / 149.112.112.112) over
+# DoH. It replaces the Mullvad endpoint this lab used, which is being retired.
+# Filtered on purpose since 2026-10-24: Quad9's malware/phishing list is a second
+# layer on top of Blocky's own blocklists, at the cost of Quad9 dropping some
+# names without Blocky logging them (dns10.quad9.net is the unfiltered pair). DoH
 # keeps every query off the ISP's resolver.
 upstreams:
   groups:
     default:
-      - https://dns10.quad9.net/dns-query
+      - https://dns.quad9.net/dns-query
 
 # Plain DNS, used only to resolve the DoH endpoint's own hostname
-# (dns10.quad9.net) and the blocklist URLs: the DoH upstream cannot bootstrap
-# itself. Quad9's unfiltered addresses come first; 1.1.1.1 is the last resort.
+# (dns.quad9.net) and the blocklist URLs: the DoH upstream cannot bootstrap
+# itself. Quad9's filtered addresses come first, the unfiltered pair next, and
+# 1.1.1.1 last.
 bootstrapDns:
+  - 9.9.9.9
+  - 149.112.112.112
   - 9.9.9.10
   - 149.112.112.10
   - 194.242.2.6
