@@ -63,6 +63,11 @@
     src: "{{ item.template }}"
     dest: "{{ stacks_root }}/{{ stack.name }}/{{ item.dest }}"
     mode: "{{ item.mode | default('0644') }}"
+    # Only when the entry asks for it: a file that a container has to read as a
+    # non-root user (alertmanager runs as nobody) needs its owner set as well.
+    # `omit` keeps every other stack exactly as it was.
+    owner: "{{ item.owner | default(omit) }}"
+    group: "{{ item.group | default(omit) }}"
   loop: "{{ stack.files | default([]) }}"
   loop_control:
     label: "{{ item.dest }}"

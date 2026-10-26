@@ -10,6 +10,9 @@ prometheus_jobs:
   - { job: node_exporter, hosts: "{{ node_exporter_hosts }}", port: 9100 }
   # Addresses come from the inventory, like the exporter targets above.
   - { job: blocky,        targets: ["{{ hostvars['blocky'].ansible_host }}:{{ service_ports.blocky }}"] }
+  # Same network as Prometheus, so the short name is enough. It is watched like
+  # any other target: if it dies, nothing tells you an alert is going unanswered.
+  - { job: alertmanager,  targets: ["alertmanager:9093"] }
   # No `llama` job on purpose: with --models-dir/--models-max (router mode) the
   # metrics belong to the loaded model and are served on that model's own port,
   # so :8080/metrics answers 400 `model name is missing` and the target would sit
@@ -23,9 +26,15 @@ stacks:
     src: monitoring-services/prometheus
     files:
       - { template: prometheus.yml.j2, dest: prometheus.yml }
+      # Has the Telegram bot token in it, hence 0600.
+      # The alertmanager image runs as nobody, so the file has to be his: 0600
+      # owned by root reads as "permission denied" (and it carries the token).
+      - { template: alertmanager.yml.j2, dest: alertmanager.yml, mode: "0600", owner: "65534", group: "65534" }
     dirs:
       # The prometheus image runs as nobody and needs a writable TSDB dir.
       - { path: data, owner: "65534", group: "65534" }
+      # Same for alertmanager: its silences live here.
+      - { path: alertmanager, owner: "65534", group: "65534" }
 
   - name: grafana
     src: monitoring-services/grafana
