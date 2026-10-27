@@ -11,13 +11,35 @@ services:
       - ./rules:/etc/prometheus/rules:ro
       - ./data:/prometheus
     networks:
-      - monitoring
+      - homelab_monitoring
     ports:
       - "9090:9090"
+
+  # Turns the rules that fire into messages. It has no published port: the only
+  # clients it needs are Prometheus (same network) and amtool.
+  alertmanager:
+    image: prom/alertmanager:v0.34.1@sha256:e9733bafb1bdef9b00e25a21f8f99dc26a22224bf16641ad754d1649f4c3357a
+    container_name: alertmanager
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+      # Silences and notification state survive a restart for five days.
+      - --data.retention=120h
+    volumes:
+      # Rendered by roles/stacks with mode 0600: it carries the bot token.
+      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ./alertmanager:/alertmanager
+    networks:
+      - homelab_monitoring
 
 volumes:
   prometheus_data:
 
+# Shared with the grafana stack (declared in host_vars/monitoring.yml and created
+# by roles/stacks). Without it each project gets its own network and Grafana's
+# `http://prometheus:9090` datasource resolves through DNS to the reverse proxy
+# instead of to this container.
 networks:
-  monitoring:
-    driver: bridge
+  homelab_monitoring:
+    external: true

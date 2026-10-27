@@ -63,6 +63,11 @@
     src: "{{ item.template }}"
     dest: "{{ stacks_root }}/{{ stack.name }}/{{ item.dest }}"
     mode: "{{ item.mode | default('0644') }}"
+    # Only when the entry asks for it: a file that a container has to read as a
+    # non-root user (alertmanager runs as nobody) needs its owner set as well.
+    # `omit` keeps every other stack exactly as it was.
+    owner: "{{ item.owner | default(omit) }}"
+    group: "{{ item.group | default(omit) }}"
   loop: "{{ stack.files | default([]) }}"
   loop_control:
     label: "{{ item.dest }}"
@@ -83,6 +88,24 @@
   when: (stack.build_services | default([])) | length > 0
   register: stack_build
   changed_when: "'Successfully built' in stack_build.stdout"
+
+# `POSTGRES_USER`/`POSTGRES_PASSWORD` are only read by the first initdb, so
+# rotating them in the vault re-renders .env while the cluster keeps the roles it
+# was born with: the app then dies with `28P01` and crash-loops. Start just the
+# database service and converge the cluster before the app containers come up.
+# The role names come from the rendered .env, so the secret is never an argument.
+- name: "{{ stack.name }} | reconcile the Postgres credentials"
+  ansible.builtin.script: >-
+    postgres-credentials.sh
+    {{ stacks_root }}/{{ stack.name }}
+    {{ stack.postgres.service }}
+    {{ stack.postgres.container }}
+    {{ stack.postgres.user_env }}
+    {{ stack.postgres.password_env }}
+    {{ stack.postgres.database_env }}
+  register: postgres_creds
+  changed_when: "'changed=1' in postgres_creds.stdout"
+  when: stack.postgres is defined
 
 - name: "{{ stack.name }} | bring the stack up"
   ansible.builtin.command:

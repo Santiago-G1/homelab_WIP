@@ -1,0 +1,42 @@
+# Managed by Ansible (roles/stacks). Do not edit by hand.
+#
+# Prometheus evaluates roles/stacks/files (rules/homelab.yml) and pushes the
+# alerts that are firing here; this turns them into Telegram messages on the same
+# chat zeroclaw already uses. The bot token is a secret and lives in the vault,
+# which is why the stack renders this file with mode 0600.
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: telegram
+  # One alertname per host is one conversation, not thirteen threads.
+  group_by: [alertname, host]
+  group_wait: 30s
+  group_interval: 5m
+  # A warning still firing after four hours is worth repeating; anything noisier
+  # than that is a problem with the rule, not with the interval.
+  repeat_interval: 4h
+  routes:
+    - matchers: ['severity="critical"']
+      receiver: telegram
+      group_wait: 10s
+      repeat_interval: 1h
+
+receivers:
+  - name: telegram
+    telegram_configs:
+      - bot_token: '{{ vault_alertmanager_telegram_bot_token }}'
+        chat_id: {{ vault_zeroclaw_telegram_user_id }}
+        api_url: https://api.telegram.org
+        parse_mode: HTML
+        send_resolved: true
+        # The Go template is left alone by Jinja on purpose: Alertmanager is the
+        # one that fills it in.
+        message: |-
+          {% raw %}{{ if eq .Status "firing" }}<b>FIRING</b>{{ else }}<b>RESUELTO</b>{{ end }} · {{ .Alerts | len }} alerta(s)
+          {{ range .Alerts }}
+          <b>{{ .Labels.alertname }}</b> ({{ .Labels.severity }})
+          host: {{ if .Labels.host }}{{ .Labels.host }}{{ else }}{{ .Labels.instance }}{{ end }}
+          {{ .Annotations.summary }}
+          {{ .Annotations.description }}
+          {{ end }}{% endraw %}

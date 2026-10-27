@@ -101,8 +101,19 @@ stacks:
       - { template: litellm-config.yaml.j2, dest: config.yaml }
     env:
       LITELLM_DB_PASSWORD: "{{ vault_litellm_db_password }}"
+      # Named explicitly (the compose file would default them to litellm) so the
+      # reconcile below can read the role and database from the rendered .env.
+      LITELLM_DB_USER: litellm
+      LITELLM_DB_NAME: litellm
       LITELLM_MASTER_KEY: "{{ vault_litellm_master_key }}"
       LITELLM_SALT_KEY: "{{ vault_litellm_salt_key }}"
+    # Same story as immich: the data dir is older than any .env change.
+    postgres:
+      service: litellm-db
+      container: litellm-db
+      user_env: LITELLM_DB_USER
+      password_env: LITELLM_DB_PASSWORD
+      database_env: LITELLM_DB_NAME
     # The key stays scoped to the agent's model; roles/stacks reconciles it.
     agent_keys:
       - value: "{{ vault_zeroclaw_litellm_api_key }}"

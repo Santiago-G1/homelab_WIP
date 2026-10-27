@@ -10,7 +10,7 @@ services:
     volumes:
       - ./postgres:/var/lib/postgresql/data
     networks:
-      - monitoring
+      - homelab_monitoring
 
   grafana:
     image: grafana/grafana-enterprise:13.2.2@sha256:3865fe366013be675e8e80e4b8d7f5828e40b3f132f53cee32d8890d9a0dd27b
@@ -22,6 +22,9 @@ services:
       GF_DATABASE_NAME: ${GF_DATABASE_NAME}
       GF_DATABASE_USER: ${GF_DATABASE_USER}
       GF_DATABASE_PASSWORD: ${GF_DATABASE_PASSWORD}
+      # Open on the dashboard instead of the empty home. Static path, so it
+      # lives here and not in the rendered .env (the service has no env_file).
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/homelab-overview.json
     ports:
       - '3000:3000'
     volumes:
@@ -29,8 +32,11 @@ services:
       - ./provisioning:/etc/grafana/provisioning:ro
       - ./dashboards:/var/lib/grafana/dashboards:ro
     networks:
-      - monitoring
+      - homelab_monitoring
 
+# Shared with the prometheus stack (declared in host_vars/monitoring.yml and
+# created by roles/stacks). The Prometheus datasource addresses
+# `http://prometheus:9090`, which only resolves inside a common network.
 networks:
-  monitoring:
-    driver: bridge
+  homelab_monitoring:
+    external: true
