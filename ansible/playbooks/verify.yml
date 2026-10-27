@@ -1,6 +1,5 @@
 ---
-# End-to-end check: every declared stack must have running containers and its
-# HTTP endpoints must answer.
+# End-to-end check: running containers, answering endpoints, no failed state.
 - name: Verify the deployed stacks
   hosts: docker_hosts
   gather_facts: false
@@ -22,8 +21,7 @@
       changed_when: false
       failed_when: stack_ps.stdout | length == 0
 
-    # On-demand stacks (ComfyUI needs the whole P100, so the GPU panel starts it)
-    # are expected to be stopped: what must exist is their container.
+    # On-demand stacks may be stopped, but their container must exist.
     - name: On-demand stacks have a container, running or not
       ansible.builtin.command:
         cmd: docker compose ps -a -q
@@ -37,9 +35,8 @@
       changed_when: false
       failed_when: ondemand_ps.stdout | length == 0
 
-    # Anything stopped on purpose is either a clean exit (0) or killed by the
-    # stop signal (143 = SIGTERM, 137 = SIGKILL), which is what the GPU panel
-    # does to the on-demand stacks and to Immich ML. Any other code is a crash.
+    # 0, 137 and 143 are deliberate stops (that is what the GPU panel sends);
+    # anything else is a crash.
     - name: No container is left in a failed state
       ansible.builtin.shell: |
         docker ps -aq --filter status=exited --filter status=dead \
@@ -49,9 +46,7 @@
       changed_when: false
       failed_when: failed_containers.stdout | int != 0
 
-    # The reverse proxy needs a real hostname for SNI, so it gets its own check.
-    # The list is the catalog's `verify` entries: the routes that a broken map
-    # would take down silently.
+    # SNI needs a real hostname, so the proxy gets its own check.
     - name: Reverse proxy routes answer
       ansible.builtin.command:
         cmd: >-
@@ -78,7 +73,7 @@
         label: "{{ item.name }}"
       changed_when: false
 
-# The media hosts reach the same P100 through roles/nvidia.
+# The hosts that use the P100.
 - name: Verify the GPU hosts
   hosts: gpu
   gather_facts: false
@@ -87,7 +82,7 @@
       ansible.builtin.command: nvidia-smi --query-gpu=name,driver_version --format=csv,noheader
       changed_when: false
 
-# llama.cpp runs as a systemd service, not as a Compose stack.
+# llama.cpp is a systemd unit, not a Compose stack.
 - name: Verify the AI host
   hosts: ai
   gather_facts: false
@@ -105,9 +100,7 @@
         url: "http://127.0.0.1:{{ llamacpp_port }}/v1/models"
         status_code: 200
 
-    # ComfyUI is on demand (the GPU panel starts it when the card is free), so
-    # the check only runs while it is up; its container existing is verified by
-    # the docker_hosts play.
+    # On demand: only checked while the panel has it up.
     - name: ComfyUI container state
       ansible.builtin.command: docker inspect -f '{{ "{{.State.Status}}" }}' comfyui
       register: comfy_state

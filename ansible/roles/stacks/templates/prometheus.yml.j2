@@ -4,8 +4,7 @@ global:
   evaluation_interval: 30s
 
 alerting:
-  # Rules that fire are pushed here instead of dying inside Prometheus; the
-  # alertmanager stack turns them into Telegram messages.
+  # Firing rules go to alertmanager, which turns them into Telegram messages.
   alertmanagers:
     - static_configs:
         - targets: ['alertmanager:9093']
@@ -20,9 +19,7 @@ scrape_configs:
     metrics_path: {{ job.metrics_path }}
 {% endif %}
 {% if job.hosts is defined %}
-    # One static config per host so every series carries the name from the
-    # inventory: a panel that reads `immich` is worth more than one that reads
-    # `192.168.10.22`, and nothing else has to translate it.
+    # One static config per host, so every series carries its inventory name.
     static_configs:
 {% for host, address in job.hosts.items() %}
       - targets: ['{{ address }}:{{ job.port | default(9100) }}']

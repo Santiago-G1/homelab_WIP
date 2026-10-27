@@ -1,26 +1,13 @@
-# Blocky — DNS resolver and ad-blocker for the lab.
-#
-# Replaces AdGuard Home. Every setting below mirrors the AdGuard configuration
-# that was recovered from the container backup, so resolution behaviour is
-# unchanged: same upstream, same blocklists, same rewrites.
+# Blocky configuration. Rendered by Ansible; do not edit on the host.
 
-# AdGuard upstream_dns / bootstrap_dns / upstream_mode: parallel.
-#
-# Quad9's *filtered* endpoint (dns.quad9.net = 9.9.9.9 / 149.112.112.112) over
-# DoH. It replaces the Mullvad endpoint this lab used, which is being retired.
-# Filtered on purpose since 2026-10-24: Quad9's malware/phishing list is a second
-# layer on top of Blocky's own blocklists, at the cost of Quad9 dropping some
-# names without Blocky logging them (dns10.quad9.net is the unfiltered pair). DoH
-# keeps every query off the ISP's resolver.
+# Quad9 filtered over DoH, and filtered on purpose: its malware list is a second
+# layer on top of the HaGeZi blocklists (dns10.quad9.net is the unfiltered pair).
 upstreams:
   groups:
     default:
       - https://dns.quad9.net/dns-query
 
-# Plain DNS, used only to resolve the DoH endpoint's own hostname
-# (dns.quad9.net) and the blocklist URLs: the DoH upstream cannot bootstrap
-# itself. Quad9's filtered addresses come first, the unfiltered pair next, and
-# 1.1.1.1 last.
+# Plain DNS only to bootstrap the DoH hostname and fetch the blocklists.
 bootstrapDns:
   - 9.9.9.9
   - 149.112.112.112
@@ -32,29 +19,22 @@ bootstrapDns:
 
 ports:
   dns: 53
-  # 80 keeps the previous DoH URL (http://192.168.10.3/dns-query) working;
-  # 4000 is what the reverse proxy and Prometheus use.
+  # 80 keeps the old DoH URL working; 4000 is what the proxy and Prometheus use.
   http:
     - 80
     - 4000
 
-# AdGuard aaaa_disabled: true and refuse_any: true.
 filtering:
   queryTypes:
     - AAAA
     - ANY
 
-# AdGuard rewrites: every *.<zone> name resolves to the reverse proxy
-# (Blocky resolves subdomains of a mapping too). The address comes from the
-# inventory, so moving the proxy is a one-line change in hosts.ini.
+# Every *.<zone> name resolves to the proxy.
 customDNS:
   customTTL: 1h
   mapping:
     "{{ vault_domainname_hs }}": {{ hostvars['caddy'].ansible_host }}
 
-# The filters AdGuard had enabled. HostlistsRegistry serves them in AdGuard
-# syntax, which Blocky cannot parse, so these are the same HaGeZi lists in their
-# domain-list format (one domain per line).
 blocking:
   denylists:
     hagezi:
@@ -84,17 +64,14 @@ blocking:
     default:
       - hagezi
       - special
-  # AdGuard blocking_mode "default" answers blocked names with 0.0.0.0.
   blockType: zeroIp
 
-# AdGuard cache_size/cache_optimistic.
 caching:
   minTime: 5m
   maxTime: 30m
   prefetching: true
   prefetchThreshold: 5
 
-# AdGuard ratelimit: 20 queries/s per client, never for the LAN.
 rateLimit:
   enable: true
   rate: 20
@@ -103,7 +80,6 @@ rateLimit:
     - ::1/128
     - 192.168.0.0/16
 
-# AdGuard querylog + statistics, as a local SQLite file.
 queryLog:
   type: sqlite
   target: /app/querylog/querylog.db
@@ -113,13 +89,11 @@ queryLog:
     - clientName
     - responseReason
 
-# AdGuard hostsfile_enabled.
 hostsFile:
   sources:
     - /etc/hosts
   hostsTTL: 1h
 
-# Scraped by Prometheus.
 prometheus:
   enable: true
   path: /metrics

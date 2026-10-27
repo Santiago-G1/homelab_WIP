@@ -1,22 +1,15 @@
 {#
-   Caddy's site configuration, rendered from the service catalog in
-   inventories/group_vars/all/services.yml. Caddy fills in {$DOMAINNAME_HS}
-   (the zone) from its own environment; the subdomain labels, the host they run
-   on and their ports come from the catalog, which is the same list the Glance
-   dashboard reads. The host address is looked up in the inventory here, so a
-   container that moves needs no change to this file.
--#}
-# The route table lives in the (routes) snippet below: one line per hostname.
+   Rendered from the service catalog; addresses come from the inventory, so a
+   container that moves needs no change here.
+#}
 
 {
 	email admin@{$DOMAINNAME_HS}
-	# Site addresses are declared explicitly, so no redirect server is created.
+	# Sites declare explicit addresses, so no redirect server is created.
 	auto_https disable_redirects
 }
 
-# Certificates come from Let's Encrypt through the Cloudflare DNS-01
-# challenge, which also lets Caddy issue the *.{$DOMAINNAME_HS} wildcard in
-# one go (the API token is injected as an environment variable).
+# DNS-01 through Cloudflare: it also covers the *.{$DOMAINNAME_HS} wildcard.
 (routes) {
 	map {host} {backend} {
 {% for service in homelab_services %}
@@ -32,8 +25,7 @@
 https://*.{$DOMAINNAME_HS} {
 	tls {
 		dns cloudflare {env.CLOUDFLARE_API_TOKEN}
-		# The zone lookup must not use the lab resolver: Blocky answers every
-		# *.{$DOMAINNAME_HS} name itself, so the plugin cannot see the NS records.
+		# Not the lab resolver: Blocky answers every *.{$DOMAINNAME_HS} itself.
 	}
 	import routes
 }

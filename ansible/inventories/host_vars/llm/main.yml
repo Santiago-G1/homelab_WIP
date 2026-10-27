@@ -1,25 +1,16 @@
 ---
-# Tesla P100 (Pascal, compute 6.0). llama.cpp is built and runs bare metal
-# (roles/llamacpp) in router mode; the LiteLLM and ZeroClaw stacks next to it
-# are Compose projects. Models are declared once in models.yml.
-
-# Must match the driver on the Proxmox host (R580 is the last Pascal branch).
-nvidia_driver_version: "580.159.04"
-
-# CUDA 12.x is the last line that targets Pascal; Debian 12's repo ships it
-# even on trixie. See docs/llamacpp-build.md.
-cuda_toolkit_package: cuda-toolkit-12-8
+# P100 (sm_60). llama.cpp runs bare metal in router mode; LiteLLM, SearXNG,
+# ZeroClaw and ComfyUI are Compose stacks on the same host.
+nvidia_driver_version: "580.159.04"       # must match the driver on the PVE host
+cuda_toolkit_package: cuda-toolkit-12-8   # last CUDA line with Pascal support
 cuda_repo_distro: debian12
 llamacpp_cuda_root: /usr/local/cuda-12.8
 llamacpp_cuda_arch: "60-real"
 
-# llamacpp_version lives in roles/llamacpp/defaults: it is the one knob that
-# also selects the P100 patch set tag, so there is nothing to keep in step here.
 llamacpp_port: 8080
-llamacpp_build_jobs: 2          # nvcc is memory hungry; 2 is the safe value here
-
+llamacpp_build_jobs: 2                  # nvcc is memory hungry
 llamacpp_models_dir: /mnt/data/models   # /tank/cloud/llm on the PVE host
-llamacpp_models_max: 1                  # one model resident at a time
+llamacpp_models_max: 1
 llamacpp_preset_file: /etc/llama/models.ini
 
 llamacpp_global_args:
@@ -27,72 +18,39 @@ llamacpp_global_args:
   c: 8192
   flash-attn: "on"
 
-# sm_60 has no dp4a; the runtime heuristic already picks the best GEMM.
-llamacpp_cuda_force_mmq: "OFF"
+llamacpp_cuda_force_mmq: "OFF"          # sm_60 has no dp4a
 
-# LiteLLM publishes the router on :4000 with API keys and accounting.
 litellm_api_base: "http://{{ ansible_host }}:{{ llamacpp_port }}/v1"
-# Not a secret worth protecting (the router accepts anything and does not leave
-# the host), but a literal "sk-..." in a public repository is what secret
-# scanners flag: it lives in the vault like the rest of the keys.
 litellm_backend_api_key: "{{ vault_litellm_backend_api_key }}"
 
 docker_networks:
   - ai-stack
 
-# ZeroClaw talks to LiteLLM by container name over the shared ai-stack network.
-# zeroclaw_model and the virtual key's scope come from models.yml.
 zeroclaw_litellm_uri: http://litellm-proxy:4000/v1
-# The window the agent model is served with (models.yml: ctx-size 262144) and
-# the slice the runtime lets a conversation grow to. The rest is headroom for
-# the reply, which on a reasoning model is not small.
-zeroclaw_context_window: 262144
-zeroclaw_max_context_tokens: 196608
+zeroclaw_context_window: 262144      # the agent model's ctx-size (models.yml)
+zeroclaw_max_context_tokens: 196608  # the rest is headroom for the reply
 
-# SearXNG, one instance for every agent on this host. The published port is what
-# Caddy and Glance reach: llama.cpp already owns 8080 on the LAN interface.
 searxng_host: searxng
-searxng_port: 8080
+searxng_port: 8080                      # llama.cpp owns 8080 on the LAN
 searxng_publish_port: "{{ service_ports.searxng }}"
 searxng_instance_name: "Homelab search"
-# Absolute links the HTML UI prints; matches the catalog entry in
-# group_vars/all/services.yml (`search`).
 searxng_base_url: "https://search.{{ vault_domainname_hs }}/"
-# ZeroClaw's web_search tool asks SearXNG instead of DuckDuckGo, which
-# rate-limits the daemon after a handful of queries. Same network, so the
-# container name is the whole address; the port is SearXNG's own, not the
-# published one.
 zeroclaw_searxng_instance_url: "http://{{ searxng_host }}:{{ searxng_port }}"
-# The Telegram account allowed to talk to the agent (numeric ID, which
-# survives a display-name change). The value is a secret: it lives in
-# vault_zeroclaw_telegram_user_id, not here.
 zeroclaw_telegram_user_id: "{{ vault_zeroclaw_telegram_user_id }}"
 
-# ComfyUI (SDXL image generation) is the fourth consumer of the P100 and the
-# only one that needs the whole card: llama.cpp alone holds ~15.8 of the 16 GB.
-# It is therefore an on-demand stack, started by the GPU panel's Image mode.
-# Upstream images cannot be used: ComfyUI leaves torch unpinned and torch >= 2.8
-# dropped sm_60 (Pascal) from its CUDA wheels, so docker-compose/ai-services/
-# comfyui builds it on the last cu126/torch 2.7 line. See docs/comfyui.md.
+# On demand: ComfyUI needs the whole card, so the GPU panel starts it in Image mode.
 comfyui_version: v0.42.5
-# Pinned node commits, not tags: they are the versions that load the GGUF SDXL
-# unets and the IPAdapter pair the old ai-dock workspace used.
 comfyui_gguf_nodes_version: 6ea2651e7df66d7585f6ffee804b20e92fb38b8a
 comfyui_ipadapter_nodes_version: a0f451a5113cf9becb0847b92884cb10cbdec0ef
 comfyui_publish_port: "{{ service_ports.comfyui }}"
 comfyui_models_path: /mnt/data/image_models
 comfyui_workspace: /mnt/data/comfyui_workspace
 comfyui_output_path: /mnt/data/comfyui_output
-# fp16 is 2x fp32 on GP100 and ComfyUI still assumes fp32 is faster on Pascal on
-# Linux (comfy/model_management.py), so the build is forced to fp16. SDPA is the
-# only usable attention backend (xformers/flash need sm_70+), and the smart
-# memory offload plus the VRAM reserve keep the card usable next to the other
-# three consumers when a workflow finishes.
+# fp16 forced and SDPA only: torch on Pascal has no faster path (see docs/comfyui.md).
 comfyui_args: >-
   --force-fp16 --use-pytorch-cross-attention --disable-smart-memory
   --reserve-vram 0.75 --preview-method none --disable-auto-launch
 
-# Stacks the GPU panel starts on demand (verify.yml does not expect them up).
 stacks_on_demand:
   - comfyui
 
@@ -103,34 +61,25 @@ stacks:
       - { template: litellm-config.yaml.j2, dest: config.yaml }
     env:
       LITELLM_DB_PASSWORD: "{{ vault_litellm_db_password }}"
-      # Named explicitly (the compose file would default them to litellm) so the
-      # reconcile below can read the role and database from the rendered .env.
+      # Explicit so the reconcile can read them from the rendered .env.
       LITELLM_DB_USER: litellm
       LITELLM_DB_NAME: litellm
       LITELLM_MASTER_KEY: "{{ vault_litellm_master_key }}"
       LITELLM_SALT_KEY: "{{ vault_litellm_salt_key }}"
-    # Same story as immich: the data dir is older than any .env change.
     postgres:
       service: litellm-db
       container: litellm-db
       user_env: LITELLM_DB_USER
       password_env: LITELLM_DB_PASSWORD
       database_env: LITELLM_DB_NAME
-    # The key stays scoped to the agent's model; roles/stacks reconciles it.
     agent_keys:
       - value: "{{ vault_zeroclaw_litellm_api_key }}"
         models: ["{{ zeroclaw_model }}"]
 
-  # Web search for the agent. secret_key is the one secret and it arrives as an
-  # env override, so the rendered settings.yml has nothing to hide.
   - name: searxng
     src: ai-services/searxng
     dirs:
-      # The rendered settings.yml is a file: Ansible does not create its
-      # directory (the stack role only syncs and renders into what exists).
       - { path: config }
-      # `searxng` in the image, which the entrypoint would otherwise chown on
-      # every start (and it must stay writable for the compiled theme).
       - { path: data/cache, owner: "977", group: "977" }
     files:
       - { template: searxng-settings.yml.j2, dest: config/settings.yml }
@@ -139,13 +88,10 @@ stacks:
       SEARXNG_BASE_URL: "{{ searxng_base_url }}"
       SEARXNG_PUBLISH_PORT: "{{ searxng_publish_port }}"
 
-  # Image generation on the P100, on demand: the panel frees the card (unloads
-  # llama.cpp, stops Immich ML, moves Jellyfin to the iGPU) before starting it.
   - name: comfyui
     src: ai-services/comfyui
     build: true
     dirs:
-      # Persisted custom nodes; the image's own nodes are copied in at start.
       - { path: custom_nodes }
     env:
       COMFYUI_VERSION: "{{ comfyui_version }}"
@@ -169,10 +115,6 @@ stacks:
       ZEROCLAW_LITELLM_API_KEY: "{{ vault_zeroclaw_litellm_api_key }}"
       ZEROCLAW_TELEGRAM_BOT_TOKEN: "{{ vault_zeroclaw_telegram_bot_token }}"
 
-  # It talks to the GPU through the PVE host over SSH: an unprivileged
-  # container cannot set the power limit itself (nvidia-smi -pl answers
-  # "Insufficient Permissions"), and the same key reaches Immich ML and
-  # Jellyfin. See the bootstrap note in ansible/README.md.
   - name: gpu-panel
     src: app-services/gpu-panel
     build: true
@@ -181,26 +123,17 @@ stacks:
       PANEL_PASSWORD: "{{ vault_gpu_panel_password }}"
       PANEL_TOKEN: "{{ vault_gpu_panel_token }}"
       LLAMA_URL: "http://{{ ansible_host }}:{{ llamacpp_port }}"
-      # The panel drives the card over SSH: the PVE node owns nvidia-smi and the
-      # power limit, and Immich/Jellyfin are the other consumers of the GPU. The
-      # addresses come from the inventory, never from the panel's own defaults.
+      # The card is driven over SSH to the PVE: an unprivileged container cannot
+      # set the power limit, and the same key reaches Immich and Jellyfin.
       PVE_HOST: "root@{{ hostvars['pve'].ansible_host }}"
       IMMICH_HOST: "root@{{ hostvars['immich'].ansible_host }}"
       FRONTEND_HOST: "root@{{ hostvars['frontend'].ansible_host }}"
-      # Proxmox VM ID of this container (terraform/proxmox/lxc_ai.tf): the panel
-      # enters it to read llama-server's journald logs.
-      AI_CTID: "126"
-      # ComfyUI lives on this same container: the panel reaches it over the LAN
-      # address (not 127.0.0.1, which inside the panel container is itself) and
-      # starts/stops it through PVE_HOST + AI_CTID like the rest of the card's
-      # consumers.
+      AI_CTID: "126"   # this container, for llama-server's journald logs
+      # Over the LAN: inside the panel container 127.0.0.1 is the panel itself.
       COMFY_URL: "http://{{ ansible_host }}:{{ service_ports.comfyui }}"
       COMFY_UI_URL: "https://comfy.{{ vault_domainname_hs }}/"
       COMFY_CONTAINER: comfyui
-      # Models the dashboard may name: exactly the ones models.yml declares, so
-      # any other .gguf the router serves still loads, counts and unloads but is
-      # never printed. The diffusion GGUFs live outside llamacpp_models_dir
-      # (/mnt/data/image_models) precisely so the router does not offer them.
+      # Only these ids are ever printed; anything else the router serves stays unnamed.
       LLAMA_PUBLIC_MODELS: "{{ llm_models | map(attribute='name') | join(',') }}"
 
 health_checks:

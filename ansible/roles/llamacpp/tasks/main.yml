@@ -1,7 +1,5 @@
 ---
-# Source build. `llamacpp_skip_build: true` (playbooks/llm-models.yml) skips this
-# whole block, so model changes never re-fetch or recompile. See
-# docs/llamacpp-build.md.
+# Source build; `llamacpp_skip_build: true` skips it (playbooks/llm-models.yml).
 - name: Build llama.cpp from source
   when: not (llamacpp_skip_build | default(false))
   block:
@@ -38,8 +36,7 @@
         update_cache: true
         cache_valid_time: 3600
 
-    # glibc 2.41 declares the C23 sinpi/cospi noexcept; CUDA 12.x does not and
-    # nvcc refuses every TU that includes <math.h>. See docs/llamacpp-build.md.
+    # nvcc refuses every TU including <math.h> against glibc 2.41's noexcept.
     - name: Give the CUDA sinpi/cospi declarations glibc 2.41's exception specification
       ansible.builtin.replace:
         path: "{{ llamacpp_cuda_root }}/targets/x86_64-linux/include/crt/math_functions.h"
@@ -70,10 +67,8 @@
       loop_control:
         label: "{{ item.dest }}"
 
-    # The patch set is cut per llama.cpp ref and tagged with that ref's name, so
-    # the default tag is llamacpp_version. Checking the ref before cloning turns
-    # "bump llama.cpp to a ref the patch set has no tag for" into a one-line
-    # error instead of a git failure, and names the way out.
+    # The set is tagged per llama.cpp ref: failing here names the mismatch
+    # instead of leaving a clone error.
     - name: List the patch set's refs
       ansible.builtin.command:
         argv: [git, ls-remote, "--tags", "--heads", "{{ llamacpp_p100_patches_repo }}"]
@@ -99,9 +94,7 @@
         - llamacpp_p100_patches
         - not (llamacpp_p100_patches_version | regex_search('^[0-9a-f]{7,40}$'))
 
-    # The previous role dropped its vendored patch files in this same path, and
-    # git clone refuses a non-empty destination. Anything there that is not a
-    # checkout of the patch set is that role's leftover.
+    # A legacy vendored patch dir is not a checkout and git would refuse it.
     - name: Check whether the patch set directory is a checkout
       ansible.builtin.stat:
         path: "{{ llamacpp_p100_patches_dir }}/.git"
@@ -165,12 +158,8 @@
       register: llamacpp_flags_recorded
       failed_when: false
 
-    # ---- rebuild decision -------------------------------------------------
-    # Everything below is keyed off a signature of (upstream ref, patch set ref
-    # and commit, cmake flags, targets, patch checksums, carve-out script). The
-    # tree is only reset and re-patched when that changes: re-applying the
-    # patches touches every file's mtime and would make ninja rebuild the whole
-    # CUDA tree on every playbook run.
+    # Signature of ref + patches + flags: re-applying the patches would touch
+    # every mtime and rebuild the whole CUDA tree on each run.
     - name: Set the build signature
       ansible.builtin.set_fact:
         llamacpp_signature: |
@@ -207,8 +196,7 @@
       when: llamacpp_p100_patches and llamacpp_rebuild
       changed_when: true
 
-    # Wrapped in a warning rather than a failure because the tree still builds;
-    # but the numbers in docs/llamacpp-build.md no longer describe it.
+    # A warning, not a failure: the tree still builds, but not as documented.
     - name: Report a partially patched tree
       ansible.builtin.debug:
         msg:
@@ -277,7 +265,7 @@
     state: directory
     mode: "0755"
 
-# Per-model options come from llm_models in host_vars/llm/models.yml.
+# Per-model options come from host_vars/llm/models.yml.
 - name: Render the router preset
   ansible.builtin.template:
     src: models.ini.j2

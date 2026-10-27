@@ -1,24 +1,17 @@
 ---
-# One network shared by the monitoring stacks: the Grafana datasource
-# addresses `prometheus:9090`, which only resolves inside a common network.
+# Shared by the prometheus and grafana stacks: the datasource addresses
+# `prometheus:9090`, which only resolves inside a common network.
 docker_networks:
   - homelab_monitoring
 
 prometheus_jobs:
   - { job: prometheus,    targets: ["localhost:9090"] }
-  # One target per host, carrying its inventory name.
   - { job: node_exporter, hosts: "{{ node_exporter_hosts }}", port: 9100 }
-  # Addresses come from the inventory, like the exporter targets above.
   - { job: blocky,        targets: ["{{ hostvars['blocky'].ansible_host }}:{{ service_ports.blocky }}"] }
-  # Same network as Prometheus, so the short name is enough. It is watched like
-  # any other target: if it dies, nothing tells you an alert is going unanswered.
   - { job: alertmanager,  targets: ["alertmanager:9093"] }
-  # No `llama` job on purpose: with --models-dir/--models-max (router mode) the
-  # metrics belong to the loaded model and are served on that model's own port,
-  # so :8080/metrics answers 400 `model name is missing` and the target would sit
-  # "down" while the server is perfectly healthy. The GPU panel reports LLM state.
+  # No `llama` job: in router mode its metrics live on the loaded model's port,
+  # so :8080/metrics answers 400 while the server is healthy.
 
-# The dashboard's own login; the password and the session key live in the vault.
 glance_admin_user: admin
 
 stacks:
@@ -26,14 +19,12 @@ stacks:
     src: monitoring-services/prometheus
     files:
       - { template: prometheus.yml.j2, dest: prometheus.yml }
-      # Has the Telegram bot token in it, hence 0600.
-      # The alertmanager image runs as nobody, so the file has to be his: 0600
-      # owned by root reads as "permission denied" (and it carries the token).
+      # Carries the bot token, and the image runs as nobody, so 0600 root is a
+      # permission denied: the file has to belong to 65534.
       - { template: alertmanager.yml.j2, dest: alertmanager.yml, mode: "0600", owner: "65534", group: "65534" }
     dirs:
-      # The prometheus image runs as nobody and needs a writable TSDB dir.
+      # Both images run as nobody and need writable dirs.
       - { path: data, owner: "65534", group: "65534" }
-      # Same for alertmanager: its silences live here.
       - { path: alertmanager, owner: "65534", group: "65534" }
 
   - name: grafana
@@ -41,15 +32,11 @@ stacks:
     files:
       - { template: grafana-datasource.yml.j2, dest: provisioning/datasources/prometheus.yml }
     dirs:
-      # The grafana image runs as uid 472 and does not chown its data dir.
-      - { path: config, owner: "472", group: "472" }
+      - { path: config, owner: "472", group: "472" }   # uid 472; it does not chown
     env:
       GF_DATABASE_NAME: "{{ vault_gf_database_name }}"
       GF_DATABASE_USER: "{{ vault_gf_database_user }}"
       GF_DATABASE_PASSWORD: "{{ vault_gf_database_password }}"
-
-    # The cluster in the mounted data dir is reconciled against these names
-    # before the app starts: an existing initdb never re-reads POSTGRES_USER.
     postgres:
       service: grafana_postgres
       container: grafana_postgres
@@ -57,8 +44,6 @@ stacks:
       password_env: GF_DATABASE_PASSWORD
       database_env: GF_DATABASE_NAME
 
-  # Glance reads the same catalog as Caddy, so the route table, the
-  # availability list, the bookmarks and the release tracker cannot drift.
   - name: glance
     src: monitoring-services/glance
     files:
@@ -69,7 +54,6 @@ stacks:
       TZ: "{{ timezone }}"
       GLANCE_SECRET_KEY: "{{ vault_glance_secret_key }}"
       GLANCE_ADMIN_PASSWORD: "{{ vault_glance_admin_password }}"
-      # Already in the vault for the panel's own stack; reused read-only here.
       GPU_PANEL_TOKEN: "{{ vault_gpu_panel_token }}"
 
 health_checks:

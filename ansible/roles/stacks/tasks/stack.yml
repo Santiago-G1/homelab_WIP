@@ -5,8 +5,7 @@
     state: directory
     mode: "0755"
 
-# A `files` dest must not be a directory in the source: rsync would replace
-# the bind-mounted file with it and the stack would fail to mount.
+# rsync would replace a bind-mounted file with a source directory of the same name.
 - name: "{{ stack.name }} | assert no rendered file is a directory in the source"
   ansible.builtin.assert:
     that: not ((compose_src_root ~ '/' ~ stack.src ~ '/' ~ item.dest) is directory)
@@ -20,8 +19,7 @@
   delegate_to: localhost
   when: stack.files is defined
 
-# rsync (not copy) so the rendered .env is never overwritten by the repo's
-# local .env, which would make the role flap between the two files.
+# rsync, not copy, so the rendered .env is never overwritten by the repo's.
 - name: "{{ stack.name }} | sync the Compose project"
   ansible.posix.synchronize:
     src: "{{ compose_src_root }}/{{ stack.src }}/"
@@ -30,12 +28,10 @@
     rsync_opts:
       - "--exclude=.env"
       - "--exclude=.env.template"
-      # Ownership and modes of runtime dirs are set by the `dirs` task below;
-      # letting rsync manage them would fight over them on every run.
+      # Modes and owners of runtime dirs belong to the `dirs` task below.
       - "--no-owner"
       - "--no-group"
       - "--no-perms"
-      # Runtime dirs change while the stack runs; ignore their mtimes.
       - "--omit-dir-times"
   register: stack_sync
 
@@ -50,8 +46,7 @@
   loop_control:
     label: "{{ item.path }}"
 
-# Rendered for every stack: stack_env_common (zone, timezone) applies even when
-# the stack declares no `env` of its own.
+# stack_env_common applies even to stacks that declare no `env`.
 - name: "{{ stack.name }} | render .env"
   ansible.builtin.template:
     src: env.j2
@@ -63,9 +58,8 @@
     src: "{{ item.template }}"
     dest: "{{ stacks_root }}/{{ stack.name }}/{{ item.dest }}"
     mode: "{{ item.mode | default('0644') }}"
-    # Only when the entry asks for it: a file that a container has to read as a
-    # non-root user (alertmanager runs as nobody) needs its owner set as well.
-    # `omit` keeps every other stack exactly as it was.
+    # Only when the entry asks for it: a container running as a non-root user
+    # (alertmanager as nobody) needs the owner set too.
     owner: "{{ item.owner | default(omit) }}"
     group: "{{ item.group | default(omit) }}"
   loop: "{{ stack.files | default([]) }}"
@@ -73,12 +67,8 @@
     label: "{{ item.dest }}"
   register: stack_files
 
-# Images built from a Dockerfile in the project (a thin layer over an upstream
-# image, or an image the service never runs directly). Services gated behind a
-# Compose profile are built here on purpose: the profile keeps them out of
-# `up`, and only their image is wanted. BuildKit prints its progress to stderr
-# and reuses its cache, so the task reports changed only when a layer was
-# actually rebuilt.
+# Services behind a Compose profile are built here on purpose: the profile keeps
+# them out of `up`, and only their image is wanted.
 - name: "{{ stack.name }} | build the images declared for the stack"
   ansible.builtin.command:
     cmd: >-
@@ -89,11 +79,8 @@
   register: stack_build
   changed_when: "'Successfully built' in stack_build.stdout"
 
-# `POSTGRES_USER`/`POSTGRES_PASSWORD` are only read by the first initdb, so
-# rotating them in the vault re-renders .env while the cluster keeps the roles it
-# was born with: the app then dies with `28P01` and crash-loops. Start just the
-# database service and converge the cluster before the app containers come up.
-# The role names come from the rendered .env, so the secret is never an argument.
+# POSTGRES_USER/POSTGRES_PASSWORD are only read by the first initdb, so a vault
+# rotation leaves the cluster with the old roles and the app dies on 28P01.
 - name: "{{ stack.name }} | reconcile the Postgres credentials"
   ansible.builtin.script: >-
     postgres-credentials.sh
@@ -116,8 +103,7 @@
     'Started' in compose_up.stdout or 'Created' in compose_up.stdout
     or 'Recreated' in compose_up.stdout
 
-# Configuration files are bind mounted, so `compose up` alone would not pick up
-# a change; restart the containers when one of them was rewritten.
+# Config files are bind mounted, so `up` alone would not pick up a rewrite.
 - name: "{{ stack.name }} | restart after configuration changes"
   ansible.builtin.command:
     cmd: docker compose restart
@@ -125,8 +111,7 @@
   when: stack_files.changed | default(false) or stack_sync.changed | default(false)
   changed_when: true
 
-# LiteLLM keeps a key's model allowlist in its database, not config.yaml, so
-# this reassigns each `agent_keys` entry through the admin API after `up`.
+# LiteLLM keeps a key's model allowlist in its database, not in config.yaml.
 - name: "{{ stack.name }} | reconcile the virtual keys' model access"
   ansible.builtin.uri:
     url: "http://127.0.0.1:{{ stack.admin_port | default(4000) }}/key/update"

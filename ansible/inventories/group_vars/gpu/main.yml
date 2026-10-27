@@ -1,5 +1,4 @@
 ---
-# Must match the driver on the PVE host (nvidia-smi --query-gpu=driver_version
-# there) because the kernel module lives on the host. R580 is the last branch
-# that supports Pascal.
+# Must match the PVE host's driver: the kernel module lives there. R580 is the
+# last branch with Pascal support.
 nvidia_driver_version: "580.159.04"

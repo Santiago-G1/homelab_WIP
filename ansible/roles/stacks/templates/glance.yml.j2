@@ -1,16 +1,7 @@
 {#
-   Glance dashboard, rendered by Ansible for the monitoring host.
-
-   Everything concrete comes from the inventory:
-     * group_vars/all/services.yml   routes, titles, icons, groups, releases
-     * host_vars/<host>.yml          each service's LAN address
-     * vault.yml                     secrets, and only as ${...} placeholders
-
-   Secrets never reach this file: ${...} is Glance's own environment syntax and
-   the values arrive through the stack's .env (mode 600). That syntax is also
-   why the custom-api bodies sit inside {% raw %} blocks: Jinja and Glance's Go
-   templates both spell their expressions with double braces, and this file is
-   rendered by Ansible before Glance ever reads it.
+   Everything concrete comes from group_vars/all/services.yml and the inventory.
+   Secrets stay as ${...} placeholders, which Glance fills from the .env; that
+   same double-brace syntax is why the custom-api bodies sit in {% raw %}.
 #}
 {% set monitoring_host = hostvars['monitoring'].ansible_host %}
 {% set gpu_panel = homelab_services | selectattr('host', 'equalto', 'gpu') | first %}
@@ -23,13 +14,11 @@
 
 server:
   port: 8080
-  # Caddy terminates TLS in front of Glance, so the real client address arrives
-  # in X-Forwarded-For; that is what its brute-force protection counts.
+  # TLS ends at Caddy: the client address is the X-Forwarded-For one.
   proxied: true
 
 auth:
-  # secret-key signs the session cookie, and it must be a random value:
-  #  docker run --rm glanceapp/glance secret:make
+  # Signs the session cookie: docker run --rm glanceapp/glance secret:make
   secret-key: ${GLANCE_SECRET_KEY}
   users:
     {{ glance_admin_user }}:
@@ -75,8 +64,7 @@ pages:
     columns:
       - size: small
         widgets:
-          # One site per catalog entry, so a new service shows up here by
-          # being declared once in services.yml.
+          # One site per catalog entry.
           - type: monitor
             title: Availability
             style: compact
@@ -106,8 +94,7 @@ pages:
           - type: split-column
             max-columns: 3
             widgets:
-              # Homelab-wide numbers, straight out of the Prometheus the
-              # monitoring container already runs (node_exporter on every host).
+              # Homelab-wide numbers from the local Prometheus.
               - type: custom-api
                 title: Homelab
                 title-url: https://grafana.{{ domain }}/
@@ -150,9 +137,8 @@ pages:
                   </div>
                   {%- endraw %}
 
-              # Blocky is scraped by the same Prometheus (job: blocky), which
-              # is the only way to get DNS numbers: the dns-stats widget speaks
-              # AdGuard/Pi-hole/Technitium, not Blocky.
+              # Blocky is scraped by Prometheus: the dns-stats widget does not
+              # speak it.
               - type: custom-api
                 title: DNS
                 cache: 1m
@@ -194,10 +180,8 @@ pages:
                   </div>
                   {%- endraw %}
 
-              # The GPU control panel, read through the same JSON API its own
-              # UI uses (token from the vault). Degrades to the panel's error
-              # message instead of a blank widget, e.g. while the P100 is off
-              # the bus.
+              # Same JSON API as the panel's own UI; shows its error message
+              # when the card is unreachable.
               - &gpu_panel_widget
                 type: custom-api
                 title: GPU & LLM
@@ -258,7 +242,7 @@ pages:
           - type: split-column
             max-columns: 2
             widgets:
-              # llama.cpp in router mode: which model is resident right now.
+              # Which model is resident.
               - type: custom-api
                 title: llama.cpp
                 title-url: https://litellm.{{ domain }}/
@@ -282,8 +266,7 @@ pages:
 
               - <<: *gpu_panel_widget
 
-          # The panel itself, so the controls live inside the dashboard instead
-          # of a tab of their own. It is the same page, and the same session.
+          # The controls themselves, sharing the session.
           - type: iframe
             title: GPU control panel
             title-url: https://gpu.{{ domain }}/

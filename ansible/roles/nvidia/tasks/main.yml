@@ -1,7 +1,6 @@
 ---
-# NVIDIA userspace driver for an LXC: the kernel module lives on the Proxmox
-# host and the /dev/nvidia* nodes are passed through by Terraform, so only the
-# libraries and nvidia-smi are installed here, at the host's exact version.
+# Userspace driver only: the kernel module lives on the PVE host and the nodes
+# come from Terraform, so this installs the libraries at the host's version.
 - name: Install prerequisites
   ansible.builtin.apt:
     name: [curl, ca-certificates, kmod, pkg-config, libglvnd-dev]
