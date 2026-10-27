@@ -92,21 +92,15 @@ variable "keyctl" {
   default     = false
 }
 
-# Leave null (the default) to authorize admin_public_key_path, which is what
-# every container should have so Ansible can reach it. Set a list - possibly
-# empty - to take full control.
-#
-# NOTE: initialization.user_account.keys is ForceNew in bpg/proxmox, so the
-# value only applies when the container is created (the module ignores changes
-# to it); for running containers use Ansible instead.
+# null (the default) authorizes admin_public_key_path; a list takes full control.
+# ForceNew in bpg/proxmox: only applied at creation, so use Ansible afterwards.
 variable "ssh_public_keys" {
   description = "SSH public keys injected when the container is created (null = use admin_public_key_path)"
   type        = list(string)
   default     = null
 }
 
-# Read on the machine running Terraform, not committed. Ansible rotates the
-# authorized keys of running containers afterwards (roles/common).
+# Read on the machine running Terraform, never committed.
 variable "admin_public_key_path" {
   description = "Path to the SSH public key new containers authorize (empty string = inject none)"
   type        = string

@@ -18,8 +18,7 @@ module "caddy" {
   cpu_cores  = 2
   memory     = 1048
   swap       = 512
-  # The image is compiled here (xcaddy pulls the Caddy tree and the Cloudflare
-  # module), and a Go build does not fit in the module's default 8 GB.
+  # The image is built here (xcaddy + Go) and does not fit in the default 8 GB.
   disk_size = 12
 }
 
@@ -33,8 +32,7 @@ module "tailscale" {
   swap       = 512
   keyctl     = true
 
-  # Tailscale is wireguard based and needs the TUN device; the original
-  # container had the same passthrough as raw lxc.mount.entry lines.
+  # Tailscale needs the TUN device.
   device_passthrough = [
     { path = "/dev/net/tun" },
   ]

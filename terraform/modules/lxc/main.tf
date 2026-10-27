@@ -7,9 +7,8 @@ terraform {
   }
 }
 
-# Keys authorized on a container when it is created, so the admin / Ansible
-# control node can reach it over SSH immediately. Read from the machine running
-# Terraform (the devops container), so no key material lives in the repository.
+# Keys seeded at creation from the machine running Terraform: no key material
+# in the repository.
 locals {
   admin_public_keys = (
     var.admin_public_key_path != "" && fileexists(var.admin_public_key_path)
@@ -37,8 +36,7 @@ resource "proxmox_virtual_environment_container" "multiple_mountpoints" {
     keyctl  = var.keyctl
   }
 
-  # Host devices passed through to the container (e.g. NVIDIA GPU, /dev/net/tun).
-  # Proxmox writes them as devN: <path> in the container config.
+  # Host devices passed through (Proxmox writes them as devN: <path>).
   dynamic "device_passthrough" {
     for_each = var.device_passthrough
 
@@ -68,7 +66,7 @@ resource "proxmox_virtual_environment_container" "multiple_mountpoints" {
       servers = var.default_dns
     }
 
-    # null (the default) means "authorize the admin key"; an explicit list wins.
+    # null means "authorize the admin key"; an explicit list wins.
     user_account {
       keys = var.ssh_public_keys != null ? var.ssh_public_keys : local.admin_public_keys
     }
@@ -96,10 +94,8 @@ resource "proxmox_virtual_environment_container" "multiple_mountpoints" {
     bridge = var.bridge
   }
 
-  # The provider marks initialization.user_account.keys as ForceNew, so a change
-  # there would recreate the container: the keys are seeded only at creation
-  # time (drift on them is ignored on purpose). Use Ansible to change the
-  # authorized keys of a running container (roles/common: admin_authorized_keys).
+  # ForceNew in the provider: seeded at creation only, drift ignored on purpose.
+  # Change the keys of a running container with Ansible (roles/common).
   lifecycle {
     ignore_changes = [initialization[0].user_account[0].keys]
   }

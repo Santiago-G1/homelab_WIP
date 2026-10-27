@@ -28,9 +28,8 @@ module "immich" {
     { volume = "/tank/immich", mount_path = "/mnt/immich" },
   ]
 
-  # Intel iGPU (VAAPI fallback) and Tesla P100 (NVENC/NVDEC + CUDA). gid is the
-  # container-side id of the group immich-server runs as (999:991, see the
-  # Compose override), so the nodes are readable without widening the mode.
+  # iGPU (VAAPI) and P100 (NVENC/CUDA). gid is the container-side group of
+  # immich-server (999:991, see the Compose override).
   device_passthrough = [
     { path = "/dev/dri/renderD128", gid = 991 },
     { path = "/dev/nvidia0", gid = 991 },
@@ -54,8 +53,7 @@ module "frontend" {
     { volume = "/tank/media", mount_path = "/mnt/media" },
   ]
 
-  # Intel iGPU (VAAPI fallback) and Tesla P100 (NVENC/NVDEC) for Jellyfin.
-  # gid 44 (video) matches the group_add in the Compose file.
+  # iGPU (VAAPI) and P100 (NVENC/NVDEC); gid 44 matches the Compose group_add.
   device_passthrough = [
     { path = "/dev/dri/renderD128", gid = 44 },
     { path = "/dev/nvidia0", gid = 44 },
