@@ -1,19 +1,17 @@
-# ZeroClaw agent runtime, next to the LiteLLM proxy it talks to.
-# See README.md for the sandbox model and the trade-offs.
+# ZeroClaw agent runtime (see README.md for the sandbox model).
 services:
   zeroclaw:
     image: zeroclaw:debian-docker
     build:
       context: ./image
     container_name: zeroclaw
-    # Root on purpose: it rewrites its config on pairing and needs the Docker
-    # socket for the sandbox, which is the real trust boundary here.
+    # Root on purpose: it rewrites its config on pairing and drives the sandbox
+    # through the Docker socket.
     user: "0:0"
     restart: unless-stopped
 
     environment:
-      # Secrets only, as schema-mirror overrides (ZEROCLAW_<a.b.c>); the
-      # rendered config.toml stays secret-free.
+      # Secrets only, as ZEROCLAW_<a.b.c> overrides.
       - ZEROCLAW_providers__models__litellm__local__api_key=${ZEROCLAW_LITELLM_API_KEY:?ZEROCLAW_LITELLM_API_KEY is required}
       - ZEROCLAW_channels__telegram__home__bot_token=${ZEROCLAW_TELEGRAM_BOT_TOKEN:?ZEROCLAW_TELEGRAM_BOT_TOKEN is required}
       - ZEROCLAW_gateway__host=0.0.0.0
@@ -21,10 +19,9 @@ services:
 
     volumes:
       - ./data:/zeroclaw-data
-      # Same absolute path as on the host: the sandbox bind-mount is resolved
-      # by the host daemon.
+      # Absolute path must match the host: the daemon resolves the bind mount.
       - ./workspace:/opt/docker/zeroclaw/workspace
-      # Needed by the Docker sandbox backend (one `docker run` per command).
+      # The sandbox backend runs one `docker run` per command.
       - /var/run/docker.sock:/var/run/docker.sock
 
     ports:
@@ -39,7 +36,7 @@ services:
           cpus: "2"
           memory: 1G
 
-    # The upstream image declares no HEALTHCHECK.
+    # The upstream image ships no HEALTHCHECK.
     healthcheck:
       test: ["CMD", "zeroclaw", "status", "--format=exit-code"]
       interval: 60s

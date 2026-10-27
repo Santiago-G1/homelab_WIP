@@ -1,13 +1,8 @@
 """GPU control panel for the lab.
 
-Runs on the AI container, next to llama.cpp, and drives the Tesla P100 through
-the PVE node: that is where nvidia-smi and the power limit live (an unprivileged
-container gets "Insufficient Permissions" for -pl) and where the SSH reach to
-every other consumer of the card starts.
-
-Auth is a login page that sets a signed session cookie, plus the bearer token
-for automation; there is no HTTP basic challenge, so browsers never pop up the
-native credentials dialog.
+Drives the Tesla P100 through the PVE node: that is where nvidia-smi and the
+power limit live, and where the SSH reach to the card's other consumers starts.
+Auth is a signed session cookie plus a bearer token for automation.
 """
 
 import asyncio
@@ -30,21 +25,16 @@ from fastapi.staticfiles import StaticFiles
 
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Every address is required from the environment: roles/stacks renders them into
-# the stack .env from the inventory, so this file never carries the lab's IPs.
+# Required from the environment: this file never carries the lab's addresses.
 PVE_HOST = os.environ["PVE_HOST"]
 IMMICH_HOST = os.environ["IMMICH_HOST"]
 FRONTEND_HOST = os.environ["FRONTEND_HOST"]
 LLAMA_URL = os.environ["LLAMA_URL"]
-# llama-server is a systemd unit on the AI container, so its output only exists in
-# that container's journald. The panel reaches it the same way it reaches
-# nvidia-smi: over SSH to the PVE node, which then enters the container.
+# llama-server is a systemd unit, so its logs are read over SSH to the PVE node.
 AI_CTID = os.environ["AI_CTID"]
 LLAMA_LOG_UNIT = os.environ.get("LLAMA_LOG_UNIT", "llama-server")
 LLAMA_LOG_MAX = 2000
-# ComfyUI is the fourth consumer of the card and the only one that needs it
-# alone: it is an on-demand stack (host_vars/llm/main.yml), started here and
-# stopped again when the card goes back to llama.cpp or to the media stacks.
+# On-demand stack: started here, stopped when the card goes back to llama.cpp.
 COMFY_URL = os.environ.get("COMFY_URL", "")
 COMFY_UI_URL = os.environ.get("COMFY_UI_URL", "")
 COMFY_CONTAINER = os.environ.get("COMFY_CONTAINER", "comfyui")
@@ -56,22 +46,15 @@ SESSION_TTL = int(os.environ.get("SESSION_TTL", 7 * 24 * 3600))
 LOGIN_DELAY = float(os.environ.get("LOGIN_DELAY", 0.4))
 STATE_PATH = os.environ.get("STATE_PATH", "/state/auto.json")
 
-# NVENC is the only Jellyfin mode that touches the P100, the card it shares with
-# llama.cpp and Immich ML. VAAPI runs on the Intel iGPU, a different device that
-# costs the P100 nothing, so it is what Jellyfin falls back to when the LLM owns
-# the card: dropping it to CPU would lose hardware transcoding for no reason.
-# JELLYFIN_FALLBACK=none restores the old CPU behaviour on purpose.
+# Jellyfin moves to the iGPU (VAAPI) when llama.cpp owns the P100: dropping to
+# CPU would lose hardware transcoding for nothing. `none` restores CPU.
 JELLYFIN_FALLBACK = os.environ.get("JELLYFIN_FALLBACK", "vaapi")
 JELLYFIN_DEVICES = {"nvenc": "P100 (NVENC)", "vaapi": "iGPU (VAAPI)", "none": "CPU"}
 if JELLYFIN_FALLBACK not in ("vaapi", "none"):
     JELLYFIN_FALLBACK = "vaapi"
 
-# Models the dashboard is allowed to name, matched as case-insensitive
-# substrings. Anything else the router serves stays unlisted: it still loads,
-# counts and unloads like any other model, but the panel never prints its name.
-# The default (empty) lists everything, and the deployment sets this to the
-# models the repository already documents, so no private name has to be
-# committed anywhere.
+# Models the dashboard may name (case-insensitive substrings). Anything else the
+# router serves still loads and unloads, but is never printed. Empty lists all.
 LLAMA_PUBLIC_MODELS = [m.strip().lower() for m in os.environ.get("LLAMA_PUBLIC_MODELS", "").split(",") if m.strip()]
 
 IMMICH_ML = "immich_machine_learning"
@@ -88,17 +71,14 @@ GPU_KEYS = [
 ]
 ML_QUEUES = ("faceDetection", "smartSearch", "ocr")
 
-# Immich keeps its system config as JSON in system_metadata. Delivered base64
-# because the SQL/psql quoting does not survive nested shells otherwise.
+# Delivered base64: the psql quoting does not survive nested shells.
 IMMICH_CFG_SCRIPT = r"""docker exec immich_postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atc "select value from system_metadata where key = '"'"'system-config'"'"';"'"""
 
-# comfy_idle_min: ComfyUI is on demand too. Its queue empty + the card idle for
-# this long means the P100 goes back to llama.cpp by itself, so an Image session
-# never leaves the LLM unable to load. 0 disables the timer.
+# comfy_idle_min: with an empty queue and an idle card, the P100 goes back to
+# llama.cpp by itself. 0 disables the timer.
 DEFAULTS = {"enabled": True, "llama_idle_min": 60, "ml_idle_min": 0, "comfy_idle_min": 10, "last_action": None, "last_action_at": None, "revoked": {}, "jellyfin_before_llm": None}
 
-# Sessions are signed with a key derived from the credentials, so rotating
-# either one logs every browser out and no extra secret has to be provisioned.
+# Derived from the credentials: rotating either one logs every browser out.
 SESSION_KEY = hashlib.sha256(f"session|{PANEL_PASSWORD}|{PANEL_TOKEN}".encode()).digest()
 
 state = dict(DEFAULTS)
@@ -107,14 +87,11 @@ last_busy = time.time()
 llm_blocked = False
 
 app = FastAPI(title="GPU control panel")
-# The stylesheet is shared by the dashboard and the guide, so the two pages keep
-# the same look without duplicating a 100-line <style> block.
+# Shared by the dashboard and the guide.
 app.mount("/static", StaticFiles(directory=os.path.join(APP_DIR, "static")), name="static")
 
 
-# --------------------------------------------------------------------------- #
-# state
-# --------------------------------------------------------------------------- #
+# --- state ---
 def load_state():
     try:
         with open(STATE_PATH) as fh:
@@ -130,9 +107,7 @@ def save_state():
             json.dump(state, fh, indent=2)
 
 
-# --------------------------------------------------------------------------- #
-# auth: login page -> signed session cookie; bearer token for automation
-# --------------------------------------------------------------------------- #
+# --- auth: login page -> signed session cookie; bearer token for automation ---
 def _b64e(raw: bytes) -> str:
     return base64.urlsafe_b64encode(raw).decode().rstrip("=")
 
@@ -198,9 +173,7 @@ def require_auth(request: Request) -> str:
     raise HTTPException(401, "unauthorized")
 
 
-# --------------------------------------------------------------------------- #
-# helpers
-# --------------------------------------------------------------------------- #
+# --- helpers ---
 def run(cmd, timeout=30, **kwargs):
     return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, **kwargs)
 
@@ -285,11 +258,7 @@ def llama_unload_all():
 
 
 def llama_logs(lines=200):
-    """Last N journald lines of the llama.cpp unit (newest last).
-
-    The cap is enforced here, not in the browser, so a stray request cannot pull
-    an unbounded journal through two shells.
-    """
+    """Last N journald lines of the llama.cpp unit, capped here and not in the browser."""
     try:
         lines = max(20, min(int(lines), LLAMA_LOG_MAX))
     except (TypeError, ValueError):
@@ -327,8 +296,7 @@ def immich_ml_state():
 
 
 def comfy_state():
-    """The ComfyUI container lives in this same CT, so the walk is the same one
-    the panel already uses for nvidia-smi: SSH to the PVE node, enter the CT."""
+    """ComfyUI runs in this same CT: SSH to the PVE node, then enter it."""
     p = ssh(PVE_HOST, f"pct exec {AI_CTID} -- docker inspect -f '{{{{.State.Status}}}}' {COMFY_CONTAINER}")
     return p.stdout.strip() or "unknown"
 
@@ -343,11 +311,7 @@ def comfy(action):
 
 
 def comfy_queue_depth():
-    """Prompts running or waiting in ComfyUI.
-
-    Stopping the container kills whatever it is doing, so the automatic hand-back
-    of the card only happens with an empty queue.
-    """
+    """Prompts running or waiting: stopping the container would kill them."""
     if not COMFY_URL:
         return 0
     try:
@@ -358,11 +322,7 @@ def comfy_queue_depth():
 
 
 def comfy_release(why=None):
-    """Stop ComfyUI (only when idle) and hand the card back.
-
-    `why` is recorded as the last automatic action; the LLM-priority path passes
-    None because it folds the stop into its own message.
-    """
+    """Stop ComfyUI (only when idle) and hand the card back."""
     if comfy_queue_depth():
         return False
     with contextlib.suppress(HTTPException):
@@ -451,11 +411,7 @@ def jellyfin_ensure_accel(accel):
 
 
 def jellyfin_release_p100():
-    """Move Jellyfin off the P100 while keeping hardware transcoding: the iGPU.
-
-    The chosen accel is remembered so the way back puts Jellyfin on the device it
-    had before, instead of assuming NVENC.
-    """
+    """Move Jellyfin to the iGPU, remembering the device it had before."""
     current = jellyfin_accel()
     if current in ("nvenc", "vaapi"):
         state["jellyfin_before_llm"] = current
@@ -488,9 +444,7 @@ def record_action(text):
     save_state()
 
 
-# --------------------------------------------------------------------------- #
-# auto switch
-# --------------------------------------------------------------------------- #
+# --- auto switch ---
 def auto_tick():
     global last_busy, llm_blocked
     util = int(gpu_status()["util_max"])
@@ -505,10 +459,8 @@ def auto_tick():
         models = llama_models()
     except Exception:
         models = []
-    # "loading" counts as in use: by the time the status is "loaded" the router
-    # has already asked for the VRAM, and a 13.6 GB model does not fit next to a
-    # 6 GB ComfyUI context. Freeing the card on the load, not after it fails, is
-    # what makes "llama.cpp gets the whole GPU whenever it is used" true.
+    # "loading" counts as in use: the router asks for the VRAM before the status
+    # reads "loaded", and a 13.6 GB model does not fit next to ComfyUI.
     in_use = [m for m in models if str(m.get("status", "")).lower().startswith("load")]
 
     comfy_up = False
@@ -544,8 +496,7 @@ def auto_tick():
                                  JELLYFIN_DEVICES.get(back.get("accel"), back.get("accel"))))
     else:
         llm_blocked = False
-        # ComfyUI is on demand as well: with an empty queue and an idle card, the
-        # P100 goes back by itself instead of waiting for someone to click.
+        # An idle ComfyUI hands the card back on its own.
         if comfy_up and state["comfy_idle_min"] and idle > state["comfy_idle_min"] * 60:
             if comfy_release("ComfyUI idle %d min: stopped, P100 free again" % (idle // 60)):
                 comfy_up = False
@@ -570,9 +521,7 @@ async def _startup():
     asyncio.create_task(auto_loop())
 
 
-# --------------------------------------------------------------------------- #
-# pages
-# --------------------------------------------------------------------------- #
+# --- pages ---
 NO_STORE = {"Cache-Control": "no-store"}
 
 
@@ -590,11 +539,7 @@ def index(request: Request):
 
 @app.get("/howto")
 def howto(request: Request):
-    """The guide: what each mode does and how to use the four consumers.
-
-    It used to be a wall of text inside the dashboard; a second page keeps the
-    dashboard to the live state, and the sidebar mirrors Glance's.
-    """
+    """The guide: what each mode does and how to use the four consumers."""
     if not (read_session(request) or has_bearer(request)):
         return RedirectResponse("/login?next=/howto", status_code=303)
     return FileResponse(os.path.join(APP_DIR, "static", "howto.html"), headers=NO_STORE)
@@ -625,8 +570,7 @@ def login(request: Request, body: dict = Body(...)):
 def logout(request: Request):
     payload = session_payload(request)
     if payload.get("n"):
-        # Sessions are stateless, so "Salir" has to remember the nonce until it
-        # would have expired anyway.
+        # Sessions are stateless, so logout has to remember the nonce.
         revoked = {n: exp for n, exp in state.get("revoked", {}).items() if int(exp) > time.time()}
         revoked[str(payload["n"])] = int(payload.get("exp") or time.time())
         state["revoked"] = revoked
@@ -644,9 +588,7 @@ def session_info(request: Request):
     return {"authenticated": bool(user), "user": user or None, "mode": "session" if user else None}
 
 
-# --------------------------------------------------------------------------- #
-# api
-# --------------------------------------------------------------------------- #
+# --- api ---
 @app.get("/api/status")
 def status(_: str = Depends(require_auth)):
     gpu = gpu_status()
@@ -663,8 +605,7 @@ def status(_: str = Depends(require_auth)):
     try:
         models = llama_models()
         out["llama"] = listed_models(models)
-        # The counts cover every model, so the dashboard never claims the card is
-        # free just because the loaded one is unlisted.
+        # Counts cover every model, not only the listed ones.
         out["llama_counts"] = {
             "total": len(models),
             "loaded": sum(1 for m in models if m["status"] == "loaded"),
@@ -684,8 +625,7 @@ def status(_: str = Depends(require_auth)):
 def set_mode(mode: str, _: str = Depends(require_auth)):
     global llm_blocked
     result = {}
-    # Leaving Image mode means the P100 belongs to something else again, and
-    # ComfyUI would keep holding the card: stop it first.
+    # ComfyUI would keep holding the card: stop it before leaving Image mode.
     if mode in ("llm", "media", "balanced"):
         with contextlib.suppress(Exception):
             if comfy_state() == "running":

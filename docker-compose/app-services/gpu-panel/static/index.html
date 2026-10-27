@@ -158,8 +158,7 @@
 const $ = (id) => document.getElementById(id);
 let toastTimer, last = null, inflight = 0, autoState = {};
 
-// The header shows the host you are actually visiting, so the repo can keep a
-// placeholder name while the deployed panel shows its real name.
+// Show the host being visited; the repo keeps a placeholder name.
 $('host').textContent = location.hostname + ' · GPU Control';
 document.title = location.hostname + ' · GPU Control';
 
@@ -172,8 +171,7 @@ const MODES = {
   mixed: 'mixed / transitioning',
 };
 
-// The P100 is the card being arbitrated (llama.cpp, Immich ML, Jellyfin NVENC);
-// VAAPI runs on the Intel iGPU, a different device.
+// The P100 is the arbitrated card; VAAPI runs on the Intel iGPU.
 const DEVICES = {nvenc: 'P100 (NVENC)', vaapi: 'iGPU (VAAPI)', none: 'CPU'};
 const str = (v) => (typeof v === 'string' ? v : '');
 const deviceLabel = (a) => DEVICES[a] || a || '—';
@@ -225,9 +223,8 @@ async function api(path, opts) {
   return r.headers.get('content-type')?.includes('json') ? r.json() : r.text();
 }
 
-// Every action: instant spinner + a "pending" toast, the group locked while it
-// runs, then the state re-derived from /api/status (no optimistic guessing left
-// behind) and a confirmation toast.
+// Spinner + pending toast, group locked, then the state re-derived from
+// /api/status and a confirmation toast.
 async function act(btn, path, body, opts = {}) {
   const group = opts.group;
   startRequest();
@@ -264,8 +261,7 @@ function human(sec) {
   return (sec / 3600).toFixed(1) + 'h';
 }
 
-// How many models the router serves and how many are loaded. Every model counts
-// here, including the ones the panel is not allowed to name.
+// Every model counts here, including the unlisted ones.
 function llamaCounts(s) {
   const c = s.llama_counts;
   if (!c || c.error || typeof c.loaded !== 'number') {
@@ -275,16 +271,15 @@ function llamaCounts(s) {
   return c;
 }
 
-// Which state the machine is really in, derived from what the probes report.
+// State derived from what the probes report.
 function deriveMode(s) {
   // ComfyUI keeps the card while it is up, so it wins over every other reading.
   if (str(s.comfyui && s.comfyui.state) === 'running') return 'image';
   const ml = str(s.immich_ml);
   const jf = str(s.jellyfin_accel);
   const loaded = llamaCounts(s).loaded;
-  // "LLM" means the P100 belongs to llama.cpp, and Immich ML (CUDA) is the only
-  // other P100 consumer that must stop. Where Jellyfin transcodes while that
-  // happens is not part of the decision: the iGPU is a different card.
+  // "LLM": the P100 belongs to llama.cpp; Immich ML (CUDA) is the only other
+  // consumer that has to stop.
   if (ml === 'exited' || ml === 'created' || ml === 'paused') return 'llm';
   if (ml === 'running') return jf === 'nvenc' ? (loaded ? 'balanced' : 'media') : 'igpu';
   return 'mixed';
@@ -322,7 +317,7 @@ function syncPower() {
     ? last.gpu.power_limits.map(Number) : [];
   const same = limits.length > 0 && limits.every((l) => l === watts);
   btn.textContent = same ? 'Apply ' + watts + ' W (already active)' : 'Apply ' + watts + ' W';
-  // Leave the button alone while it is busy; setBusy() restores it afterwards.
+  // setBusy() restores the button afterwards.
   if (!btn.classList.contains('busy')) btn.disabled = same;
   btn.title = same ? 'The current limit is already ' + watts + ' W' : '';
 }
@@ -412,8 +407,7 @@ async function refresh() {
   open.disabled = !comfy.url;
   open.dataset.url = comfy.url || '';
 
-  // While an action is in flight the optimistic ring stays; once it finishes the
-  // real state wins (so a failed switch visibly falls back).
+  // The real state wins once the action finishes, so a failure falls back.
   if (!inflight) paintState(s);
 }
 
@@ -460,7 +454,7 @@ document.querySelectorAll('#comfy button[data-comfy]').forEach((b) => {
     if (action === 'start' && state === 'running') return skip('ComfyUI is already running');
     if (action === 'stop' && state && state !== 'running') return skip('ComfyUI is already stopped');
     if (action === 'start') {
-      // A bare start would OOM the first model load: the card has to be freed.
+      // A bare start would OOM the first load: the card has to be freed.
       return act(b, '/api/mode/image', null,
         {pending: 'Freeing the P100 and starting ComfyUI…', done: 'Image mode: ComfyUI is up'});
     }
@@ -510,8 +504,7 @@ function paintLogs(text) {
   el.textContent = '';
   text.split('\n').forEach((line) => {
     const span = document.createElement('span');
-    // llama.cpp tags severity as a single letter: "… I slot …", "W …", "E …".
-    // Only warnings and errors are coloured, so a normal load stays readable.
+    // Severity is a single letter ("I", "W", "E"): only W and E are coloured.
     if (/\s[WE]\s/.test(line)) span.className = line.includes(' E ') ? 'e' : 'w';
     span.textContent = line + '\n';
     el.appendChild(span);
