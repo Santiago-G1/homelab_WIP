@@ -12,9 +12,9 @@ services:
     ports:
       - "9696:9696"
     networks:
-      - soulsync-network
+      - arrsuite-stack
     restart: unless-stopped
 
 networks:
-  soulsync-network:
+  arrsuite-stack:
     external: true

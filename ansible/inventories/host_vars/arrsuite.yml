@@ -1,7 +1,9 @@
 ---
 # Every *arr stack joins this network; Ansible creates it before the stacks.
+# The name outlived the soulsync service (removed in 3d967ff): this network
+# belongs to the arrsuite now, and says so.
 docker_networks:
-  - soulsync-network
+  - arrsuite-stack
 
 stacks:
   - { name: bazarr,       src: media-services/arrsuite/bazarr }

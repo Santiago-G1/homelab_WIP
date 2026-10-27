@@ -10,9 +10,9 @@ services:
     volumes:
       - /opt/docker/seerr/data:/app/config
     networks:
-      - soulsync-network
+      - arrsuite-stack
     restart: unless-stopped
 
 networks:
-  soulsync-network:
+  arrsuite-stack:
     external: true

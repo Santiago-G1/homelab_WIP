@@ -10,9 +10,9 @@ services:
     ports:
       - "8191:8191"
     networks:
-      - soulsync-network
+      - arrsuite-stack
     restart: unless-stopped
 
 networks:
-  soulsync-network:
+  arrsuite-stack:
     external: true

@@ -13,9 +13,9 @@ services:
       - "8082:8080"
       - "8081:8081"
     networks:
-      - soulsync-network
+      - arrsuite-stack
     restart: unless-stopped
 
 networks:
-  soulsync-network:
+  arrsuite-stack:
     external: true

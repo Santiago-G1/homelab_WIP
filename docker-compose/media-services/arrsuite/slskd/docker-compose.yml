@@ -18,9 +18,9 @@ services:
       - "5031:5031"
       - "50300:50300"
     networks:
-      - soulsync-network
+      - arrsuite-stack
     restart: always
 
 networks:
-  soulsync-network:
+  arrsuite-stack:
     external: true

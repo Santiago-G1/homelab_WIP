@@ -15,9 +15,9 @@ services:
       - "6881:6881"
       - "6881:6881/udp"
     networks:
-      - soulsync-network
+      - arrsuite-stack
     restart: unless-stopped
 
 networks:
-  soulsync-network:
+  arrsuite-stack:
     external: true
