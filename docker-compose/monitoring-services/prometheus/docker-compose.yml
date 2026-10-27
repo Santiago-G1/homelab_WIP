@@ -33,9 +33,6 @@ services:
     networks:
       - homelab_monitoring
 
-volumes:
-  prometheus_data:
-
 # Shared with the grafana stack; without it `prometheus:9090` resolves to the
 # reverse proxy instead of to this container.
 networks:

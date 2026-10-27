@@ -192,12 +192,10 @@ def ssh_script(host, script, timeout=60):
 
 
 def gpu_status():
-    """Every card the node exposes, plus the old single-card shape.
+    """Every card, plus the single-card shape the power controls still read.
 
-    The panel was written for one P100, so `gpu` stays the primary card (GPU 0)
-    to keep the API and the power controls working unchanged, and `gpus` carries
-    the whole list. Processes are attributed by GPU UUID, otherwise the second
-    card would always look idle.
+    `gpu` stays GPU 0 for backwards compatibility and `gpus` carries the list.
+    Processes are attributed by UUID: without that the second card looks idle.
     """
     p = ssh(PVE_HOST, f"nvidia-smi --query-gpu={GPU_FIELDS} --format=csv,noheader,nounits")
     if p.returncode != 0:
@@ -228,8 +226,7 @@ def gpu_status():
             target["processes"].append(proc)
 
     gpu = gpus[0]
-    # Aggregate fields the single-card consumers (idle detection, power buttons)
-    # keep reading: a card is busy if any card is busy.
+    # A card is busy if any card is busy.
     gpu["util_max"] = max(int(g["util"]) for g in gpus)
     gpu["power_limits"] = [g["power_limit"] for g in gpus]
     gpu["gpus"] = gpus

@@ -3,9 +3,9 @@
 # work, and it is compiled by hand because it needs clang + CUDA 12.8 with
 # -DCMAKE_CUDA_ARCHITECTURES=60. See docs/llm-models.md.
 [Service]
-{% for k, v in llamacpp_kmic_env.items() %}
+{% for k, v in llamacpp_kmic_env.items() -%}
 Environment={{ k }}={{ v }}
-{% endfor %}
+{% endfor -%}
 ExecStart=
 ExecStart={{ llamacpp_kmic_binary }} \
   --models-dir {{ llamacpp_models_dir }} \
