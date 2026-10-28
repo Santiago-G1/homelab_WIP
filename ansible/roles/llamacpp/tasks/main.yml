@@ -292,6 +292,26 @@
     mode: "0644"
   notify: restart llama-server
 
+- name: Check whether the Kmic P100 fork build is installed
+  ansible.builtin.stat:
+    path: "{{ llamacpp_kmic_binary }}"
+  register: llamacpp_kmic_bin
+
+- name: Create the llama-server drop-in directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/llama-server.service.d
+    state: directory
+    mode: "0755"
+  when: llamacpp_kmic_bin.stat.exists
+
+- name: Serve with the Kmic P100 fork build
+  ansible.builtin.template:
+    src: kmic-p100.conf.j2
+    dest: /etc/systemd/system/llama-server.service.d/10-kmic-p100.conf
+    mode: "0644"
+  when: llamacpp_kmic_bin.stat.exists
+  notify: restart llama-server
+
 - name: Enable and start llama-server
   ansible.builtin.systemd:
     name: llama-server

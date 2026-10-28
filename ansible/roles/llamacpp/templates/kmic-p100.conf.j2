@@ -1,0 +1,15 @@
+# Rendered by Ansible (roles/llamacpp). Serves with the Kmic-68/llama.cpp fork
+# instead of the in-tree build: that fork carries the Pascal (sm_60) kernel
+# work, and it is compiled by hand because it needs clang + CUDA 12.8 with
+# -DCMAKE_CUDA_ARCHITECTURES=60. See docs/llm-models.md.
+[Service]
+{% for k, v in llamacpp_kmic_env.items() %}
+Environment={{ k }}={{ v }}
+{% endfor %}
+ExecStart=
+ExecStart={{ llamacpp_kmic_binary }} \
+  --models-dir {{ llamacpp_models_dir }} \
+  --models-preset {{ llamacpp_preset_file }} \
+  --models-max {{ llamacpp_models_max }} \
+  --host 0.0.0.0 --port {{ llamacpp_port }} \
+  --metrics

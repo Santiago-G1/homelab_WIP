@@ -94,3 +94,52 @@ help.
 Immich ML, which reintroduces the race on the next request. To keep the agent
 always available either use `llm` mode (`POST /api/mode/llm`) or set
 `llama_idle_min: 0` so the model is never unloaded.
+
+## The fork build that is actually served
+
+`roles/llamacpp` builds the in-tree llama.cpp with the P100 patch set, but the
+service is served by the **Kmic-68 fork** (`/opt/llama.cpp-kmic`, branch
+`p100-dual-gpu`), which carries the sm_60 kernel work. It is a hand build
+(clang + CUDA 12.8, `-DCMAKE_CUDA_ARCHITECTURES=60`, `-DGGML_CUDA_NCCL=OFF`)
+because the Pascal tuning is gated on `__CUDA_ARCH_LIST__ == 600`. The role
+installs `10-kmic-p100.conf` — the drop-in that points `ExecStart` at that binary
+and sets `GGML_CUDA_P2P=1` and `GGML_CUDA_GRAPHS_PRE_VOLTA=3` — only when the
+binary exists, so a fresh host still comes up on the in-tree build.
+
+Rebuilds there must pass the CUDA compiler explicitly:
+
+    export PATH=/usr/local/cuda-12.8/bin:$PATH
+    cmake -B build-opt -DGGML_CUDA=ON \
+      -DCMAKE_CUDA_COMPILER=/usr/local/cuda-12.8/bin/nvcc \
+      -DCMAKE_CUDA_ARCHITECTURES=60 -DGGML_CUDA_NCCL=OFF -DCMAKE_BUILD_TYPE=Release
+    cmake --build build-opt -j4 --target llama-server
+
+Without `nvcc` on `PATH` CMake reconfigures with `GGML_CUDA=OFF` **silently** and
+the server starts on CPU. Check with `llama-bench -ngl 99`: it must print
+`ggml_cuda_init: found 2 CUDA devices`.
+
+## The served model: Qwen3.6-35B-A3B with MTP
+
+`Qwen3.6-35B-A3B-MTP-UD-Q4_K_XL` (unsloth MTP GGUF, 21.28 GiB) is the agent
+model and the only one declared with `agent: true`. It has the `blk.40` draft
+head, so `spec-type: draft-mtp` works; the non-MTP file of the same model has no
+draft head and must not be served with MTP.
+
+Measured on the two P100s at 125 W, KV in **f16**:
+
+| | value |
+|---|---|
+| VRAM | 14.2 GiB (CPU slot) + 14.9 GiB (PCH slot) |
+| decode, short context | 56-69 t/s (32.4 t/s without MTP) |
+| draft acceptance | 58-69 %, mean draft length 2.7-3.1 |
+| prefill | 994 t/s at 91k, 543 t/s for 243,830 tokens from scratch |
+| decode at 244k | 21.6 t/s |
+| full 262144 window | verified: 243,830-token prompt, `truncated = 0` |
+
+Do not raise `ubatch-size` to 2048 with this model (illegal memory access during
+long prefill) and do not add a second slot: `ub 1024` + `parallel 1` is the
+stable point, and the spare VRAM is spent on the unquantized f16 KV instead.
+
+Sampling is the Qwen3.6 model card, thinking mode for general tasks:
+`temp 1.0, top_p 0.95, top_k 20, min_p 0.0, presence_penalty 1.5,
+repetition_penalty 1.0`.

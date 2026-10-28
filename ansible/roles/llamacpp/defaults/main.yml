@@ -80,3 +80,13 @@ llamacpp_cmake_args:
   - -DGGML_CUDA_GRAPHS=ON
   - -DCMAKE_CUDA_HOST_COMPILER=/usr/bin/g++
   - -DGGML_CCACHE=OFF
+
+# The fork build is not compiled by this role (it is a hand build, see
+# docs/llm-models.md). When the binary is there, the drop-in below is installed
+# and the service runs it; when it is missing, the role's own build is used.
+llamacpp_kmic_binary: /opt/llama.cpp-kmic/build-opt/bin/llama-server
+llamacpp_kmic_env:
+  # Peer copies between the two P100s instead of bouncing through host RAM.
+  GGML_CUDA_P2P: "1"
+  # CUDA graphs for the single-token MTP draft only (1 = full graphs, OOM).
+  GGML_CUDA_GRAPHS_PRE_VOLTA: "3"

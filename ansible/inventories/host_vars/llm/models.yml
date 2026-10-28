@@ -75,6 +75,44 @@ llm_models:
       cache-ram: 2048
       cache-reuse: 256
 
+  # The MTP build of the same model (unsloth Qwen3.6-35B-A3B-MTP-GGUF). This
+  # one carries the blk.40 draft head, so speculative decoding works. Measured
+  # on 2xP100 @125 W with the KV in f16: decode 56-69 t/s at short context
+  # (32.4 t/s without MTP), draft acceptance 58-69%, prefill 994 t/s at 91k and
+  # 543 t/s for a full 243,830-token prompt, which is what this ctx-size buys.
+  # VRAM is 14.2 + 14.9 GiB: about 1.5 GiB of slack, so do NOT raise ubatch to
+  # 2048 (illegal memory access during long prefill) and do not add a slot.
+  - name: Qwen3.6-35B-A3B-MTP-UD-Q4_K_XL
+    agent: true
+    args:
+      n-gpu-layers: 99
+      ctx-size: 262144
+      # No KV quantization: the spare VRAM pays for f16, and q8_0 is the floor.
+      cache-type-k: f16
+      cache-type-v: f16
+      flash-attn: "on"
+      split-mode: layer
+      tensor-split: "1,1"
+      fit: "off"
+      parallel: 1
+      batch-size: 2048
+      ubatch-size: 1024
+      spec-type: draft-mtp
+      spec-draft-n-max: 3
+      spec-draft-p-min: 0.2
+      spec-draft-ngl: 99
+      spec-draft-n-ubatch: 64
+      spec-draft-type-k: f16
+      spec-draft-type-v: f16
+      jinja: "on"
+      # Qwen3.6 model card, thinking mode (general tasks).
+      temp: 1.0
+      top-p: 0.95
+      top-k: 20
+      min-p: 0.0
+      presence-penalty: 1.5
+      repeat-penalty: 1.0
+
   # 131k is the model's full window, and it is what fits: the QAD-Q4_0 build is
   # 13.6 GB, so weights + the main q8_0 KV (only 10 of the 40 layers attend, so
   # ~10.6 KiB/token) + buffers leave ~1.3 GB free on the 16 GB card.
@@ -83,17 +121,17 @@ llm_models:
   # the window drops to ~100k and the server still dies on the first long
   # prefill. See docs/llm-models.md before turning spec decoding back on.
   - name: LFM2.5-24B-A2B-QAD-Q4_0
-    agent: true
     args:
       n-gpu-layers: 99
-      ctx-size: 131072
+      ctx-size: 196608
       cache-type-k: q8_0
       cache-type-v: q8_0
       flash-attn: "on"
       fit: "off"
-      parallel: 1
+      parallel: 2
+      kv-unified: "on"
       batch-size: 2048
-      ubatch-size: 2048
+      ubatch-size: 512
       jinja: "on"
       # The sampling defaults the model card and the GGUF metadata both carry.
       temp: 0.1

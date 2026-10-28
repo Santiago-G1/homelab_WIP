@@ -6,8 +6,9 @@ schema_version = 3
 [providers.models.litellm.local]
 uri = "{{ zeroclaw_litellm_uri }}"
 model = "{{ zeroclaw_model }}"
-# llama.cpp serves a 64K window; the runtime keeps a smaller input budget.
-context_window = 65536
+# Same window llama.cpp serves for the agent model; the runtime keeps a smaller
+# input budget (zeroclaw_max_context_tokens).
+context_window = {{ zeroclaw_context_window }}
 max_tokens = 8192
 
 [agents.default]

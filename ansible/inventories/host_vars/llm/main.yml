@@ -43,9 +43,11 @@ docker_networks:
 # ZeroClaw talks to LiteLLM by container name over the shared ai-stack network.
 # zeroclaw_model and the virtual key's scope come from models.yml.
 zeroclaw_litellm_uri: http://litellm-proxy:4000/v1
-# Below the router's ctx-size for the agent model (131072): the rest is
-# headroom for the reply, which on a reasoning model is not small.
-zeroclaw_max_context_tokens: 114688
+# The window the agent model is served with (models.yml: ctx-size 262144) and
+# the slice the runtime lets a conversation grow to. The rest is headroom for
+# the reply, which on a reasoning model is not small.
+zeroclaw_context_window: 262144
+zeroclaw_max_context_tokens: 196608
 
 # SearXNG, one instance for every agent on this host. The published port is what
 # Caddy and Glance reach: llama.cpp already owns 8080 on the LAN interface.

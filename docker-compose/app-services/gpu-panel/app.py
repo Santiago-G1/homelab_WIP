@@ -77,13 +77,14 @@ LLAMA_PUBLIC_MODELS = [m.strip().lower() for m in os.environ.get("LLAMA_PUBLIC_M
 IMMICH_ML = "immich_machine_learning"
 JELLYFIN_XML = "/opt/docker/jellyfin/config/encoding.xml"
 GPU_FIELDS = (
-    "name,driver_version,memory.used,memory.total,utilization.gpu,temperature.gpu,"
+    "index,uuid,name,driver_version,memory.used,memory.total,utilization.gpu,temperature.gpu,"
     "power.draw,power.limit,power.default_limit,power.min_limit,power.max_limit,"
-    "clocks.current.sm,clocks.current.memory"
+    "clocks.current.sm,clocks.current.memory,pcie.link.gen.current,pcie.link.width.current"
 )
 GPU_KEYS = [
-    "name", "driver", "mem_used", "mem_total", "util", "temp", "power_draw",
-    "power_limit", "power_default", "power_min", "power_max", "clk_sm", "clk_mem",
+    "index", "uuid", "name", "driver", "mem_used", "mem_total", "util", "temp",
+    "power_draw", "power_limit", "power_default", "power_min", "power_max",
+    "clk_sm", "clk_mem", "pcie_gen", "pcie_width",
 ]
 ML_QUEUES = ("faceDetection", "smartSearch", "ocr")
 
@@ -218,18 +219,47 @@ def ssh_script(host, script, timeout=60):
 
 
 def gpu_status():
+    """Every card the node exposes, plus the old single-card shape.
+
+    The panel was written for one P100, so `gpu` stays the primary card (GPU 0)
+    to keep the API and the power controls working unchanged, and `gpus` carries
+    the whole list. Processes are attributed by GPU UUID, otherwise the second
+    card would always look idle.
+    """
     p = ssh(PVE_HOST, f"nvidia-smi --query-gpu={GPU_FIELDS} --format=csv,noheader,nounits")
     if p.returncode != 0:
         raise HTTPException(502, f"nvidia-smi failed: {p.stderr.strip() or p.stdout.strip()}")
-    row = [v.strip() for v in p.stdout.splitlines()[0].split(",")]
-    gpu = dict(zip(GPU_KEYS, row))
-    pr = ssh(PVE_HOST, "nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv,noheader,nounits")
-    procs = []
+    gpus = []
+    for line in p.stdout.splitlines():
+        parts = [v.strip() for v in line.split(",")]
+        if len(parts) != len(GPU_KEYS):
+            continue
+        gpu = dict(zip(GPU_KEYS, parts))
+        gpu["processes"] = []
+        gpus.append(gpu)
+    if not gpus:
+        raise HTTPException(502, "nvidia-smi returned no GPUs")
+
+    pr = ssh(PVE_HOST,
+             "nvidia-smi --query-compute-apps=gpu_uuid,pid,process_name,used_memory "
+             "--format=csv,noheader,nounits")
+    by_uuid = {g["uuid"]: g for g in gpus}
     for line in pr.stdout.splitlines():
         parts = [x.strip() for x in line.split(",")]
-        if len(parts) == 3 and parts[0].isdigit():
-            procs.append({"pid": parts[0], "name": parts[1], "mem_mib": int(parts[2])})
-    gpu["processes"] = procs
+        if len(parts) != 4 or not parts[1].isdigit():
+            continue
+        proc = {"pid": parts[1], "name": parts[2], "mem_mib": int(parts[3])}
+        target = by_uuid.get(parts[0])
+        if target is not None:
+            proc["gpu"] = target["index"]
+            target["processes"].append(proc)
+
+    gpu = gpus[0]
+    # Aggregate fields the single-card consumers (idle detection, power buttons)
+    # keep reading: a card is busy if any card is busy.
+    gpu["util_max"] = max(int(g["util"]) for g in gpus)
+    gpu["power_limits"] = [g["power_limit"] for g in gpus]
+    gpu["gpus"] = gpus
     return gpu
 
 
@@ -463,7 +493,7 @@ def record_action(text):
 # --------------------------------------------------------------------------- #
 def auto_tick():
     global last_busy, llm_blocked
-    util = int(gpu_status()["util"])
+    util = int(gpu_status()["util_max"])
     busy_samples.append(util)
     if util > 0:
         last_busy = time.time()
@@ -619,7 +649,8 @@ def session_info(request: Request):
 # --------------------------------------------------------------------------- #
 @app.get("/api/status")
 def status(_: str = Depends(require_auth)):
-    out = {"gpu": gpu_status(), "auto": auto_snapshot()}
+    gpu = gpu_status()
+    out = {"gpu": gpu, "gpus": gpu.pop("gpus"), "auto": auto_snapshot()}
     for key, fn in (
         ("immich_ml", immich_ml_state),
         ("immich_ffmpeg", immich_transcode),

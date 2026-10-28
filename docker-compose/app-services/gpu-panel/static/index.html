@@ -26,8 +26,8 @@
   <a href="#logs">llama.cpp logs</a>
 </nav>
 <main>
-  <h2>Card</h2>
-  <div class="grid" id="gpu-cards"></div>
+  <h2>Cards</h2>
+  <div id="gpu-cards"></div>
 
   <h2>Power limit</h2>
   <div class="card">
@@ -60,8 +60,8 @@
   </div>
 
   <h2>Processes on the GPU</h2>
-  <div class="card"><table><thead><tr><th>PID</th><th>Process</th><th>VRAM</th></tr></thead>
-    <tbody id="procs"><tr><td colspan="3" class="k">—</td></tr></tbody></table></div>
+  <div class="card"><table><thead><tr><th>GPU</th><th>PID</th><th>Process</th><th>VRAM</th></tr></thead>
+    <tbody id="procs"><tr><td colspan="4" class="k">—</td></tr></tbody></table></div>
 
   <h2 id="consumers">Consumers</h2>
   <div class="two">
@@ -318,8 +318,9 @@ function paintState(s) {
 function syncPower() {
   const btn = $('pl-apply');
   const watts = Number($('pl').value);
-  const limit = last && last.gpu ? Number(last.gpu.power_limit) : NaN;
-  const same = !Number.isNaN(limit) && watts === limit;
+  const limits = last && last.gpu && Array.isArray(last.gpu.power_limits)
+    ? last.gpu.power_limits.map(Number) : [];
+  const same = limits.length > 0 && limits.every((l) => l === watts);
   btn.textContent = same ? 'Apply ' + watts + ' W (already active)' : 'Apply ' + watts + ' W';
   // Leave the button alone while it is busy; setBusy() restores it afterwards.
   if (!btn.classList.contains('busy')) btn.disabled = same;
@@ -332,22 +333,38 @@ async function refresh() {
   catch (e) { if (!String(e.message).includes('session')) $('gpu-name').textContent = 'no connection'; return; }
   last = s;
   const g = s.gpu || {};
-  const usedPct = Math.round(100 * g.mem_used / g.mem_total);
-  $('gpu-name').textContent = `${g.name} · driver ${g.driver}`;
-  $('gpu-cards').innerHTML =
-    card('Utilization', g.util + ' %', g.util) +
-    card('VRAM', `${(g.mem_used/1024).toFixed(1)} / ${(g.mem_total/1024).toFixed(1)} GiB`, usedPct) +
-    card('Temperature', g.temp + ' °C') +
-    card('Power', `${g.power_draw} / ${g.power_limit} W`) +
-    card('SM / Mem clock', `${g.clk_sm} / ${g.clk_mem} MHz`);
-  $('pl-now').textContent = g.power_limit + ' W';
+  const gpus = Array.isArray(s.gpus) && s.gpus.length ? s.gpus : [g];
+  $('gpu-name').textContent = gpus.length > 1
+    ? `${gpus.length} × ${g.name} · driver ${g.driver}`
+    : `${g.name} · driver ${g.driver}`;
+  $('gpu-cards').innerHTML = gpus.map((x) => {
+    const usedPct = Math.round(100 * x.mem_used / x.mem_total);
+    const link = x.pcie_gen && x.pcie_gen !== 'N/A'
+      ? `PCIe Gen${x.pcie_gen} ×${x.pcie_width}` : '';
+    return `<div style="margin-bottom:14px">
+      <div class="k" style="margin:0 0 6px">
+        <b style="color:var(--fg)">GPU ${x.index}</b>
+        <span class="mono"> · ${link}${link ? ' · ' : ''}${x.mem_total} MiB</span>
+        <span class="pill ${Number(x.util) > 0 ? 'ok' : 'off'}">${Number(x.util) > 0 ? 'busy' : 'idle'}</span>
+      </div>
+      <div class="grid">${
+        card('Utilization', x.util + ' %', x.util) +
+        card('VRAM', `${(x.mem_used/1024).toFixed(1)} / ${(x.mem_total/1024).toFixed(1)} GiB`, usedPct) +
+        card('Temperature', x.temp + ' °C') +
+        card('Power', `${x.power_draw} / ${x.power_limit} W`) +
+        card('SM / Mem clock', `${x.clk_sm} / ${x.clk_mem} MHz`)
+      }</div>
+    </div>`;
+  }).join('');
+  $('pl-now').textContent = gpus.map((x) => x.power_limit).join(' / ') + ' W';
   $('pl-range').textContent = `${g.power_min}–${g.power_max} W`;
   const pl = $('pl');
   pl.min = g.power_min; pl.max = g.power_max;
   $('pl-val').textContent = pl.value + ' W';
-  $('procs').innerHTML = (g.processes || []).length
-    ? g.processes.map(p => `<tr><td>${p.pid}</td><td class="mono">${p.name}</td><td>${p.mem_mib} MiB</td></tr>`).join('')
-    : '<tr><td colspan="3" class="k">—</td></tr>';
+  const procs = gpus.flatMap((x) => (x.processes || []).map((p) => ({...p, gpu: x.index})));
+  $('procs').innerHTML = procs.length
+    ? procs.map(p => `<tr><td class="mono">${p.gpu}</td><td>${p.pid}</td><td class="mono">${p.name}</td><td>${p.mem_mib} MiB</td></tr>`).join('')
+    : '<tr><td colspan="4" class="k">—</td></tr>';
 
   autoState = s.auto || {};
   $('llm-idle').value = autoState.llama_idle_min;
