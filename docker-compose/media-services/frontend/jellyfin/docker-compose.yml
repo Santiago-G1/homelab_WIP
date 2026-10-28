@@ -8,9 +8,8 @@ services:
       - ./config:/config
       - /mnt/media/series:/data/tvshows
       - /mnt/media/movies:/data/movies
-      # NVENC/NVDEC userspace libs for jellyfin-ffmpeg. There is no
-      # nvidia-container-runtime inside the LXC, so bind-mount the driver
-      # libraries roles/nvidia installs.
+      # No nvidia-container-runtime inside the LXC: bind-mount the libraries
+      # roles/nvidia installs.
       - /usr/lib/x86_64-linux-gnu/libcuda.so.1:/usr/lib/x86_64-linux-gnu/libcuda.so.1:ro
       - /usr/lib/x86_64-linux-gnu/libnvidia-encode.so.1:/usr/lib/x86_64-linux-gnu/libnvidia-encode.so.1:ro
       - /usr/lib/x86_64-linux-gnu/libnvcuvid.so.1:/usr/lib/x86_64-linux-gnu/libnvcuvid.so.1:ro
@@ -19,9 +18,8 @@ services:
       - /usr/lib/x86_64-linux-gnu/libnvidia-ptxjitcompiler.so.1:/usr/lib/x86_64-linux-gnu/libnvidia-ptxjitcompiler.so.1:ro
     ports:
       - 8096:8096
-    # Tesla P100 (NVENC/NVDEC) passed through by terraform/proxmox/lxc_media.tf,
-    # plus the Intel iGPU as VAAPI fallback. The nodes belong to gid 44 (video);
-    # the image runs Jellyfin as uid 911 (abc), hence group_add.
+    # P100 (NVENC/NVDEC) from lxc_media.tf plus the iGPU for VAAPI fallback.
+    # The nodes are gid 44 (video) and Jellyfin runs as uid 911, hence group_add.
     devices:
       - /dev/nvidia0:/dev/nvidia0
       - /dev/nvidiactl:/dev/nvidiactl

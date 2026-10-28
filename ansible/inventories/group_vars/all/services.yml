@@ -1,36 +1,18 @@
 ---
-# Single source of truth for the web services published through Caddy.
+# Service catalog: each entry becomes a Caddy route and a Glance card, so a
+# service is declared once.
 #
-# Every entry becomes a route in the Caddyfile
-# (roles/stacks/templates/caddy-Caddyfile.j2) and a card in the Glance
-# dashboard (roles/stacks/templates/glance.yml.j2), so a service is declared
-# once and the proxy, the availability list, the bookmarks and the release
-# tracker all follow from it.
-#
-#   host     subdomain label; the published name is <host>.<vault_domainname_hs>
-#   server   inventory hostname the service runs on; its LAN address comes from
-#            hostvars, never from this file
-#   port     published port, from the service_ports map below
-#   title    name shown in the dashboard
-#   icon     di: dashboard-icons, sh: selfh.st, si: simple-icons, mdi: material
-#   group    dashboard section; the bookmarks and monitors are grouped by it
-#   path     path probed for availability, relative to the published name
-#   ok       extra status codes that count as reachable (see ok_status_codes)
-#   check    false keeps the service out of the availability widget
-#   verify   true adds it to the route checks in playbooks/verify.yml
-#   release  GitHub repository tracked by the "updates" widget
-#   note     comment rendered next to the route in the Caddyfile
+#   host, server, port, title, icon, group   identity and placement
+#   path, ok       availability probe (path relative to the published name)
+#   check: false   keep it out of the availability widget
+#   verify: true   also probe it end to end in playbooks/verify.yml
+#   release        GitHub repo for the "updates" widget
+#   note           line rendered next to the route in the Caddyfile
 
-# A 401 or 403 still proves the service answered; it is what several of them
-# reply without a session. Everything below 400 counts as reachable anyway,
-# so only 4xx codes need to be listed.
-ok_status_codes: [401, 403]
+ok_status_codes: [401, 403]   # several services answer 401/403 without a session
 
-# Every LAN port Ansible has to know about, in one place: the catalog's backends
-# below and each host's health checks in host_vars read from here, so a service
-# that moves to another port is a one-line change. The compose file of the stack
-# still owns the published port (that is what Docker does); this map has to
-# match it, which is what playbooks/verify.yml checks end to end.
+# Every LAN port Ansible needs, in one place. The compose files own the real
+# published ports and this map has to match them (playbooks/verify.yml checks).
 service_ports:
   blocky: 4000
   glance: 8080

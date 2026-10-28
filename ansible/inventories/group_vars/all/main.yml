@@ -1,22 +1,14 @@
 ---
 # Shared settings for every managed host.
-
 timezone: America/Bogota
-
-# The lab's LAN, in CIDR form: the Tailscale subnet router advertises it.
-lan_cidr: 192.168.10.0/24
-
-# Repo of this lab, for the dashboard's "!lab" shortcut (Glance).
+lan_cidr: 192.168.10.0/24    # advertised by the Tailscale subnet router
 homelab_repo: Santiago-G1/homelab_WIP
 
-# Environment every stack gets, merged under its own `env` entry by
-# roles/stacks. Keeps the zone and the timezone out of every host_vars file and
-# out of each compose file: containers read them from the rendered .env.
+# Merged under each stack's own env; containers read them from the .env.
 stack_env_common:
   DOMAINNAME_HS: "{{ vault_domainname_hs }}"
   TZ: "{{ timezone }}"
 
-# Where each Docker Compose project is deployed on the target host.
 stacks_root: /opt/docker
 compose_src_root: "{{ playbook_dir }}/../../docker-compose"
 
@@ -41,22 +33,12 @@ docker_packages:
   - docker-compose-plugin
 
 docker_daemon_options:
-  # Keep container logs from filling the thin LVM pool.
-  log-driver: json-file
+  log-driver: json-file    # cap the logs so they cannot fill the thin LVM pool
   log-opts:
     max-size: 10m
     max-file: "3"
 
-# Every container runs node_exporter; Prometheus scrapes them on port 9100.
-node_exporter_targets: >-
-  {{ (groups['lxc'] + groups['management'])
-     | map('extract', hostvars, 'ansible_host')
-     | map('regex_replace', '$', ':9100')
-     | list }}
-
-# The same hosts keyed by inventory name. A scrape target built from this one
-# carries its hostname as a label, so every panel can say `immich` instead of
-# `192.168.10.22` without translating anything downstream.
+# Scrape targets, keyed by inventory name so every series carries its hostname.
 node_exporter_hosts: >-
   {{ dict((groups['lxc'] + groups['management'])
      | zip((groups['lxc'] + groups['management'])

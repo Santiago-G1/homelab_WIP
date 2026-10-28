@@ -12,9 +12,8 @@ variable "proxmox_api_url" {
   type        = string
 }
 
-# PVE only lets the root@pam user itself create bind mount points and change
-# feature flags (keyctl, fuse): API tokens get an HTTP 403. So authenticate as
-# root@pam with its password (kept in terraform.tfvars, gitignored).
+# Bind mount points and feature flags are root@pam only (API tokens get a 403),
+# so authenticate as root@pam with the password from terraform.tfvars.
 variable "proxmox_username" {
   description = "Proxmox user; must be root@pam for bind mounts and feature flags"
   type        = string
@@ -27,11 +26,8 @@ variable "proxmox_password" {
   sensitive   = true
 }
 
-# The address the provider reaches the node on over SSH; it is not always the
-# same name the API is published under (NAT, split DNS).
-# The node's API certificate is self-signed in a plain homelab, which is what
-# insecure = true tolerates. Set it to false once the PVE node has a trusted
-# certificate (or the CA is installed on the machine running Terraform).
+# Over SSH; not always the name the API is published under (NAT, split DNS).
+# insecure = true tolerates the node's self-signed certificate.
 variable "proxmox_tls_insecure" {
   description = "Skip TLS verification of the Proxmox API certificate"
   type        = bool

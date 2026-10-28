@@ -3,10 +3,9 @@ services:
     image: cloudflare/cloudflared:2026.9.3@sha256:072c067d25ccbe61d46e18f0d0723255f2bb5304f7317caa95b27031520ff92c
     container_name: cloudflared
     restart: unless-stopped
-    # Remotely managed tunnel: the ingress rules live in the Cloudflare
-    # dashboard, the token only authenticates this connector.
+    # Remotely managed: the ingress lives in Cloudflare, the token only
+    # authenticates the connector.
     command: tunnel --no-autoupdate run
     environment:
-      # Read from the environment so the token never shows up in the process
-      # arguments.
+      # From the environment: the token never shows up in the process arguments.
       - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN:?CLOUDFLARE_TUNNEL_TOKEN is required}

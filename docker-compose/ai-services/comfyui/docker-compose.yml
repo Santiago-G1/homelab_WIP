@@ -1,6 +1,5 @@
-# ComfyUI on the P100. It shares the card with llama.cpp, Immich ML and Jellyfin
-# NVENC, so the GPU panel starts it as a fourth, on-demand "mode" instead of
-# leaving it resident: llama.cpp alone holds ~15.8 of the 16 GB.
+# ComfyUI on the P100. The GPU panel starts it on demand: llama.cpp alone holds
+# ~15.8 of the 16 GB.
 services:
   comfyui:
     build:
@@ -11,8 +10,7 @@ services:
         IPADAPTER_NODES_VERSION: ${COMFYUI_IPADAPTER_VERSION:?set it in host_vars/llm/main.yml}
     image: comfyui:pascal
     container_name: comfyui
-    # The panel decides when the card is free; after a reboot this stays down
-    # until Image mode is selected.
+    # The panel owns its lifetime; it stays down after a reboot.
     restart: "no"
     devices:
       - /dev/nvidia0
@@ -20,37 +18,30 @@ services:
       - /dev/nvidia-uvm
       - /dev/nvidia-uvm-tools
     volumes:
-      # Models live on the tank, next to the llama.cpp GGUFs, in ComfyUI's own
-      # layout (unet/, clip/, vae/, ...). Manager downloads land here too.
       - ${IMAGE_MODELS_PATH:?}:/opt/ComfyUI/models
-      # Workflows, settings and reference images: the old ai-dock workspace.
       - ${WORKSPACE_PATH:?}/ComfyUI/user:/opt/ComfyUI/user
       - ${WORKSPACE_PATH:?}/ComfyUI/input:/opt/ComfyUI/input
       - ${OUTPUT_PATH:?}:/opt/ComfyUI/output
-      # Persisted node installs (the entrypoint copies the baked ones here).
       - ./custom_nodes:/opt/ComfyUI/custom_nodes
-      # An unprivileged LXC cannot run nvidia-container-cli (it needs
-      # CAP_MKNOD), so the container gets the CT's driver libraries directly.
-      # Everything else (cuBLAS, cuDNN, nvrtc) comes from the torch wheels.
+      # An unprivileged LXC cannot run nvidia-container-cli (CAP_MKNOD), so the
+      # CUDA driver comes straight from the CT; the rest is in the torch wheels.
       - /usr/lib/x86_64-linux-gnu/libcuda.so.1:/usr/lib/x86_64-linux-gnu/libcuda.so.1:ro
       - /usr/lib/x86_64-linux-gnu/libcuda.so:/usr/lib/x86_64-linux-gnu/libcuda.so:ro
       - /usr/lib/x86_64-linux-gnu/libnvidia-ptxjitcompiler.so.1:/usr/lib/x86_64-linux-gnu/libnvidia-ptxjitcompiler.so.1:ro
     ports:
-      # 8080 belongs to llama.cpp and 8081 to SearXNG on this host.
+      # 8080 is llama.cpp and 8081 SearXNG on this host.
       - "${COMFYUI_PUBLISH_PORT:?}:8188"
     environment:
       TZ: ${TZ:-Etc/UTC}
       COMFYUI_ARGS: ${COMFYUI_ARGS:?}
-      # Triton (a hard import of comfy_kitchen) resolves libcuda through
-      # `ldconfig -p`, which cannot see a bind-mounted driver library.
+      # Triton resolves libcuda through `ldconfig -p`, which misses a bind mount.
       TRITON_LIBCUDA_PATH: /usr/lib/x86_64-linux-gnu
     healthcheck:
       test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://127.0.0.1:8188/system_stats"]
       interval: 30s
       timeout: 5s
       retries: 3
-      # First start imports torch, comfy-kitchen and every node: tens of seconds.
-      start_period: 90s
+      start_period: 90s   # torch, comfy-kitchen and every node load on first start
     networks:
       - ai-stack
 

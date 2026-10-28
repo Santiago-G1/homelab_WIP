@@ -6,8 +6,7 @@
     - common
     - node_exporter
 
-# NVIDIA userspace driver where the Tesla P100 is used. Runs before the stacks
-# that bind-mount its libraries.
+# NVIDIA userspace driver where the P100 is used, before the stacks using it.
 - name: GPU hosts (NVIDIA userspace driver)
   hosts: gpu
   roles:
@@ -20,22 +19,20 @@
     - docker
     - stacks
 
-# The control node is monitored as well, but it is not re-configured by the
-# base role (it is the machine running Ansible).
+# The control node is monitored but never reconfigured by the base role.
 - name: Monitoring agent on the control node
   hosts: management
   roles:
     - node_exporter
 
-# The VPN container runs the daemon natively, not as a Compose stack.
+# The VPN container runs the daemon natively.
 - name: Tailscale subnet router
   hosts: vpn
   roles:
     - tailscale
 
-# llama.cpp in router mode, compiled on the container: no Docker for it, the
-# LiteLLM stack next to it is deployed by the docker_hosts play above.
-# NVIDIA userspace driver first, then CUDA toolkit + llama.cpp + systemd unit.
+# llama.cpp in router mode, compiled on the container (LiteLLM comes from the
+# docker_hosts play above): NVIDIA driver, then CUDA toolkit + llama.cpp + unit.
 - name: AI host (llama.cpp bare metal)
   hosts: ai
   roles:

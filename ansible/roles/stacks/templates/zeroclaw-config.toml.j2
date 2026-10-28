@@ -1,13 +1,10 @@
-# Rendered by Ansible (roles/stacks) into /zeroclaw-data/.zeroclaw/config.toml.
-# Secrets arrive as ZEROCLAW_* env overrides, never here. The daemon adds
-# pairing tokens to this file, so expect drift there. See README.md.
+# Rendered by Ansible. Secrets arrive as ZEROCLAW_* env overrides, never here;
+# the daemon adds pairing tokens to this file, so expect drift.
 schema_version = 3
 
 [providers.models.litellm.local]
 uri = "{{ zeroclaw_litellm_uri }}"
 model = "{{ zeroclaw_model }}"
-# Same window llama.cpp serves for the agent model; the runtime keeps a smaller
-# input budget (zeroclaw_max_context_tokens).
 context_window = {{ zeroclaw_context_window }}
 max_tokens = 8192
 
@@ -16,7 +13,7 @@ enabled = true
 model_provider = "litellm.local"
 risk_profile = "sandboxed"
 runtime_profile = "agent"
-# An enabled channel no agent lists is not started, so be explicit.
+# An enabled channel no agent lists is not started.
 channels = ["telegram.home"]
 
 [agents.default.workspace]
@@ -24,7 +21,7 @@ channels = ["telegram.home"]
 path = "/opt/docker/zeroclaw/workspace"
 
 [risk_profiles.sandboxed]
-# `supervised` asks before risky tools; the sandbox confines what runs.
+# `supervised` asks before risky tools.
 level = "supervised"
 workspace_only = true
 sandbox_enabled = true
@@ -34,19 +31,16 @@ sandbox_image = "zeroclaw-sandbox:1"
 [runtime_profiles.agent]
 agentic = true
 max_tool_iterations = 12
-# The agent's window, not the server's: leave room for the reply inside
-# llamacpp ctx-size (see zeroclaw_max_context_tokens in host_vars).
+# The agent's budget, not the server's: leaves room for the reply.
 max_context_tokens = {{ zeroclaw_max_context_tokens | default(24000) }}
 
 [web_search]
-# DuckDuckGo's HTML endpoint starts answering empty results for this daemon
-# after a handful of queries from the same IP, so search goes through the
-# SearXNG instance on the shared network. See the searxng stack's README.
+# DuckDuckGo starts returning empty results after a few queries, so search goes
+# through the SearXNG instance on the shared network.
 search_provider = "searxng"
 searxng_instance_url = "{{ zeroclaw_searxng_instance_url }}"
 max_results = 5
-# SearXNG caps a search at 12s (outgoing.max_request_timeout); do not wait
-# longer than the answer is worth.
+# SearXNG caps a search at 12s.
 timeout_secs = 15
 
 [channels.telegram.home]

@@ -1,20 +1,15 @@
-# Managed by Ansible (roles/stacks). Do not edit by hand.
-#
-# Prometheus evaluates roles/stacks/files (rules/homelab.yml) and pushes the
-# alerts that are firing here; this turns them into Telegram messages on the same
-# chat zeroclaw already uses. The bot token is a secret and lives in the vault,
-# which is why the stack renders this file with mode 0600.
+# Managed by Ansible; do not edit by hand. Prometheus pushes firing rules here
+# and this sends them to Telegram. Carries the bot token, hence mode 0600.
 global:
   resolve_timeout: 5m
 
 route:
   receiver: telegram
-  # One alertname per host is one conversation, not thirteen threads.
+  # One alertname per host is one conversation.
   group_by: [alertname, host]
   group_wait: 30s
   group_interval: 5m
-  # A warning still firing after four hours is worth repeating; anything noisier
-  # than that is a problem with the rule, not with the interval.
+  # A warning still firing after four hours is worth repeating.
   repeat_interval: 4h
   routes:
     - matchers: ['severity="critical"']

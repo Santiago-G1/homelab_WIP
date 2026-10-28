@@ -4,21 +4,13 @@
 #
 #   apply-patches.sh [PATCH_DIR]
 #
-# PATCH_DIR defaults to the first argument and must contain the *.patch files.
 # Environment:
 #   LLAMACPP_PATCH_OPTIONAL       space-separated basenames allowed to not apply
 #   LLAMACPP_PATCH_IGNORE_MISSING non-empty: every patch is optional
 #
-# Each patch is applied with `git apply`, which is exact-context but tolerates
-# line offsets. `patch -p1 -F0` is the fallback, still with zero fuzz: fuzzy
-# application is the dangerous failure mode here, it succeeds while landing a
-# hunk in the wrong place. There is deliberately no `git apply --3way` step —
-# it leaves conflict markers behind instead of failing, and the reset before
-# this runs means the base is always the requested tree.
-#
-# A patch that does not apply stops the run unless it is listed as optional
-# (or everything is), so the failure names the ref mismatch instead of the
-# build failing later on a half-patched tree.
+# No fuzzy application and no `git apply --3way`: both succeed while landing a
+# hunk in the wrong place, and a patch that does not apply has to stop the run
+# (unless it is listed as optional) so the failure names the ref mismatch.
 set -eu
 
 dir=${1:-}

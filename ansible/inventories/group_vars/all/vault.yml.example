@@ -7,9 +7,7 @@ vault_gf_database_name: grafana_prod_db
 vault_gf_database_password: change-me
 vault_gf_database_user: grafana_prod_user
 
-# Glance dashboard on the monitoring container. The session key must be base64
-# that decodes to exactly 64 bytes (Glance rejects anything else), so generate
-# it instead of typing one:
+# Glance session key: base64 that decodes to exactly 64 bytes.
 #   docker run --rm glanceapp/glance secret:make
 #   openssl rand -base64 64 | tr -d '\n'      # 88 characters
 vault_glance_secret_key: CHANGE-ME
@@ -19,13 +17,11 @@ vault_immich_db_database_name: immich_prod_db
 vault_immich_db_password: postgres
 vault_immich_db_username: postgres
 vault_immich_upload_location: /path/to/immich
-# Exact Immich tag: the server and the machine-learning image must match, and a
-# floating "release"/"v3" lets them drift apart between pulls.
+# Exact tag: server and ML images must match, so no floating "release".
 vault_immich_version: v3.2.2
 vault_litellm_db_password: change-me
 vault_litellm_master_key: sk-change-me
-# Backend key the router sends to llama.cpp, which ignores it. Not a real
-# secret, but it looks like one, so it stays out of the tracked files.
+# Ignored by llama.cpp, but it looks like a secret, so it stays out of git.
 vault_litellm_backend_api_key: sk-llamacpp
 vault_litellm_salt_key: change-me
 vault_llm_mount: /path/to/data
@@ -38,17 +34,15 @@ vault_slskd_username: SOULSEEK-NAME
 vault_sync_mount: /path/to/data
 vault_tailscale_auth_key: CHANGE-ME
 
-# SearXNG session/signing key (server.secret_key), rendered as SEARXNG_SECRET.
-# It must be random, and it never goes into the rendered settings.yml:
+# SearXNG server.secret_key; random, and never in the rendered settings.yml.
 #   openssl rand -hex 32
 vault_searxng_secret_key: CHANGE-ME
 
-# ZeroClaw -> LiteLLM virtual key (sk-...); rendered as ZEROCLAW_LITELLM_API_KEY
+# ZeroClaw -> LiteLLM virtual key.
 vault_zeroclaw_litellm_api_key: sk-replace-me
 
-# ZeroClaw Telegram bot token from @BotFather (<id>:<secret>); rendered as ZEROCLAW_TELEGRAM_BOT_TOKEN
+# ZeroClaw Telegram bot token from @BotFather (<id>:<secret>).
 vault_zeroclaw_telegram_bot_token: 123456789:replace-me
 
-# Telegram account allowed to talk to the agent (external_peers in the
-# ZeroClaw config). Numeric ID only: it survives a display-name change.
+# Telegram account allowed to talk to the agent; numeric ID only.
 vault_zeroclaw_telegram_user_id: 123456789
