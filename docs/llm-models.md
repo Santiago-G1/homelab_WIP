@@ -143,3 +143,46 @@ stable point, and the spare VRAM is spent on the unquantized f16 KV instead.
 Sampling is the Qwen3.6 model card, thinking mode for general tasks:
 `temp 1.0, top_p 0.95, top_k 20, min_p 0.0, presence_penalty 1.5,
 repetition_penalty 1.0`.
+
+## The 4B fast tier: Spark-X2.6-4B
+
+`Spark-X2.6-4B-Q4_K_M` (XHToken/Spark-X2.6-4B-GGUF, Apache-2.0, 4.45B
+parameters, 3.3 GiB) is the small tier: cheap answers, tool calls and long
+documents without waking the 35B. It is `spark2_5`, the architecture upstream
+llama.cpp learned at `b10828`; the fork carries it in `src/models/spark2-5.cpp`,
+so nothing has to be patched for it to load.
+
+It is a hybrid: 36 layers, every fourth with full attention and the rest
+sliding at 512 tokens. Only the 9 full layers grow with the context (~35.6 KiB/token in f16); the
+sliding ones stay at 512 tokens, which is why a 4B model can hold a six-figure
+window on a single card:
+
+| KV | ctx | VRAM on the card | decode, short | decode at depth |
+|---|---|---|---|---|
+| f16 | 131072 | 8.2 GiB | 80.6 t/s | 50.5 t/s at 99k |
+| f16 | 262144 | 12.8 GiB | 80.5 t/s | 61.5 t/s at 52k |
+| q8_0 | 262144 | 8.4 GiB | 60.6 t/s | — |
+| q8_0 | 524288 | 13.3 GiB | 60.6 t/s | 22.1 t/s at 199k |
+
+Prefill is 1,203 t/s at `pp2048` (llama-bench, ub 1024/2048) and 617 t/s on a
+99,382-token prompt, with the needle in the middle retrieved and
+`truncated = 0`. `flash-attn on` is worth 13 % of the decode (95.2 vs 84.1 t/s)
+and ub 2048 changes nothing at depth (615.6 vs 617.6 t/s) for 286 MiB more.
+
+The preset stays at 131072 in f16 on **one** card, because that is the point
+where the tier is still cheap: 8.2 GiB leaves the other card for Immich ML.
+`split-mode none` + `main-gpu 1` pins it there (Immich only ever binds
+`/dev/nvidia0`), and a 6.5 GiB neighbour on card 0 was measured alongside it
+without either model noticing. Splitting the layers across both P100s buys
+nothing (94.9 vs 95.7 t/s) — decode is bandwidth-bound, and it would put the
+model back on the card Immich uses.
+
+Thinking is part of the model: the chat template takes `enable_thinking`
+(default true) and `reasoning_effort` (`high` default, or `low`), both sent as
+`chat_template_kwargs` and both rendered by `jinja: "on"`. The answer arrives in
+`content` and the thinking channel in `reasoning_content`.
+
+Note the window ladder before promoting it: 262144 in f16 is 12.8 GiB of the
+16 GiB card and it did load, but the host hard-reset once right after that load
+(see the reset notes) — the 131k preset is the one that has been exercised
+repeatedly, including 200k-token prompts.
