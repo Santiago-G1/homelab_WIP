@@ -2,15 +2,20 @@
 # the daemon adds pairing tokens to this file, so expect drift.
 schema_version = 3
 
-[providers.models.litellm.local]
+{% for m in llm_models | selectattr('agent_alias', 'defined') %}
+[providers.models.litellm.{{ m.agent_alias }}]
 uri = "{{ zeroclaw_litellm_uri }}"
-model = "{{ zeroclaw_model }}"
-context_window = {{ zeroclaw_context_window }}
+model = "{{ m.name }}"
+context_window = {{ m.args['ctx-size'] if m.args is defined and m.args['ctx-size'] is defined else zeroclaw_context_window }}
 max_tokens = 8192
+{% if m.args is defined and m.args['temp'] is defined %}
+temperature = {{ m.args['temp'] }}
+{% endif %}
 
+{% endfor %}
 [agents.default]
 enabled = true
-model_provider = "litellm.local"
+model_provider = "litellm.{{ zeroclaw_primary_alias }}"
 risk_profile = "sandboxed"
 runtime_profile = "agent"
 # An enabled channel no agent lists is not started.

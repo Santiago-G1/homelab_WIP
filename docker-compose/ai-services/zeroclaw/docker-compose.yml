@@ -13,6 +13,9 @@ services:
     environment:
       # Secrets only, as ZEROCLAW_<a.b.c> overrides.
       - ZEROCLAW_providers__models__litellm__local__api_key=${ZEROCLAW_LITELLM_API_KEY:?ZEROCLAW_LITELLM_API_KEY is required}
+      # One override per provider profile; the alias mirrors `agent_alias`
+      # in models.yml.
+      - ZEROCLAW_providers__models__litellm__coder__api_key=${ZEROCLAW_LITELLM_API_KEY:?ZEROCLAW_LITELLM_API_KEY is required}
       - ZEROCLAW_channels__telegram__home__bot_token=${ZEROCLAW_TELEGRAM_BOT_TOKEN:?ZEROCLAW_TELEGRAM_BOT_TOKEN is required}
       - ZEROCLAW_gateway__host=0.0.0.0
       - ZEROCLAW_gateway__allow_public_bind=true

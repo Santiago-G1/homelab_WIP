@@ -81,6 +81,7 @@ llm_models:
   # full 244k-token prompt, 14.3 + 14.7 GiB. Drafting past 3 tokens halves the
   # acceptance, and ub 2048 buys nothing at 6k while eating the VRAM headroom.
   - name: Cyber-Tiel-Coder-35B-A3B-MTP-UD-Q4_K_XL
+    agent_alias: coder
     args:
       n-gpu-layers: 99
       ctx-size: 262144
@@ -113,6 +114,7 @@ llm_models:
   # a single slot are the stable point (ub 2048 dies on a long prefill).
   - name: Qwen3.6-35B-A3B-MTP-UD-Q4_K_XL
     agent: true
+    agent_alias: local
     args:
       n-gpu-layers: 99
       ctx-size: 262144
@@ -196,3 +198,7 @@ llamacpp_model_overrides: >-
   {{ llm_models | selectattr('args', 'defined')
      | items2dict(key_name='name', value_name='args') }}
 zeroclaw_model: "{{ (llm_models | selectattr('agent', 'defined') | first).name }}"
+# Each `agent_alias` becomes a ZeroClaw provider profile (`litellm.<alias>`), so
+# the chat can switch between them with `/models litellm.<alias>`.
+zeroclaw_primary_alias: "{{ (llm_models | selectattr('agent', 'defined') | first).agent_alias }}"
+zeroclaw_models: "{{ llm_models | selectattr('agent_alias', 'defined') | map(attribute='name') | list }}"

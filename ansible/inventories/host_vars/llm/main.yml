@@ -74,7 +74,7 @@ stacks:
       database_env: LITELLM_DB_NAME
     agent_keys:
       - value: "{{ vault_zeroclaw_litellm_api_key }}"
-        models: ["{{ zeroclaw_model }}"]
+        models: "{{ zeroclaw_models }}"
 
   - name: searxng
     src: ai-services/searxng

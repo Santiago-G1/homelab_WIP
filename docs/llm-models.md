@@ -76,6 +76,33 @@ request"* — is a name mismatch: a `.gguf` file name passed as a model, or a
 virtual key that is not allowed to see the model. Both come from the same
 `models.yml` entry now.
 
+## More than one model for the agent
+
+`zeroclaw` talks to LiteLLM through one provider profile per model, so the agent
+can switch models in the chat without touching the config:
+
+```yaml
+  - name: Qwen3.6-35B-A3B-MTP-UD-Q4_K_XL
+    agent: true            # the agent's default model
+    agent_alias: local     # profile `litellm.local`
+  - name: Cyber-Tiel-Coder-35B-A3B-MTP-UD-Q4_K_XL
+    agent_alias: coder     # profile `litellm.coder`
+```
+
+Every entry with `agent_alias` becomes `[providers.models.litellm.<alias>]` in
+`config.toml`, carrying that model's own `ctx-size` and `temp`. `agent: true`
+picks the default; `zeroclaw_models` derives the LiteLLM virtual key's allowlist
+from the same list.
+
+In Telegram: `/models` lists the profiles and the current pick,
+`/models litellm.coder` switches (session-scoped, per sender), and `/model` shows
+the active one. The second profile needs its own key override in the stack's
+compose (`ZEROCLAW_providers__models__litellm__coder__api_key`); the alias there
+must match `agent_alias`.
+
+The first request after a switch loads that model on the P100s (~5 min from the
+pool for a 21 GiB GGUF), so switching back and forth has a cost.
+
 ## The P100 is shared
 
 The card is 16 GB and llama.cpp is not the only tenant:
