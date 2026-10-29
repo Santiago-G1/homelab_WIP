@@ -28,10 +28,13 @@ zeroclaw_max_context_tokens: "{{ (zeroclaw_context_window | int * 3 // 4) }}"
 zeroclaw_message_timeout_secs: 900     # per channel message (LLM + tools)
 zeroclaw_provider_timeout_secs: 900    # per HTTP request to LiteLLM
 # Local models cost nothing per call, so the stock ceilings (12 iterations, 20
-# actions/hour, 2 KB per tool result, 8k reply) only cut real work short.
+# actions/hour, 8k reply) only cut real work short. A tool result is capped at
+# 8k chars on purpose: every result stays in the history and is re-prefilled at
+# ~550 t/s on the P100, so 40k-char pages were what made a turn sit 27 s before
+# the first token (long enough for the dashboard to cancel it).
 zeroclaw_max_tool_iterations: 40
 zeroclaw_max_actions_per_hour: 1000
-zeroclaw_max_tool_result_chars: 40000
+zeroclaw_max_tool_result_chars: 8000
 zeroclaw_max_tokens: 16384
 
 searxng_host: searxng

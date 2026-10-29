@@ -72,6 +72,29 @@ LiteLLM keeps a virtual key's model allowlist in its **database**, not in
 deploy (the `agent_keys` entry under the `litellm` stack in
 `host_vars/llm/main.yml`). No dashboard surgery is needed.
 
+## Prefill is the wait, and the prefix is what makes it short
+
+The P100 does ~550-900 tokens/s of prompt processing, so a 17k-token prompt is
+~27 s of silence before the first token (llama.cpp sends nothing until the
+prefill ends). llama.cpp reuses its KV cache only while the prompt matches the
+cached one token-for-token: asking the same thing again costs 0.35 s, but as
+soon as the prefix diverges the whole prompt is processed again.
+
+Two knobs keep that wait down, both of them in this host's config:
+
+- `cache-reuse: 256` in the 35B presets: after a divergence away from the start,
+  llama.cpp shifts the cached KV and reuses the matching chunks instead of
+  starting from zero. Without it the same 12k prompt cost 14.5 s on every turn
+  the agent rebuilt its history; with it, the tail is reused.
+- `zeroclaw_max_tool_result_chars` (8k): each tool result stays in the history
+  and is re-prefilled every turn, so a 40k-char web page is ~10k tokens of tax
+  on every later request.
+
+The dashboard cancels a turn when its WebSocket drops, which shows in the log as
+`request cancelled by user` / `interrupted by user` (and in llama.cpp as
+`Failed to read connection`) — not a timeout, so keep the tab in the foreground
+while a long prompt is being processed.
+
 The classic failure — ZeroClaw says *"The selected model provider rejected the
 request"* — is a name mismatch: a `.gguf` file name passed as a model, or a
 virtual key that is not allowed to see the model. Both come from the same

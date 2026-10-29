@@ -94,6 +94,10 @@ llm_models:
       parallel: 1
       batch-size: 2048
       ubatch-size: 1024
+      # Reuse the KV after a divergence instead of re-prefilling the whole
+      # prompt: the agent rebuilds its history every turn, so the prefix
+      # rarely matches token-for-token (see docs/llm-models.md).
+      cache-reuse: 256
       spec-type: draft-mtp
       spec-draft-n-max: 3
       spec-draft-p-min: 0.2
@@ -128,6 +132,10 @@ llm_models:
       parallel: 1
       batch-size: 2048
       ubatch-size: 1024
+      # Reuse the KV after a divergence instead of re-prefilling the whole
+      # prompt: the agent rebuilds its history every turn, so the prefix
+      # rarely matches token-for-token (see docs/llm-models.md).
+      cache-reuse: 256
       spec-type: draft-mtp
       spec-draft-n-max: 3
       spec-draft-p-min: 0.2
