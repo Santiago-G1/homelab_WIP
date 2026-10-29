@@ -29,6 +29,9 @@ docker_networks:
 zeroclaw_litellm_uri: http://litellm-proxy:4000/v1
 zeroclaw_context_window: 262144      # the agent model's ctx-size (models.yml)
 zeroclaw_max_context_tokens: 196608  # the rest is headroom for the reply
+# A 21 GiB model takes minutes to load from the pool before it answers.
+zeroclaw_message_timeout_secs: 900     # per channel message (LLM + tools)
+zeroclaw_provider_timeout_secs: 900    # per HTTP request to LiteLLM
 
 searxng_host: searxng
 searxng_port: 8080                      # llama.cpp owns 8080 on the LAN
