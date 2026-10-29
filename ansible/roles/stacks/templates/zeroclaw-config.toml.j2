@@ -7,7 +7,7 @@ schema_version = 3
 uri = "{{ zeroclaw_litellm_uri }}"
 model = "{{ m.name }}"
 context_window = {{ m.args['ctx-size'] if m.args is defined and m.args['ctx-size'] is defined else zeroclaw_context_window }}
-max_tokens = 8192
+max_tokens = {{ zeroclaw_max_tokens | default(16384) }}
 timeout_secs = {{ zeroclaw_provider_timeout_secs | default(900) }}
 {% if m.args is defined and m.args['temp'] is defined %}
 temperature = {{ m.args['temp'] }}
@@ -36,7 +36,12 @@ sandbox_image = "zeroclaw-sandbox:1"
 
 [runtime_profiles.agent]
 agentic = true
-max_tool_iterations = 12
+# Nothing here is billed per call, so what needs bounding is time and looping:
+# the stock 12 iterations, 20 actions/hour and 2 KB per tool result cut a normal
+# read -> edit -> test turn short.
+max_tool_iterations = {{ zeroclaw_max_tool_iterations | default(40) }}
+max_actions_per_hour = {{ zeroclaw_max_actions_per_hour | default(1000) }}
+max_tool_result_chars = {{ zeroclaw_max_tool_result_chars | default(40000) }}
 # The agent's budget, not the server's: leaves room for the reply.
 max_context_tokens = {{ zeroclaw_max_context_tokens | default(24000) }}
 
