@@ -184,5 +184,39 @@ Thinking is part of the model: the chat template takes `enable_thinking`
 
 Note the window ladder before promoting it: 262144 in f16 is 12.8 GiB of the
 16 GiB card and it did load, but the host hard-reset once right after that load
-(see the reset notes) — the 131k preset is the one that has been exercised
-repeatedly, including 200k-token prompts.
+(the same pattern as the resets under long prefills) — the 131k preset is the
+one that has been exercised repeatedly, including 200k-token prompts.
+
+## Both cards, and why P2P is not on the table
+
+The two P100s are not on the same root complex, and the driver says so before
+any copy is attempted:
+
+```
+$ nvidia-smi topo -p2p r
+        GPU0    GPU1
+ GPU0   X       CNS
+ GPU1   CNS     X            # CNS = chipset not supported
+
+$ ./p2ptest                  # cudaDeviceCanAccessPeer / enablePeerAccess
+ p2p 0->1: canAccessPeer=0
+ p2p 1->0: canAccessPeer=0
+ enablePeerAccess 0->1: peer access is not supported between these two devices
+```
+
+The host is an H61 board with an i5-3570: one card hangs off the CPU PEG port
+(`00:01.0`, Gen3 x16, `Speed 8GT/s, Width x16`) and the other off a chipset root
+port (`00:1c.0`, `Speed 5GT/s, Width x4`). The PCH does not forward peer-to-peer
+TLPs between that port and the PEG port, and the driver classifies the pair as
+`CNS` regardless of IOMMU state (there is no `intel_iommu=on` on the kernel
+command line, so it is not an IOMMU problem either). No driver or kernel flag
+overrides `CNS`: `GGML_CUDA_P2P=1` stays set as a harmless no-op, useful only on
+the day a card moves to a CPU slot.
+
+What that costs is smaller than it looks. With `split-mode layer` a single
+activation crosses the split per token, and a one-card model never touches the
+link: Spark-X2.6-4B measured the same 80.6 t/s of decode and 617 t/s of prefill
+on the Gen2 x4 card as on the Gen3 one. What it does rule out is tensor-parallel
+(`GGML_CUDA_AR_P2P`) and cheap peer copies — `cudaMemcpyPeerAsync` falls back to
+1.38 GiB/s here, six times slower than staging through host memory (8.47 GiB/s),
+so nothing should be built around cross-device copies.
