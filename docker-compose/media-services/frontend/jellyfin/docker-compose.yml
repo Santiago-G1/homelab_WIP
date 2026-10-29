@@ -6,8 +6,8 @@ services:
       - TZ=${TZ:-Etc/UTC}
     volumes:
       - ./config:/config
-      - /mnt/media/series:/data/tvshows
-      - /mnt/media/movies:/data/movies
+      - ${DATA_MOUNT:?DATA_MOUNT is required}/series:/data/tvshows
+      - ${DATA_MOUNT:?DATA_MOUNT is required}/movies:/data/movies
       # No nvidia-container-runtime inside the LXC: bind-mount the libraries
       # roles/nvidia installs.
       - /usr/lib/x86_64-linux-gnu/libcuda.so.1:/usr/lib/x86_64-linux-gnu/libcuda.so.1:ro

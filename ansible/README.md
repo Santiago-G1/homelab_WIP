@@ -111,16 +111,17 @@ ansible-vault edit inventories/group_vars/all/vault.yml
 ## Monitoring
 
 - Every container runs `node_exporter` (role `node_exporter`); the scrape targets
-  are derived from the inventory (`node_exporter_targets`).
-- `host_vars/monitoring.yml` declares the jobs (node exporter, Blocky DNS metrics
-  on `192.168.10.3:4000`, Prometheus itself) and the Prometheus and Grafana
+  are derived from the inventory (`node_exporter_hosts`).
+- `host_vars/monitoring.yml` declares the jobs (node exporter, Blocky's DNS
+  metrics on its API port, Prometheus itself) and the Prometheus and Grafana
   stacks.
 - `prometheus/rules/homelab.yml` holds three alert rules (host down, low disk,
   high memory). Grafana is provisioned with the Prometheus datasource and the
   `Homelab overview` dashboard, both versioned in the repo.
 
-Alerts are evaluated by Prometheus and shown in Prometheus and Grafana; there
-is no notification channel configured on purpose.
+Alerts are evaluated by Prometheus and shown in Prometheus and Grafana, and
+Alertmanager relays them to Telegram: the bot token and the chat id live in the
+vault (`vault_alertmanager_telegram_bot_token`, `vault_zeroclaw_telegram_user_id`).
 
 Certificates are issued by Let's Encrypt through the Cloudflare DNS-01 challenge
 (the token lives in the vault as `vault_cloudflare_api_token`), including the

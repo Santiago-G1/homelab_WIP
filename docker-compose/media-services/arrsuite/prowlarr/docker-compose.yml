@@ -7,8 +7,8 @@ services:
       - PGID=1000
       - TZ=${TZ:-Etc/UTC}
     volumes:
-      - /opt/docker/prowlarr/data:/config
-      - /mnt/data:/data
+      - ./data:/config
+      - ${DATA_MOUNT:?DATA_MOUNT is required}:/data
     ports:
       - "9696:9696"
     networks:

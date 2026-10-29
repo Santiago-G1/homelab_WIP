@@ -8,8 +8,8 @@ services:
       - TZ=${TZ:-Etc/UTC}
       - WEBUI_PORT=8080
     volumes:
-      - /opt/docker/qbittorrent/data:/config
-      - /mnt/data:/data
+      - ./data:/config
+      - ${DATA_MOUNT:?DATA_MOUNT is required}:/data
     ports:
       - "8080:8080"
       - "6881:6881"

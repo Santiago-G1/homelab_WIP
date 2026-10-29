@@ -28,6 +28,9 @@
     rsync_opts:
       - "--exclude=.env"
       - "--exclude=.env.template"
+      # Python bytecode from a local run is not part of the project.
+      - "--exclude=__pycache__"
+      - "--exclude=*.pyc"
       # Modes and owners of runtime dirs belong to the `dirs` task below.
       - "--no-owner"
       - "--no-group"
@@ -94,9 +97,15 @@
   changed_when: "'changed=1' in postgres_creds.stdout"
   when: stack.postgres is defined
 
+# An on-demand stack (stacks_on_demand, e.g. ComfyUI) is created but never
+# started here: the GPU panel owns its lifetime, and starting it during a deploy
+# would take the card away from llama.cpp. Its image is still built, so a
+# version bump is applied now and the panel starts it with the new image.
 - name: "{{ stack.name }} | bring the stack up"
   ansible.builtin.command:
-    cmd: "docker compose up -d --remove-orphans{{ ' --build' if stack.build | default(false) else '' }}"
+    cmd: >-
+      docker compose {{ 'create' if stack.name in (stacks_on_demand | default([])) else 'up -d' }}
+      --remove-orphans{{ ' --build' if stack.build | default(false) else '' }}
     chdir: "{{ stacks_root }}/{{ stack.name }}"
   register: compose_up
   changed_when: >-
@@ -108,7 +117,11 @@
   ansible.builtin.command:
     cmd: docker compose restart
     chdir: "{{ stacks_root }}/{{ stack.name }}"
-  when: stack_files.changed | default(false) or stack_sync.changed | default(false)
+  # `docker compose restart` also starts a stopped container, which would hand
+  # the card to an on-demand stack behind the panel's back.
+  when: >-
+    (stack_files.changed | default(false) or stack_sync.changed | default(false))
+    and stack.name not in (stacks_on_demand | default([]))
   changed_when: true
 
 # LiteLLM keeps a key's model allowlist in its database, not in config.yaml.

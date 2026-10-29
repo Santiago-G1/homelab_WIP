@@ -35,6 +35,31 @@
       changed_when: false
       failed_when: ondemand_ps.stdout | length == 0
 
+    # service_ports (group_vars/all/services.yml) mirrors what the compose files
+    # publish, and Caddy and Glance point at it. Read the real ports back here;
+    # the last play compares both lists.
+    - name: Read the ports every stack publishes
+      ansible.builtin.command:
+        cmd: docker compose config --format json
+        chdir: "{{ stacks_root }}/{{ stack.name }}"
+      loop: "{{ stacks | default([]) }}"
+      loop_control:
+        loop_var: stack
+        label: "{{ stack.name }}"
+      register: stack_configs
+      changed_when: false
+
+    - name: Collect the published host ports
+      ansible.builtin.set_fact:
+        published_ports: >-
+          {{ (published_ports | default([]))
+             + (stack_configs.results | map(attribute='stdout') | map('from_json')
+                | map(attribute='services') | map('dict2items') | flatten
+                | map(attribute='value') | selectattr('ports', 'defined')
+                | map(attribute='ports') | flatten
+                | selectattr('published', 'defined')
+                | map(attribute='published') | map('int') | list) }}
+
     # 0, 137 and 143 are deliberate stops (that is what the GPU panel sends);
     # anything else is a crash.
     - name: No container is left in a failed state
@@ -112,3 +137,29 @@
         url: "http://127.0.0.1:{{ service_ports.comfyui }}/system_stats"
         status_code: 200
       when: comfy_state.stdout | default('') == 'running'
+
+# The port map and the compose files are two declarations of the same ports;
+# this is what keeps them from drifting apart. It runs on the control node
+# because it needs every container's list, so a --limit run skips it.
+- name: The port map matches what Compose publishes
+  hosts: devops
+  gather_facts: false
+  vars:
+    # Syncthing publishes nothing: it runs with network_mode: host.
+    host_network_ports: [8384]
+    all_published_ports: >-
+      {{ groups['docker_hosts'] | map('extract', hostvars, 'published_ports')
+         | select('defined') | flatten | unique | sort }}
+    undeclared_ports: >-
+      {{ service_ports.values() | map('int') | sort
+         | difference((all_published_ports | map('int') | list) + host_network_ports) }}
+  tasks:
+    - name: Every service_ports entry is published by a stack
+      ansible.builtin.assert:
+        that: undeclared_ports | length == 0
+        fail_msg: >-
+          service_ports declares {{ undeclared_ports | join(', ') }} but no stack
+          publishes {{ 'it' if undeclared_ports | length == 1 else 'them' }}:
+          Caddy and Glance would point at a closed port.
+        success_msg: "{{ service_ports | length }} ports declared, all published."
+      when: all_published_ports | length > 0

@@ -1,6 +1,16 @@
 ---
 # Userspace driver only: the kernel module lives on the PVE host and the nodes
 # come from Terraform, so this installs the libraries at the host's version.
+# There is no default on purpose (group_vars/gpu): a stale one here is what
+# silently installs libraries that do not match the running kernel module.
+- name: Assert the driver version is declared
+  ansible.builtin.assert:
+    that: nvidia_driver_version is defined and nvidia_driver_version | length > 0
+    fail_msg: >-
+      Set nvidia_driver_version (group_vars/gpu) to the driver version the PVE
+      host reports with `nvidia-smi --query-gpu=driver_version`.
+  when: nvidia_driver_version is undefined or nvidia_driver_version | length == 0
+
 - name: Install prerequisites
   ansible.builtin.apt:
     name: [curl, ca-certificates, kmod, pkg-config, libglvnd-dev]
@@ -19,12 +29,14 @@
     url: "https://us.download.nvidia.com/tesla/{{ nvidia_driver_version }}/NVIDIA-Linux-x86_64-{{ nvidia_driver_version }}.run"
     dest: "/tmp/NVIDIA-{{ nvidia_driver_version }}.run"
     mode: "0755"
-  when: nvidia_driver_version not in nvidia_current.stdout
+  # `--check` skips the probe above, so stdout may not exist.
+  when: nvidia_driver_version not in (nvidia_current.stdout | default(''))
 
 - name: Install the driver (userspace only)
   ansible.builtin.command:
     cmd: "/tmp/NVIDIA-{{ nvidia_driver_version }}.run --no-kernel-module --no-drm --silent"
-  when: nvidia_driver_version not in nvidia_current.stdout
+  # `--check` skips the probe above, so stdout may not exist.
+  when: nvidia_driver_version not in (nvidia_current.stdout | default(''))
   changed_when: true
 
 - name: Confirm the GPU is visible

@@ -22,8 +22,10 @@ services:
 
     volumes:
       - ./data:/zeroclaw-data
-      # Absolute path must match the host: the daemon resolves the bind mount.
-      - ./workspace:/opt/docker/zeroclaw/workspace
+      # Absolute path, and it must match the host: the daemon resolves the bind
+      # mount, and config.toml names the same path. STACKS_ROOT is an env var for
+      # exactly that reason.
+      - ./workspace:${STACKS_ROOT:?STACKS_ROOT is required}/zeroclaw/workspace
       # The sandbox backend runs one `docker run` per command.
       - /var/run/docker.sock:/var/run/docker.sock
 

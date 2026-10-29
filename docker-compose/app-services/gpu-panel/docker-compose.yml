@@ -18,6 +18,8 @@ services:
       - PVE_HOST=${PVE_HOST:?PVE_HOST is required}
       - IMMICH_HOST=${IMMICH_HOST:?IMMICH_HOST is required}
       - FRONTEND_HOST=${FRONTEND_HOST:?FRONTEND_HOST is required}
+      # Jellyfin's config on that host, read over the same SSH.
+      - JELLYFIN_XML=${JELLYFIN_XML:?JELLYFIN_XML is required}
       # The AI container, entered by its Proxmox VM ID, holds the unit's logs.
       - AI_CTID=${AI_CTID:?AI_CTID is required}
       - LLAMA_LOG_UNIT=${LLAMA_LOG_UNIT:-llama-server}

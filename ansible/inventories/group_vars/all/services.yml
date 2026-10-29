@@ -12,7 +12,8 @@
 ok_status_codes: [401, 403]   # several services answer 401/403 without a session
 
 # Every LAN port Ansible needs, in one place. The compose files own the real
-# published ports and this map has to match them (playbooks/verify.yml checks).
+# published ports and this map has to match them: playbooks/verify.yml reads
+# them back from `docker compose config` and compares the two lists.
 service_ports:
   blocky: 4000
   glance: 8080

@@ -8,7 +8,7 @@ services:
     ports:
       - "5055:5055"
     volumes:
-      - /opt/docker/seerr/data:/app/config
+      - ./data:/app/config
     networks:
       - arrsuite-stack
     restart: unless-stopped

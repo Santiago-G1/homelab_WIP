@@ -11,8 +11,8 @@ services:
       - SLSKD_SLSK_USERNAME=${SLSKD_USERNAME:?SLSKD_USERNAME is required}
       - SLSKD_SLSK_PASSWORD=${SLSKD_PASSWORD:?SLSKD_PASSWORD is required}
     volumes:
-      - /opt/docker/slskd/data:/app
-      - /mnt/data/music:/music
+      - ./data:/app
+      - ${DATA_MOUNT:?DATA_MOUNT is required}/music:/music
     ports:
       - "5030:5030"
       - "5031:5031"

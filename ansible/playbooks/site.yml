@@ -32,9 +32,9 @@
     - tailscale
 
 # llama.cpp in router mode, compiled on the container (LiteLLM comes from the
-# docker_hosts play above): NVIDIA driver, then CUDA toolkit + llama.cpp + unit.
+# docker_hosts play above). The userspace driver is the GPU play's job: the AI
+# host is in [gpu], so it is installed before anything touches the card.
 - name: AI host (llama.cpp bare metal)
   hosts: ai
   roles:
-    - nvidia
     - llamacpp

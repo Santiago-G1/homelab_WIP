@@ -5,6 +5,11 @@
 docker_networks:
   - arrsuite-stack
 
+# /tank/media bind-mounted here (terraform/proxmox/lxc_media.tf). It goes into
+# every stack's .env as DATA_MOUNT so no compose file repeats the host path.
+stack_env_host:
+  DATA_MOUNT: /mnt/data
+
 stacks:
   - { name: bazarr,       src: media-services/arrsuite/bazarr }
   - { name: calibre,      src: media-services/arrsuite/calibre }

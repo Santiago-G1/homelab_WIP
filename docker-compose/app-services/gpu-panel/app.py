@@ -32,6 +32,8 @@ FRONTEND_HOST = os.environ["FRONTEND_HOST"]
 LLAMA_URL = os.environ["LLAMA_URL"]
 # llama-server is a systemd unit, so its logs are read over SSH to the PVE node.
 AI_CTID = os.environ["AI_CTID"]
+# Jellyfin's encoding.xml on the frontend host, read and rewritten over SSH.
+JELLYFIN_XML = os.environ["JELLYFIN_XML"]
 LLAMA_LOG_UNIT = os.environ.get("LLAMA_LOG_UNIT", "llama-server")
 LLAMA_LOG_MAX = 2000
 # On-demand stack: started here, stopped when the card goes back to llama.cpp.
@@ -58,7 +60,6 @@ if JELLYFIN_FALLBACK not in ("vaapi", "none"):
 LLAMA_PUBLIC_MODELS = [m.strip().lower() for m in os.environ.get("LLAMA_PUBLIC_MODELS", "").split(",") if m.strip()]
 
 IMMICH_ML = "immich_machine_learning"
-JELLYFIN_XML = "/opt/docker/jellyfin/config/encoding.xml"
 GPU_FIELDS = (
     "index,uuid,name,driver_version,memory.used,memory.total,utilization.gpu,temperature.gpu,"
     "power.draw,power.limit,power.default_limit,power.min_limit,power.max_limit,"

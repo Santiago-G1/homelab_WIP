@@ -23,6 +23,7 @@ Everything else is derived from that list:
 | `litellm_models` | `litellm-config.yaml.j2` → LiteLLM `/v1/models` |
 | `llamacpp_model_overrides` | `models.ini.j2` → the router's per-model preset |
 | `zeroclaw_model` | `zeroclaw-config.toml.j2` → the agent's provider |
+| `zeroclaw_context_window`, `zeroclaw_max_context_tokens` | `zeroclaw-config.toml.j2` → the agent's budget (the model's own `ctx-size`, and 3/4 of it for the context) |
 
 `name` is the `.gguf` file name **without** its extension: that is what the
 router advertises and what clients send. Only the top level of

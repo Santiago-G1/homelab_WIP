@@ -24,7 +24,7 @@ channels = ["telegram.home"]
 
 [agents.default.workspace]
 # Must match the compose bind mount: the sandbox mounts it by host path.
-path = "/opt/docker/zeroclaw/workspace"
+path = "{{ stacks_root }}/zeroclaw/workspace"
 
 [risk_profiles.sandboxed]
 # `supervised` asks before risky tools.

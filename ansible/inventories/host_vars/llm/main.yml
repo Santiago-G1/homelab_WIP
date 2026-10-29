@@ -1,24 +1,14 @@
 ---
 # P100 (sm_60). llama.cpp runs bare metal in router mode; LiteLLM, SearXNG,
 # ZeroClaw and ComfyUI are Compose stacks on the same host.
-nvidia_driver_version: "580.159.04"       # must match the driver on the PVE host
-cuda_toolkit_package: cuda-toolkit-12-8   # last CUDA line with Pascal support
-cuda_repo_distro: debian12
-llamacpp_cuda_root: /usr/local/cuda-12.8
-llamacpp_cuda_arch: "60-real"
-
+#
+# The CUDA/llama.cpp build defaults live in roles/llamacpp/defaults, and the
+# driver version in group_vars/gpu (this host is in [gpu]): only what differs
+# from those belongs here.
+#
+# The port is here and not only in the role default because the stacks below
+# read it too: llama.cpp, LiteLLM's api_base and the GPU panel have to agree.
 llamacpp_port: 8080
-llamacpp_build_jobs: 2                  # nvcc is memory hungry
-llamacpp_models_dir: /mnt/data/models   # /tank/cloud/llm on the PVE host
-llamacpp_models_max: 1
-llamacpp_preset_file: /etc/llama/models.ini
-
-llamacpp_global_args:
-  n-gpu-layers: 99
-  c: 8192
-  flash-attn: "on"
-
-llamacpp_cuda_force_mmq: "OFF"          # sm_60 has no dp4a
 
 litellm_api_base: "http://{{ ansible_host }}:{{ llamacpp_port }}/v1"
 litellm_backend_api_key: "{{ vault_litellm_backend_api_key }}"
@@ -27,8 +17,13 @@ docker_networks:
   - ai-stack
 
 zeroclaw_litellm_uri: http://litellm-proxy:4000/v1
-zeroclaw_context_window: 262144      # the agent model's ctx-size (models.yml)
-zeroclaw_max_context_tokens: 196608  # the rest is headroom for the reply
+# The agent model's window comes from models.yml, so switching models there
+# moves these two with it; the reply budget is the remaining quarter.
+zeroclaw_context_window: >-
+  {{ (llm_models | selectattr('agent', 'defined') | first).args | default({})
+     | dict2items | selectattr('key', 'equalto', 'ctx-size')
+     | map(attribute='value') | first | default(262144) }}
+zeroclaw_max_context_tokens: "{{ (zeroclaw_context_window | int * 3 // 4) }}"
 # A 21 GiB model takes minutes to load from the pool before it answers.
 zeroclaw_message_timeout_secs: 900     # per channel message (LLM + tools)
 zeroclaw_provider_timeout_secs: 900    # per HTTP request to LiteLLM
@@ -137,6 +132,9 @@ stacks:
       PVE_HOST: "root@{{ hostvars['pve'].ansible_host }}"
       IMMICH_HOST: "root@{{ hostvars['immich'].ansible_host }}"
       FRONTEND_HOST: "root@{{ hostvars['frontend'].ansible_host }}"
+      # Jellyfin's config on that host, read over the same SSH: the path follows
+      # stacks_root so the panel has no /opt/docker of its own.
+      JELLYFIN_XML: "{{ stacks_root }}/jellyfin/config/encoding.xml"
       AI_CTID: "126"   # this container, for llama-server's journald logs
       # Over the LAN: inside the panel container 127.0.0.1 is the panel itself.
       COMFY_URL: "http://{{ ansible_host }}:{{ service_ports.comfyui }}"

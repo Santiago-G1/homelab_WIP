@@ -4,10 +4,13 @@ timezone: America/Bogota
 lan_cidr: 192.168.10.0/24    # advertised by the Tailscale subnet router
 homelab_repo: Santiago-G1/homelab_WIP
 
-# Merged under each stack's own env; containers read them from the .env.
+# Merged under each stack's own env; containers read them from the .env. The
+# compose files interpolate STACKS_ROOT so their host paths follow this one.
+# A host can add to it with `stack_env_host` in its host_vars (roles/stacks).
 stack_env_common:
   DOMAINNAME_HS: "{{ vault_domainname_hs }}"
   TZ: "{{ timezone }}"
+  STACKS_ROOT: "{{ stacks_root }}"
 
 stacks_root: /opt/docker
 compose_src_root: "{{ playbook_dir }}/../../docker-compose"

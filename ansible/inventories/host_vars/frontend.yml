@@ -1,5 +1,9 @@
 ---
-# /tank/media is bind-mounted read-only at /mnt/media on this container.
+# /tank/media is bind-mounted read-only here (terraform/proxmox/lxc_media.tf),
+# and every stack below gets it as DATA_MOUNT instead of repeating the path.
+stack_env_host:
+  DATA_MOUNT: /mnt/media
+
 stacks:
   - { name: jellyfin,  src: media-services/frontend/jellyfin }
   - { name: komga,     src: media-services/frontend/komga }
