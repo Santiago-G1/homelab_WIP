@@ -75,10 +75,8 @@ llamacpp_cmake_args:
 # and the service runs it; when it is missing, the role's own build is used.
 llamacpp_kmic_binary: /opt/llama.cpp-kmic/build-opt/bin/llama-server
 llamacpp_kmic_env:
-  # A no-op on this board: the driver reports the pair as CNS ("chipset not
-  # supported"), so cross-device copies stage through host RAM whatever we ask
-  # for — and that staging is 6x faster than the peer-copy fallback. Kept set so
-  # a card moved to a CPU slot would benefit. See docs/llm-models.md.
+  # No-op on this board: the pairing is CNS, so cross-device copies stage
+  # through host RAM anyway (see docs/llm-models.md).
   GGML_CUDA_P2P: "1"
   # CUDA graphs for the single-token MTP draft only (1 = full graphs, OOM).
   GGML_CUDA_GRAPHS_PRE_VOLTA: "3"

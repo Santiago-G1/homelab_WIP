@@ -166,15 +166,10 @@ llm_models:
       temp: 0.1
       top-k: 50
       repeat-penalty: 1.05
-  # 4.45B hybrid (36 layers: every 4th full attention, the other 27 sliding at
-  # 512 tokens) with a 1M native window. Q4_K_M is 3.3 GiB, and only the 9 full
-  # layers grow their KV, at ~35.6 KiB/token in f16: 131072 costs 4.3 GiB,
-  # 262144 costs 8.9 GiB (12.8 GiB of card measured). q8_0 halves that but
-  # drops decode from 80.6 to 60.6 t/s and from 50.5 to 22.1 t/s at depth, so
-  # f16 it is. ub 2048 buys nothing here (617 -> 616 t/s at 99k) and costs VRAM.
-  # split-mode none + main-gpu 1 keeps it on the second card: Immich ML only
-  # ever binds /dev/nvidia0, so the fast tier and the photo indexer stop
-  # fighting over one card. No draft head in this GGUF, so no spec-type.
+  # Hybrid 4.45B: 9 of 36 layers attend fully and the rest slide at 512 tokens,
+  # so only ~35.6 KiB/token of KV in f16 and 131072 fits in 8.2 GiB of one card.
+  # On card 1 because Immich ML only binds /dev/nvidia0; q8_0 KV costs 25 % of
+  # the decode, so f16 is the floor here.
   - name: Spark-X2.6-4B-Q4_K_M
     args:
       n-gpu-layers: 99
@@ -189,9 +184,7 @@ llm_models:
       batch-size: 2048
       ubatch-size: 1024
       jinja: "on"
-      # Model card: temp 1.0, top_p 0.95, top_k off, no penalties. Thinking is
-      # on; send chat_template_kwargs {enable_thinking: false} for a direct
-      # answer, or {reasoning_effort: low} to shorten the thinking channel.
+      # Model card.
       temp: 1.0
       top-p: 0.95
       top-k: 0

@@ -146,82 +146,47 @@ repetition_penalty 1.0`.
 
 ## The 4B fast tier: Spark-X2.6-4B
 
-`Spark-X2.6-4B-Q4_K_M` (XHToken/Spark-X2.6-4B-GGUF, Apache-2.0, 4.45B
-parameters, 3.3 GiB) is the small tier: cheap answers, tool calls and long
-documents without waking the 35B. It is `spark2_5`, the architecture upstream
-llama.cpp learned at `b10828`; the fork carries it in `src/models/spark2-5.cpp`,
-so nothing has to be patched for it to load.
+`Spark-X2.6-4B-Q4_K_M` (4.45B, 3.3 GiB) is the small tier. Its architecture is
+`spark2_5`, which the fork carries in `src/models/spark2-5.cpp`, so it is data
+like any other model here. It is hybrid — 36 layers, every fourth attending
+fully and the rest sliding at 512 tokens — so only 9 layers grow, at ~35.6
+KiB/token of KV in f16.
 
-It is a hybrid: 36 layers, every fourth with full attention and the rest
-sliding at 512 tokens. Only the 9 full layers grow with the context (~35.6 KiB/token in f16); the
-sliding ones stay at 512 tokens, which is why a 4B model can hold a six-figure
-window on a single card:
-
-| KV | ctx | VRAM on the card | decode, short | decode at depth |
+| KV | ctx | VRAM on the card | decode, short | prefill |
 |---|---|---|---|---|
-| f16 | 131072 | 8.2 GiB | 80.6 t/s | 50.5 t/s at 99k |
-| f16 | 262144 | 12.8 GiB | 80.5 t/s | 61.5 t/s at 52k |
-| q8_0 | 262144 | 8.4 GiB | 60.6 t/s | — |
-| q8_0 | 524288 | 13.3 GiB | 60.6 t/s | 22.1 t/s at 199k |
+| f16 | 131072 | 8.2 GiB | 80.6 t/s | 1,203 t/s (pp2048) |
+| f16 | 262144 | 12.8 GiB | 80.5 t/s | — |
+| q8_0 | 524288 | 13.3 GiB | 60.6 t/s | — |
 
-Prefill is 1,203 t/s at `pp2048` (llama-bench, ub 1024/2048) and 617 t/s on a
-99,382-token prompt, with the needle in the middle retrieved and
-`truncated = 0`. `flash-attn on` is worth 13 % of the decode (95.2 vs 84.1 t/s)
-and ub 2048 changes nothing at depth (615.6 vs 617.6 t/s) for 286 MiB more.
+Prefill at 99,382 tokens is 617 t/s on one card and 782 t/s with layer split,
+with the needle in the middle retrieved. The preset stays at 131072 in f16 on
+**one** card: 8.2 GiB leaves the other for Immich ML, which only binds
+`/dev/nvidia0` (`split-mode none` + `main-gpu 1`), and a 6.5 GiB neighbour was
+measured next to it without either model noticing. Layer split is the
+long-document variant (+27 % prefill, KV 6.4 + 7.5 GiB at ctx 262144) but it
+takes both cards.
 
-The preset stays at 131072 in f16 on **one** card, because that is the point
-where the tier is still cheap: 8.2 GiB leaves the other card for Immich ML.
-`split-mode none` + `main-gpu 1` pins it there (Immich only ever binds
-`/dev/nvidia0`), and a 6.5 GiB neighbour on card 0 was measured alongside it
-without either model noticing.
+`flash-attn on` is worth 13 % of the decode, `ub 2048` buys nothing at depth.
+Thinking is on by default: `chat_template_kwargs` takes `enable_thinking` and
+`reasoning_effort` (`high`/`low`), and the answer arrives in `content` with the
+thinking channel in `reasoning_content`.
 
-Splitting is worth knowing about for the long-document case, though: pipelined
-layer split takes pp2048 from 1,206 to 1,533 t/s and a 99k prompt from 617 to
-782 t/s (+27 %) for 2.4 % of the decode (93.4 vs 95.7 t/s), and the KV splits
-too, so ctx 262144 lands at 6.4 + 7.5 GiB and the whole window fits. Numbers and
-the reason in "Both cards" below. It costs both cards, so it cannot coexist with
-Immich ML the way the single-card preset does — that trade is what decides it.
+## Both cards: no P2P, and what it costs
 
-Thinking is part of the model: the chat template takes `enable_thinking`
-(default true) and `reasoning_effort` (`high` default, or `low`), both sent as
-`chat_template_kwargs` and both rendered by `jinja: "on"`. The answer arrives in
-`content` and the thinking channel in `reasoning_content`.
-
-Note the window ladder before promoting it: 262144 in f16 is 12.8 GiB of the
-16 GiB card and it did load, but the host hard-reset once right after that load
-(the same pattern as the resets under long prefills) — the 131k preset is the
-one that has been exercised repeatedly, including 200k-token prompts.
-
-## Both cards, and why P2P is not on the table
-
-The two P100s are not on the same root complex, and the driver says so before
-any copy is attempted:
+The pair does not support peer access, and the driver says so before any copy:
 
 ```
-$ nvidia-smi topo -p2p r
-        GPU0    GPU1
- GPU0   X       CNS
- GPU1   CNS     X            # CNS = chipset not supported
-
-$ ./p2ptest                  # cudaDeviceCanAccessPeer / enablePeerAccess
- p2p 0->1: canAccessPeer=0
- p2p 1->0: canAccessPeer=0
- enablePeerAccess 0->1: peer access is not supported between these two devices
+$ nvidia-smi topo -p2p r        # CNS = chipset not supported, both ways
+$ ./p2ptest                     # cudaDeviceCanAccessPeer = 0, enablePeerAccess fails
 ```
 
-The host is an H61 board with an i5-3570: one card hangs off the CPU PEG port
-(`00:01.0`, Gen3 x16, `Speed 8GT/s, Width x16`) and the other off a chipset root
-port (`00:1c.0`, `Speed 5GT/s, Width x4`). The PCH does not forward peer-to-peer
-TLPs between that port and the PEG port, and the driver classifies the pair as
-`CNS` regardless of IOMMU state (there is no `intel_iommu=on` on the kernel
-command line, so it is not an IOMMU problem either). No driver or kernel flag
-overrides `CNS`: `GGML_CUDA_P2P=1` stays set as a harmless no-op, useful only on
-the day a card moves to a CPU slot.
-
-A one-card model never touches the link (Spark-X2.6-4B: the same 80.6 t/s of
-decode and 617 t/s of prefill on the Gen2 x4 card as on the Gen3 one), and a
-split one pays for it less than the topology suggests. Measured with
-`llama-bench`, ub 1024, f16 KV, tensor-split `1/1`:
+One card hangs off the CPU PEG port (`00:01.0`, Gen3 x16) and the other off a
+chipset root port (`00:1c.0`, Gen2 x4). The PCH does not forward peer-to-peer
+TLPs, and no driver or kernel flag overrides that (IOMMU is not even on), so
+`GGML_CUDA_P2P=1` stays as a no-op for the day a card moves to a CPU slot.
+Copies stage through host memory instead: 1.37 GiB/s card 0 -> card 1 and 1.51
+GiB/s back, while hand-rolled pinned staging is 10-15 % slower — nothing to
+patch.
 
 | Spark-X2.6-4B | pp512 | pp2048 | tg128 |
 |---|---|---|---|
@@ -229,23 +194,11 @@ split one pays for it less than the topology suggests. Measured with
 | layer split | 1,157 | **1,533** | 93.4 |
 | tensor split | 1,179 | 1,307 | 99.7 |
 
-Layer split is a *win* on prefill, not a tax: llama.cpp pipelines the ubatches,
-so the first card starts chunk N+1 while the second finishes chunk N. On a
-99,382-token prompt that is 782 t/s against 617 t/s on one card, with the decode
-unchanged (51.3 vs 50.5 t/s). `tensor` — the modern stand-in for the old `row`,
-still flagged experimental — trades 15 % of prefill for 4 % of decode on the 4B,
-and on the 35B-A3B it simply loses (decode 53.4 vs 63.9 t/s), so layer split
-stays the mode for anything that has to be split.
+Layer split pipelines the ubatches, so it *helps* prefill (99k prompt: 782 vs
+617 t/s) for 2.4 % of the decode. `tensor` — the stand-in for `row` — loses on
+the 35B-A3B (53.4 vs 63.9 t/s), so layer split stays the mode for anything that
+has to be split.
 
-What the missing P2P does rule out is building on peer copies. The driver stages
-them, and its staging is already the best available: `cudaMemcpyPeerAsync` moves
-1.37 GiB/s card 0 -> card 1 and 1.51 GiB/s back, against 1.20/1.31 GiB/s for a
-hand-rolled pinned-host bounce, so patching ggml to stage by hand would only make
-it slower. A 16 KiB boundary copy costs 36 µs — latency on the slow link, not
-bandwidth: at 60 t/s that is 0.2 % of a token.
-
-Watch the separator in `--tensor-split`: this build documents `1/1`, and
-`llama-bench` silently keeps the whole model on device 0 when handed `1,1`
-(which is how the first version of this page managed to "measure" a split that
-never happened). The server took both and allocated the same VRAM for `9,1` and
-`9/1`.
+`--tensor-split` takes `1/1`, not `1,1`: with a comma `llama-bench` keeps the
+whole model on device 0 and the numbers are meaningless. The server accepts
+both.
