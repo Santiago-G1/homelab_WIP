@@ -75,6 +75,38 @@ llm_models:
       cache-ram: 2048
       cache-reuse: 256
 
+  # Coding fine-tune of the same shape (unsloth-dynamic tiers, MTP head at Q3_K).
+  # UD-Q4_K_XL is the card's "start here". Measured on the two P100s with f16 KV:
+  # decode 60-71 t/s (acceptance ~73 %), 278 t/s prefill and 36 t/s decode over a
+  # full 244k-token prompt, 14.3 + 14.7 GiB. Drafting past 3 tokens halves the
+  # acceptance, and ub 2048 buys nothing at 6k while eating the VRAM headroom.
+  - name: Cyber-Tiel-Coder-35B-A3B-MTP-UD-Q4_K_XL
+    args:
+      n-gpu-layers: 99
+      ctx-size: 262144
+      cache-type-k: f16
+      cache-type-v: f16
+      flash-attn: "on"
+      split-mode: layer
+      tensor-split: "1,1"
+      fit: "off"
+      parallel: 1
+      batch-size: 2048
+      ubatch-size: 1024
+      spec-type: draft-mtp
+      spec-draft-n-max: 3
+      spec-draft-p-min: 0.2
+      spec-draft-ngl: 99
+      spec-draft-n-ubatch: 64
+      spec-draft-type-k: f16
+      spec-draft-type-v: f16
+      jinja: "on"
+      # Model card, agentic coding.
+      temp: 0.6
+      top-p: 0.95
+      top-k: 20
+      min-p: 0.0
+
   # MTP build: it carries the blk.40 draft head (the non-MTP file does not),
   # so speculative decoding works: decode 56-69 t/s vs 32.4, acceptance 58-69%.
   # The full 262144 window costs 14.2 + 14.9 GiB of the 2x16 GB, so ub 1024 and
