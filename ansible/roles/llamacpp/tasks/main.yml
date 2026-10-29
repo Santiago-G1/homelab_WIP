@@ -265,6 +265,62 @@
     state: directory
     mode: "0755"
 
+# The models ZeroClaw serves live on this container's root disk (the SSD) and
+# are symlinked into the router's directory: the pool reads a 21 GiB GGUF at
+# ~60 MB/s and the disk at ~255 MB/s (5m40s -> 3m25s to load, measured). The
+# router follows the symlink, so a moved model notifies a restart.
+- name: Fast disk for the models the agent serves
+  ansible.builtin.file:
+    path: "{{ llamacpp_fast_models_dir }}"
+    state: directory
+    mode: "0755"
+  when: llamacpp_fast_models | default([]) | length > 0
+
+# mv, not cp: a second 21 GiB copy would eat a pool that is already at 87 %.
+# When the disk cannot hold the next model this says so and goes on, so a later
+# deploy with room moves it without editing anything.
+- name: Move the agent's models to the fast disk and link them back
+  ansible.builtin.shell: |
+    set -euo pipefail
+    src="{{ llamacpp_models_dir }}/{{ item }}.gguf"
+    dst="{{ llamacpp_fast_models_dir }}/{{ item }}.gguf"
+    if [ -L "$src" ] && [ "$(readlink "$src")" = "$dst" ]; then
+      echo "already linked"
+      exit 0
+    fi
+    if [ -f "$src" ]; then
+      need=$(( $(stat -c%s "$src") / 1024 + 3145728 ))
+      avail=$(df -Pk "{{ llamacpp_fast_models_dir }}" | awk 'NR==2 {print $4}')
+      if [ "$avail" -lt "$need" ]; then
+        echo "sin espacio para {{ item }}: $(( (need - avail) / 1024 )) MiB de menos"
+        exit 0
+      fi
+      mv "$src" "$dst"
+      echo "moved"
+    fi
+    if [ ! -f "$dst" ]; then
+      echo "ni $src ni $dst existen" >&2
+      exit 1
+    fi
+    ln -sfn "$dst" "$src"
+    echo "linked"
+  args:
+    executable: /bin/bash
+  register: llamacpp_fast_move
+  changed_when: llamacpp_fast_move.stdout is match('^(moved|linked)$')
+  loop: "{{ llamacpp_fast_models }}"
+  loop_control:
+    label: "{{ item }}"
+  notify: restart llama-server
+
+- name: Report the models that stay on the pool
+  ansible.builtin.debug:
+    msg: "{{ item.item }} stays on {{ llamacpp_models_dir }} ({{ item.stdout }})"
+  loop: "{{ llamacpp_fast_move.results | default([]) | selectattr('stdout', 'search', 'sin espacio') | list }}"
+  loop_control:
+    label: "{{ item.item }}"
+  when: llamacpp_fast_move is defined
+
 # Per-model options come from host_vars/llm/models.yml.
 - name: Render the router preset
   ansible.builtin.template:

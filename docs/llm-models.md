@@ -62,6 +62,26 @@ A full `site.yml --limit llm` is only for a new llama.cpp/CUDA version or
 changed build flags — it re-checks `llamacpp_version` (and the patch-set tag
 that follows it) and can trigger a long compile. See `llamacpp-build.md`.
 
+## Where the file lives
+
+`llamacpp_models_dir` (`/mnt/data/models`) is the pool, and the pool reads a
+21 GiB GGUF at ~60 MB/s: 5m40s to load, which is exactly the silence before the
+first token when the panel unloaded the model (or after a restart). The models
+ZeroClaw serves are listed in `llamacpp_fast_models` (`host_vars/llm/main.yml`)
+and the `llamacpp` role moves them to `llamacpp_fast_models_dir`
+(`/var/lib/llama/models`, on the container's root disk, which is the SSD) and
+leaves a symlink in the models directory, so the router keeps seeing the same
+file name. Measured: **3m25s** instead of 5m40s; the rest of that time is CUDA
+context and tensor setup, not I/O.
+
+Two things to keep in mind:
+
+- The SSD is the `local-lvm` thin pool, and it is nearly full (~40 GiB free of
+  165 GiB, one 21 GiB model fits). The role says which model it had to leave on
+  the pool; add it to the list when there is room, and the next deploy moves it.
+- A moved model is no longer inside the pool: it lives on the container's disk,
+  so a `pct destroy` loses it. The recovery is downloading it again.
+
 ## Switching the agent's model
 
 Set `agent: true` on the wanted entry and run the same playbook. ZeroClaw's

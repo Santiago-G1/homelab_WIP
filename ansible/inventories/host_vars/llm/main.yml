@@ -19,6 +19,16 @@ docker_networks:
 zeroclaw_litellm_uri: http://litellm-proxy:4000/v1
 # The agent model's window comes from models.yml, so switching models there
 # moves these two with it; the reply budget is the remaining quarter.
+# The models ZeroClaw serves are the ones that must not sit minutes in silence.
+# The pool reads a 21 GiB GGUF at ~60 MB/s (5m40s before the first token); this
+# container's root disk is on the SSD (~255 MB/s, 3m25s measured). One model
+# fits: the thin pool is at ~86 % afterwards. Add a name here when there is room
+# (see docs/llm-models.md, "Where the file lives").
+llamacpp_fast_models_dir: /var/lib/llama/models
+llamacpp_fast_models:
+  - Cyber-Tiel-Coder-35B-A3B-MTP-UD-Q4_K_XL
+  - Qwen3.6-35B-A3B-MTP-UD-Q4_K_XL
+
 zeroclaw_context_window: >-
   {{ (llm_models | selectattr('agent', 'defined') | first).args | default({})
      | dict2items | selectattr('key', 'equalto', 'ctx-size')
