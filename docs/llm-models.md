@@ -173,9 +173,14 @@ The preset stays at 131072 in f16 on **one** card, because that is the point
 where the tier is still cheap: 8.2 GiB leaves the other card for Immich ML.
 `split-mode none` + `main-gpu 1` pins it there (Immich only ever binds
 `/dev/nvidia0`), and a 6.5 GiB neighbour on card 0 was measured alongside it
-without either model noticing. Splitting the layers across both P100s buys
-nothing (94.9 vs 95.7 t/s) — decode is bandwidth-bound, and it would put the
-model back on the card Immich uses.
+without either model noticing.
+
+Splitting is worth knowing about for the long-document case, though: pipelined
+layer split takes pp2048 from 1,206 to 1,533 t/s and a 99k prompt from 617 to
+782 t/s (+27 %) for 2.4 % of the decode (93.4 vs 95.7 t/s), and the KV splits
+too, so ctx 262144 lands at 6.4 + 7.5 GiB and the whole window fits. Numbers and
+the reason in "Both cards" below. It costs both cards, so it cannot coexist with
+Immich ML the way the single-card preset does — that trade is what decides it.
 
 Thinking is part of the model: the chat template takes `enable_thinking`
 (default true) and `reasoning_effort` (`high` default, or `low`), both sent as
@@ -213,10 +218,34 @@ command line, so it is not an IOMMU problem either). No driver or kernel flag
 overrides `CNS`: `GGML_CUDA_P2P=1` stays set as a harmless no-op, useful only on
 the day a card moves to a CPU slot.
 
-What that costs is smaller than it looks. With `split-mode layer` a single
-activation crosses the split per token, and a one-card model never touches the
-link: Spark-X2.6-4B measured the same 80.6 t/s of decode and 617 t/s of prefill
-on the Gen2 x4 card as on the Gen3 one. What it does rule out is tensor-parallel
-(`GGML_CUDA_AR_P2P`) and cheap peer copies — `cudaMemcpyPeerAsync` falls back to
-1.38 GiB/s here, six times slower than staging through host memory (8.47 GiB/s),
-so nothing should be built around cross-device copies.
+A one-card model never touches the link (Spark-X2.6-4B: the same 80.6 t/s of
+decode and 617 t/s of prefill on the Gen2 x4 card as on the Gen3 one), and a
+split one pays for it less than the topology suggests. Measured with
+`llama-bench`, ub 1024, f16 KV, tensor-split `1/1`:
+
+| Spark-X2.6-4B | pp512 | pp2048 | tg128 |
+|---|---|---|---|
+| one card (Gen3 x16) | 1,160 | 1,206 | 95.7 |
+| layer split | 1,157 | **1,533** | 93.4 |
+| tensor split | 1,179 | 1,307 | 99.7 |
+
+Layer split is a *win* on prefill, not a tax: llama.cpp pipelines the ubatches,
+so the first card starts chunk N+1 while the second finishes chunk N. On a
+99,382-token prompt that is 782 t/s against 617 t/s on one card, with the decode
+unchanged (51.3 vs 50.5 t/s). `tensor` — the modern stand-in for the old `row`,
+still flagged experimental — trades 15 % of prefill for 4 % of decode on the 4B,
+and on the 35B-A3B it simply loses (decode 53.4 vs 63.9 t/s), so layer split
+stays the mode for anything that has to be split.
+
+What the missing P2P does rule out is building on peer copies. The driver stages
+them, and its staging is already the best available: `cudaMemcpyPeerAsync` moves
+1.37 GiB/s card 0 -> card 1 and 1.51 GiB/s back, against 1.20/1.31 GiB/s for a
+hand-rolled pinned-host bounce, so patching ggml to stage by hand would only make
+it slower. A 16 KiB boundary copy costs 36 µs — latency on the slow link, not
+bandwidth: at 60 t/s that is 0.2 % of a token.
+
+Watch the separator in `--tensor-split`: this build documents `1/1`, and
+`llama-bench` silently keeps the whole model on device 0 when handed `1,1`
+(which is how the first version of this page managed to "measure" a split that
+never happened). The server took both and allocated the same VRAM for `9,1` and
+`9/1`.
