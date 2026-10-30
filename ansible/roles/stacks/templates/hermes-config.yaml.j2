@@ -49,3 +49,11 @@ terminal:
   backend: "{{ a.terminal_backend }}"
   cwd: /opt/data/workspace
   timeout: 300
+{% if a.telegram | default(false) %}
+
+# Only the profile with a channel talks to the outside world.
+gateway:
+  platforms:
+    telegram:
+      enabled: true
+{% endif %}

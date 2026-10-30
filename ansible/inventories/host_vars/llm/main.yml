@@ -39,6 +39,8 @@ hermes_agents:
     approvals_mode: "smart"
     unattended_mode: "deny"
     terminal_backend: local
+    # The only one with a channel: the bot is its face.
+    telegram: true
     soul: |
       # default
 
