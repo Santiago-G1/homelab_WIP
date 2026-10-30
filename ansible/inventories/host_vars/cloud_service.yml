@@ -20,6 +20,7 @@ stacks:
       LLM_MOUNT: "{{ vault_llm_mount }}"
     files:
       - { template: samba-users.conf.j2, dest: users.conf, mode: "0600" }
+      - { template: samba-smb.conf.j2, dest: smb.conf }
   - name: syncthing
     src: app-services/cloud/syncthing
     env:
