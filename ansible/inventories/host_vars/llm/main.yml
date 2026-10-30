@@ -34,6 +34,8 @@ hermes_litellm_uri: "http://litellm-proxy:{{ service_ports.litellm }}/v1"
 # Container port, not the published one: both stacks share `ai-stack`.
 hermes_searxng_uri: "http://{{ searxng_host }}:{{ searxng_port }}"
 hermes_data_root: /mnt/data/hermes   # one home; the profiles live inside
+hermes_uid: "10000"                  # the hermes user inside the container
+hermes_gid: "10000"
 
 hermes_agents:
   # The cautious one: it asks, and a headless run finds another way.
@@ -145,21 +147,19 @@ stacks:
 
   - name: hermes
     src: ai-services/hermes
-    # Rendered straight into the home on the pool, not bind-mounted: Hermes
-    # writes config.yaml by renaming a temp file over it and a mount point gives
-    # EBUSY, which broke `hermes config set` and `plugins enable`.
+    # Render into the pool home: Hermes replaces its config by rename (EBUSY on a mount).
     dirs:
-      - { path: "{{ hermes_data_root }}/workspace", owner: "10000", group: "10000", mode: "0755" }
-      - { path: "{{ hermes_data_root }}/profiles/uncensored", owner: "10000", group: "10000", mode: "0700" }
+      - { path: "{{ hermes_data_root }}/workspace", owner: "{{ hermes_uid }}", group: "{{ hermes_gid }}", mode: "0755" }
+      - { path: "{{ hermes_data_root }}/profiles/uncensored", owner: "{{ hermes_uid }}", group: "{{ hermes_gid }}", mode: "0700" }
     files:
       # `agent:` picks the entry in hermes_agents each file is rendered from.
-      - { template: hermes-config.yaml.j2, dest: "{{ hermes_data_root }}/config.yaml", agent: default, owner: "10000", group: "10000", mode: "0600" }
-      - { template: hermes-agent.env.j2, dest: "{{ hermes_data_root }}/.env", agent: default, owner: "10000", group: "10000", mode: "0600" }
-      - { template: hermes-soul.md.j2, dest: "{{ hermes_data_root }}/SOUL.md", agent: default, owner: "10000", group: "10000", mode: "0644" }
-      - { template: hermes-config.yaml.j2, dest: "{{ hermes_data_root }}/profiles/uncensored/config.yaml", agent: uncensored, owner: "10000", group: "10000", mode: "0600" }
-      - { template: hermes-agent.env.j2, dest: "{{ hermes_data_root }}/profiles/uncensored/.env", agent: uncensored, owner: "10000", group: "10000", mode: "0600" }
-      - { template: hermes-soul.md.j2, dest: "{{ hermes_data_root }}/profiles/uncensored/SOUL.md", agent: uncensored, owner: "10000", group: "10000", mode: "0644" }
-      - { template: hermes-agents.md.j2, dest: "{{ hermes_data_root }}/workspace/AGENTS.md", agent: default, owner: "10000", group: "10000", mode: "0644" }
+      - { template: hermes-config.yaml.j2, dest: "{{ hermes_data_root }}/config.yaml", agent: default, owner: "{{ hermes_uid }}", group: "{{ hermes_gid }}", mode: "0600" }
+      - { template: hermes-agent.env.j2, dest: "{{ hermes_data_root }}/.env", agent: default, owner: "{{ hermes_uid }}", group: "{{ hermes_gid }}", mode: "0600" }
+      - { template: hermes-soul.md.j2, dest: "{{ hermes_data_root }}/SOUL.md", agent: default, owner: "{{ hermes_uid }}", group: "{{ hermes_gid }}", mode: "0644" }
+      - { template: hermes-config.yaml.j2, dest: "{{ hermes_data_root }}/profiles/uncensored/config.yaml", agent: uncensored, owner: "{{ hermes_uid }}", group: "{{ hermes_gid }}", mode: "0600" }
+      - { template: hermes-agent.env.j2, dest: "{{ hermes_data_root }}/profiles/uncensored/.env", agent: uncensored, owner: "{{ hermes_uid }}", group: "{{ hermes_gid }}", mode: "0600" }
+      - { template: hermes-soul.md.j2, dest: "{{ hermes_data_root }}/profiles/uncensored/SOUL.md", agent: uncensored, owner: "{{ hermes_uid }}", group: "{{ hermes_gid }}", mode: "0644" }
+      - { template: hermes-agents.md.j2, dest: "{{ hermes_data_root }}/workspace/AGENTS.md", agent: default, owner: "{{ hermes_uid }}", group: "{{ hermes_gid }}", mode: "0644" }
     env:
       HERMES_DATA: "{{ hermes_data_root }}"
       HERMES_DASHBOARD_USER: admin

@@ -1,12 +1,10 @@
-# Rendered by Ansible (roles/stacks): the policy of one profile.
-# `hermes_agents` in host_vars/llm/main.yml is the source, keyed by profile name.
+# Rendered from `hermes_agents` (host_vars/llm/main.yml): one profile per file.
 {% set a = hermes_agents[item.agent] %}
 model:
   provider: litellm
   default: "{{ agent_model }}"
   base_url: "{{ hermes_litellm_uri }}"
 
-# OpenAI-compatible route to the LiteLLM proxy next door.
 providers:
   litellm:
     api: "{{ hermes_litellm_uri }}"
@@ -15,57 +13,46 @@ providers:
 
 approvals:
   mode: "{{ a.approvals_mode }}"
-  # Nobody is watching a cron or a one-shot run: this is what they do instead.
+  # Cron and one-shot runs have nobody to ask.
   cron_mode: "{{ a.unattended_mode }}"
   single_query_mode: "{{ a.unattended_mode }}"
   unattended_mode: "{{ a.unattended_mode }}"
 {% if a.deny is defined %}
-  # Blocks before any mode is consulted, including `mode: off`.
-  deny:
+  deny:   # applies even with mode "off"
 {% for pattern in a.deny %}
     - "{{ pattern }}"
 {% endfor %}
 {% endif %}
 
-# A local 35B pays for every extra call, and the post-turn memory/skills review
-# is a whole model call per turn: off where the agent mostly runs tools.
 auxiliary:
-  background_review:
+  background_review:   # a full model call after every turn
     enabled: {{ 'true' if a.background_review | default(true) else 'false' }}
 
 compression:
-  # The summarizer is a full 35B call: compact early, and while the card is idle
-  # instead of in the middle of a request. 0.25 x 262k is ~65k tokens.
+  # Compact at ~65k tokens and while the card is idle: the summarizer is a full call.
   threshold: 0.25
   idle_compact_after_seconds: 300
   tail_mode: lean
 
-# Snapshots the working tree before the agent edits files, so `hermes
-# checkpoints` can undo a bad turn (opt-in upstream, off by default).
+# `hermes checkpoints` can undo a turn that broke the working tree.
 checkpoints:
   enabled: true
 
-# Facts go to a local SQLite store (FTS5, entities, trust scores) instead of
-# competing for the 2.2k chars of MEMORY.md. Additive: the built-in pair stays
-# in the system prompt. No key, no network, no model call.
+# Facts in SQLite, additive to the 2.2k-char MEMORY.md; no key, no model call.
 memory:
-  provider: "{{ a.memory_provider | default('holographic') }}"
-  write_approval: {{ 'true' if a.memory_write_approval | default(false) else 'false' }}
+  provider: "{{ a.memory_provider }}"
+  write_approval: {{ 'true' if a.memory_write_approval else 'false' }}
 
 web:
-  # SearXNG next door: free and unthrottled. It cannot extract, so page
-  # extraction stays on the keyless ring.
+  # SearXNG next door; it cannot extract, so extraction stays keyless.
   search_backend: searxng
   extract_backend: ""
 
-# Cron schedules and the nightly dream's day bucketing follow the machine's zone.
 timezone: "{{ timezone }}"
 
-# Hermes writes this list itself when a plugin is enabled; rendering it keeps a
-# deploy from switching the plugin back off.
 plugins:
   enabled:
-{% for plugin in a.plugins | default([]) %}
+{% for plugin in a.plugins %}
     - {{ plugin }}
 {% endfor %}
   disabled: []
@@ -76,7 +63,6 @@ terminal:
   timeout: 300
 {% if a.telegram | default(false) %}
 
-# Only the profile with a channel talks to the outside world.
 gateway:
   platforms:
     telegram:

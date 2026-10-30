@@ -62,9 +62,7 @@
 - name: "{{ stack.name }} | render extra configuration files"
   ansible.builtin.template:
     src: "{{ item.template }}"
-    # Absolute dests are written straight into a state dir: a file bind-mounted
-    # into a container cannot be replaced atomically, and Hermes publishes its
-    # config by renaming a temp file over it (EBUSY on a mount point).
+    # An absolute dest writes into a state dir instead of the project.
     dest: "{{ item.dest if item.dest.startswith('/') else stacks_root ~ '/' ~ stack.name ~ '/' ~ item.dest }}"
     mode: "{{ item.mode | default('0644') }}"
     # Only when the entry asks for it: a container running as a non-root user

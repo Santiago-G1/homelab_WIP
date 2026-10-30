@@ -1,16 +1,11 @@
-# Hermes: one runtime, one dashboard, two profiles.
-#
-# `default` is the root home; `uncensored` is `profiles/uncensored`. Each profile
-# has its own config, .env, SOUL, memories, sessions and state.db, and its own
-# policy (see hermes_agents in host_vars/llm/main.yml). The gateway multiplexes
-# them in this one process, so no extra ports and no second supervisor slot.
+# Hermes: one runtime, two profiles. `default` is the root home, `uncensored` is
+# `profiles/uncensored`; both are served by this one gateway (see hermes_agents).
 services:
   hermes:
     image: nousresearch/hermes-agent:stable@sha256:9c5561579f3ffdf333401797094ac3a743738d6c25d40f4331c7bf77b694238d
     container_name: hermes
     restart: unless-stopped
-    # s6 supervises the gateway (and the dashboard) inside the container.
-    command: gateway run
+    command: gateway run   # s6 supervises the gateway and the dashboard
 
     environment:
       - HERMES_DASHBOARD=1
@@ -22,14 +17,9 @@ services:
       - HERMES_DASHBOARD_BASIC_AUTH_SECRET=${HERMES_DASHBOARD_SECRET:?}
 
     volumes:
-      # The whole Hermes home, both profiles included: on the pool.
       - ${HERMES_DATA:?}:/opt/data
-      # Ansible renders config.yaml, .env, SOUL.md and AGENTS.md into this same
-      # directory. They are NOT bind mounts: Hermes publishes its config by
-      # renaming a temp file into place, which fails with EBUSY on a mount point
-      # (`hermes config set`, `plugins enable`, the dashboard's settings pages).
-      # The unrestricted profile runs commands in this container; the socket is
-      # what makes it able to reach anything Docker can.
+      # Ansible renders config.yaml, .env, SOUL.md and AGENTS.md into it: never
+      # mount those files, Hermes replaces its config by rename (EBUSY).
       - /var/run/docker.sock:/var/run/docker.sock
 
     ports:
