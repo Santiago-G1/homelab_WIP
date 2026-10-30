@@ -19,6 +19,17 @@ services:
       - ZEROCLAW_gateway__host=0.0.0.0
       - ZEROCLAW_gateway__allow_public_bind=true
 
+      # The `browser` tool's default backend drives the Chromium baked into the
+      # image (`agent-browser install` would download one into $HOME, which is a
+      # bind mount, on first use).
+      - AGENT_BROWSER_EXECUTABLE_PATH=/usr/bin/chromium
+      # Root inside a container: Chromium's own sandbox cannot start, and
+      # /dev/shm is 64 MB by default, which kills it on anything but a toy page.
+      - AGENT_BROWSER_ARGS=--no-sandbox,--disable-dev-shm-usage
+      # The CLI keeps a daemon *and* the browser alive between calls; without
+      # this they hold ~400 MB of the container's memory for an hour.
+      - AGENT_BROWSER_IDLE_TIMEOUT_MS=600000
+
     volumes:
       - ./data:/zeroclaw-data
       # Absolute path, and it must match the host: the daemon resolves the bind
@@ -34,11 +45,14 @@ services:
     networks:
       - ai-stack
 
+    # Chromium is the biggest tenant: ~300 MB of RSS plus the CLI's daemon.
+    shm_size: 512mb
+
     deploy:
       resources:
         limits:
           cpus: "2"
-          memory: 1G
+          memory: 2G
 
     # The upstream image ships no HEALTHCHECK.
     healthcheck:

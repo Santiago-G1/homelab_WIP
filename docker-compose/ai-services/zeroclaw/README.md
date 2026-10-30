@@ -40,7 +40,7 @@ Two secrets, both in the encrypted vault, both rendered into `.env` by the
 
 | Vault variable | Reaches the container as |
 | --- | --- |
-| `vault_zeroclaw_litellm_api_key` | `ZEROCLAW_providers__models__litellm__local__api_key` |
+| `vault_zeroclaw_litellm_api_key` | `ZEROCLAW_providers__models__litellm__coder__api_key` |
 | `vault_zeroclaw_telegram_bot_token` | `ZEROCLAW_channels__telegram__home__bot_token` |
 
 The rendered `config.toml` has neither field: both are schema-mirror overrides
@@ -75,6 +75,36 @@ Three consequences worth knowing:
    `http_request`) run in the daemon and are unaffected. Give the sandbox
    network only by editing the backend, not the config: `--network none` is
    hardcoded in the backend.
+
+## The browser
+
+The `browser` tool (`browser_open`, `snapshot`, `click`, `find`, ...) drives a
+real Chromium through the `agent-browser` CLI, which is the backend ZeroClaw
+defaults to (`[browser] backend = "agent_browser"`). Both live in the image:
+
+- `/usr/local/bin/agent-browser`, the Rust binary taken out of the npm tarball.
+  `npm install -g` only wraps it, so the image skips Node entirely; the version
+  is pinned by `ARG AGENT_BROWSER_VERSION` in `image/Dockerfile`.
+- `/usr/bin/chromium` from Debian, found through
+  `AGENT_BROWSER_EXECUTABLE_PATH`. `agent-browser install` would instead download
+  Chrome for Testing into `$HOME` on first use — and `$HOME` here is the mounted
+  data volume, not the image.
+
+Three settings in the compose are not optional:
+
+1. `AGENT_BROWSER_ARGS=--no-sandbox,--disable-dev-shm-usage`. The container runs
+   as root, so Chromium's own sandbox cannot start, and Docker's 64 MB
+   `/dev/shm` crashes it on any real page. `shm_size: 512mb` gives it room.
+2. `AGENT_BROWSER_IDLE_TIMEOUT_MS=600000`. The CLI leaves a daemon and the
+   browser running between calls; the default hour of silence is memory held for
+   nothing.
+3. `memory: 2G` on the container. 1G was enough for the daemon alone and OOMs
+   once a page with a few tabs is open.
+
+`browser.allowed_domains` keeps the upstream default (`["*"]`); the tool still
+refuses private addresses unless `browser.allowed_private_hosts` opts in. If a
+prompt ever answers with the old "agent-browser CLI is unavailable" line, check
+`docker compose exec zeroclaw agent-browser --version` first.
 
 ## Web search
 
