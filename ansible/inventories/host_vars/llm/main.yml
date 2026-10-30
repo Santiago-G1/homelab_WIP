@@ -151,6 +151,8 @@ stacks:
     dirs:
       - { path: "{{ hermes_data_root }}/workspace", owner: "{{ hermes_uid }}", group: "{{ hermes_gid }}", mode: "0755" }
       - { path: "{{ hermes_data_root }}/profiles/uncensored", owner: "{{ hermes_uid }}", group: "{{ hermes_gid }}", mode: "0700" }
+      # Cron runs the plugin's gate scripts from here, as the hermes user.
+      - { path: "{{ hermes_data_root }}/scripts", owner: "{{ hermes_uid }}", group: "{{ hermes_gid }}", mode: "0755" }
     files:
       # `agent:` picks the entry in hermes_agents each file is rendered from.
       - { template: hermes-config.yaml.j2, dest: "{{ hermes_data_root }}/config.yaml", agent: default, owner: "{{ hermes_uid }}", group: "{{ hermes_gid }}", mode: "0600" }
@@ -160,6 +162,7 @@ stacks:
       - { template: hermes-agent.env.j2, dest: "{{ hermes_data_root }}/profiles/uncensored/.env", agent: uncensored, owner: "{{ hermes_uid }}", group: "{{ hermes_gid }}", mode: "0600" }
       - { template: hermes-soul.md.j2, dest: "{{ hermes_data_root }}/profiles/uncensored/SOUL.md", agent: uncensored, owner: "{{ hermes_uid }}", group: "{{ hermes_gid }}", mode: "0644" }
       - { template: hermes-agents.md.j2, dest: "{{ hermes_data_root }}/workspace/AGENTS.md", agent: default, owner: "{{ hermes_uid }}", group: "{{ hermes_gid }}", mode: "0644" }
+      - { template: hermes-dreaming.json.j2, dest: "{{ hermes_data_root }}/dreaming.json", agent: default, owner: "{{ hermes_uid }}", group: "{{ hermes_gid }}", mode: "0600" }
     env:
       HERMES_DATA: "{{ hermes_data_root }}"
       HERMES_DASHBOARD_USER: admin

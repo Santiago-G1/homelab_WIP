@@ -23,7 +23,9 @@ Installed into the home (they survive a container rebuild, not a re-created home
 ```sh
 docker exec hermes hermes plugins install holographic
 docker exec hermes hermes plugins enable hermes-dreaming
-docker exec hermes /opt/data/plugins/hermes-dreaming/skills/dreaming/scripts/install.py
-docker exec hermes python3 /opt/data/plugins/hermes-dreaming/skills/dreaming/scripts/install_cron.py \
+# -u 10000: install.py copies the gates into `scripts/`, cron runs them
+# as the hermes user, and root-owned copies are unreadable there.
+docker exec -u 10000 hermes python3 /opt/data/plugins/hermes-dreaming/skills/dreaming/scripts/install.py
+docker exec -u 10000 hermes python3 /opt/data/plugins/hermes-dreaming/skills/dreaming/scripts/install_cron.py \
     --hermes-home /opt/data --deliver telegram:<chat_id>
 ```
