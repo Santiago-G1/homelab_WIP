@@ -2,10 +2,7 @@
 # the daemon adds pairing tokens to this file, so expect drift.
 schema_version = 3
 
-{# One profile per `agent_alias`, and only the agent's own model carries one:
-   the router keeps a single GGUF resident and the post-turn memory
-   consolidation runs on this profile, so a second one would evict the model
-   after every turn (see the note in models.yml). #}
+{# Only the agent's model gets a profile: the router keeps one GGUF resident. #}
 {% for m in llm_models | selectattr('agent_alias', 'defined') %}
 [providers.models.litellm.{{ m.agent_alias }}]
 uri = "{{ zeroclaw_litellm_uri }}"

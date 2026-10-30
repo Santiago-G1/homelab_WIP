@@ -126,16 +126,11 @@ virtual key that is not allowed to see the model. Both come from the same
 `zeroclaw` gets exactly one provider profile — the `agent: true` entry — because
 of two facts that only bite together:
 
-- llama.cpp runs in router mode with `--models-max 1`, so a single GGUF is
-  resident; asking for another model unloads the current one and reads ~21 GiB
-  again (~200 s from the SSD).
+- llama.cpp runs in router mode with `--models-max 1`: asking for another model
+  unloads the resident one and reads ~21 GiB again (~200 s).
 - ZeroClaw runs the **post-turn memory consolidation** on the agent's own
-  profile. With a second profile (`agent_alias: local` on Qwen3.6) that call
-  landed right after every turn, swapped the coder for the other model, and the
-  next message had to load the coder back *plus* re-prefill the whole history
-  (18-33k tokens at ~600 t/s) — past the ~300 s the client waits before it gives
-  up with `All model providers/models failed after 0 failure event(s)`. What the
-  user saw was a chat that hung on the second message.
+  profile, so a second profile swapped the agent's model out after every turn
+  and the next message paid the reload plus a full re-prefill.
 
 ```yaml
   - name: Cyber-Tiel-Coder-35B-A3B-MTP-UD-Q4_K_XL
@@ -146,15 +141,13 @@ of two facts that only bite together:
 Every entry with `agent_alias` becomes `[providers.models.litellm.<alias>]` in
 `config.toml`, carrying that model's own `ctx-size` and `temp`; `agent: true`
 picks the default, and `zeroclaw_models` derives the LiteLLM virtual key's
-allowlist from the same list. In Telegram `/models` lists the profiles (one) and
-`/model` shows the active one.
+allowlist from the same list.
 
 The rest of `llm_models` is still served: the router loads those on demand for
-any other client that names them through LiteLLM (port 4000). Giving the chat a
-second profile is just `agent_alias: <alias>` on one of them — plus its
+any other client that names them through LiteLLM (port 4000). A second profile
+for the chat is `agent_alias: <alias>` on one of them plus its
 `ZEROCLAW_providers__models__litellm__<alias>__api_key` override in the stack's
-compose, whose alias must match — but then expect the swap above after every
-turn.
+compose, at the cost of the swap above after every turn.
 
 ## The P100 is shared
 

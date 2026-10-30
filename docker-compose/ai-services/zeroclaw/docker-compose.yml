@@ -11,23 +11,18 @@ services:
     restart: unless-stopped
 
     environment:
-      # Secrets only, as ZEROCLAW_<a.b.c> overrides. One override per provider
-      # profile, and the alias mirrors `agent_alias` in models.yml: one
-      # profile, because the router keeps a single GGUF resident.
+      # Secrets only, as ZEROCLAW_<a.b.c> overrides. The alias mirrors
+      # `agent_alias` in models.yml.
       - ZEROCLAW_providers__models__litellm__coder__api_key=${ZEROCLAW_LITELLM_API_KEY:?ZEROCLAW_LITELLM_API_KEY is required}
       - ZEROCLAW_channels__telegram__home__bot_token=${ZEROCLAW_TELEGRAM_BOT_TOKEN:?ZEROCLAW_TELEGRAM_BOT_TOKEN is required}
       - ZEROCLAW_gateway__host=0.0.0.0
       - ZEROCLAW_gateway__allow_public_bind=true
 
-      # The `browser` tool's default backend drives the Chromium baked into the
-      # image (`agent-browser install` would download one into $HOME, which is a
-      # bind mount, on first use).
+      # Browser tool: Chromium from the image, and the flags a root user in a
+      # container needs (see `shm_size` below).
       - AGENT_BROWSER_EXECUTABLE_PATH=/usr/bin/chromium
-      # Root inside a container: Chromium's own sandbox cannot start, and
-      # /dev/shm is 64 MB by default, which kills it on anything but a toy page.
       - AGENT_BROWSER_ARGS=--no-sandbox,--disable-dev-shm-usage
-      # The CLI keeps a daemon *and* the browser alive between calls; without
-      # this they hold ~400 MB of the container's memory for an hour.
+      # The CLI leaves its daemon and the browser up for an hour otherwise.
       - AGENT_BROWSER_IDLE_TIMEOUT_MS=600000
 
     volumes:
@@ -45,7 +40,7 @@ services:
     networks:
       - ai-stack
 
-    # Chromium is the biggest tenant: ~300 MB of RSS plus the CLI's daemon.
+    # Chromium wants more than Docker's 64 MB /dev/shm, and 1 GB of RAM.
     shm_size: 512mb
 
     deploy:

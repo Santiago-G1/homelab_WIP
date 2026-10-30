@@ -1,29 +1,21 @@
-# Upstream ZeroClaw plus the two things it shells out to and the upstream image
-# does not ship: the `docker` CLI for the sandbox backend, and the browser stack
-# behind the `browser` tool. Bump the tags and the version below together when
-# upgrading.
+# Upstream ZeroClaw plus the two things it shells out to and the image lacks:
+# the `docker` CLI for the sandbox backend, and the browser behind the `browser`
+# tool. Bump the tags and the version below together when upgrading.
 FROM docker:27-cli AS dockercli
 
 FROM ghcr.io/zeroclaw-labs/zeroclaw:v0.8.5-debian
 
 COPY --from=dockercli /usr/local/bin/docker /usr/local/bin/docker
 
-# The `browser` tool's default backend (`agent_browser`) shells out to the
-# `agent-browser` CLI; without it the tool answers "agent-browser CLI is
-# unavailable. Install with: npm install -g agent-browser". The npm package is
-# only a launcher around one Rust binary per platform, so the tarball is
-# enough: no Node in the image and nothing to download when the container
-# starts. The `--version` call is the smoke test (it is what breaks on a
-# glibc bump).
+# `agent-browser` is one Rust binary per platform inside the npm package, so the
+# tarball is enough: no Node in the image. Chromium comes from apt because
+# `agent-browser install` downloads Chrome into $HOME, which is a mount here.
 ARG AGENT_BROWSER_VERSION=0.41.0
 
-# The upstream image runs as `nobody` (65534); apt and the tarball need root.
-# Restored below, even though the Compose stack forces `user: "0:0"` anyway.
+# apt and the tarball need root (the upstream image runs as nobody).
 USER root
 
-# Chromium comes from Debian, not from `agent-browser install` (which downloads
-# Chrome for Testing into $HOME — here a bind mount — on first use): apt resolves
-# the ~200 MB of shared libraries and the compose env points the CLI at it.
+# `--version` is the smoke test: it is what breaks on a glibc bump.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates curl chromium \
  && rm -rf /var/lib/apt/lists/* \
