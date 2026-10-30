@@ -24,17 +24,10 @@ services:
     volumes:
       # The whole Hermes home, both profiles included: on the pool.
       - ${HERMES_DATA:?}:/opt/data
-      # Rendered by Ansible and mounted over the home, so the policy lives in
-      # host_vars and not on the pool. The dashboard can rewrite these; a deploy
-      # wins on purpose.
-      - ./config.yaml:/opt/data/config.yaml
-      - ./agent.env:/opt/data/.env
-      - ./SOUL.md:/opt/data/SOUL.md
-      - ./uncensored-config.yaml:/opt/data/profiles/uncensored/config.yaml
-      - ./uncensored-agent.env:/opt/data/profiles/uncensored/.env
-      - ./uncensored-SOUL.md:/opt/data/profiles/uncensored/SOUL.md
-      # The agent's project context: the homelab's rules, in the system prompt.
-      - ./AGENTS.md:/opt/data/workspace/AGENTS.md
+      # Ansible renders config.yaml, .env, SOUL.md and AGENTS.md into this same
+      # directory. They are NOT bind mounts: Hermes publishes its config by
+      # renaming a temp file into place, which fails with EBUSY on a mount point
+      # (`hermes config set`, `plugins enable`, the dashboard's settings pages).
       # The unrestricted profile runs commands in this container; the socket is
       # what makes it able to reach anything Docker can.
       - /var/run/docker.sock:/var/run/docker.sock

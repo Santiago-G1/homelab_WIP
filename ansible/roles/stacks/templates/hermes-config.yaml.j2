@@ -45,6 +45,31 @@ compression:
 checkpoints:
   enabled: true
 
+# Facts go to a local SQLite store (FTS5, entities, trust scores) instead of
+# competing for the 2.2k chars of MEMORY.md. Additive: the built-in pair stays
+# in the system prompt. No key, no network, no model call.
+memory:
+  provider: "{{ a.memory_provider | default('holographic') }}"
+  write_approval: {{ 'true' if a.memory_write_approval | default(false) else 'false' }}
+
+web:
+  # SearXNG next door: free and unthrottled. It cannot extract, so page
+  # extraction stays on the keyless ring.
+  search_backend: searxng
+  extract_backend: ""
+
+# Cron schedules and the nightly dream's day bucketing follow the machine's zone.
+timezone: "{{ timezone }}"
+
+# Hermes writes this list itself when a plugin is enabled; rendering it keeps a
+# deploy from switching the plugin back off.
+plugins:
+  enabled:
+{% for plugin in a.plugins | default([]) %}
+    - {{ plugin }}
+{% endfor %}
+  disabled: []
+
 terminal:
   backend: "{{ a.terminal_backend }}"
   cwd: /opt/data/workspace
