@@ -122,20 +122,21 @@ or a virtual key that is not allowed to see the model. Both come from the same
 
 ## Two agents, one model
 
-`hermes-default` and `hermes-uncensored` are two Compose stacks: each has its own
-container, its own state on the pool (`/mnt/data/hermes/<name>`, so its own
-memories, sessions and `state.db`) and its own policy (`hermes_agents` in
-`host_vars/llm/main.yml`). Both call the same `agent: true` model through the
-same LiteLLM virtual key.
+`default` and `uncensored` are two Hermes **profiles**, not two containers: one
+runtime, one dashboard, one gateway (Hermes multiplexes profiles by default, so
+the process serves both and resolves each turn with that profile's config,
+skills, memory and keys). Each profile has its own home under `/mnt/data/hermes`
+(`profiles/uncensored` for the second), so its own memories, sessions and
+`state.db`, and its own policy:
 
-| | `hermes-uncensored` | `hermes-default` |
+| | `uncensored` | `default` |
 | --- | --- | --- |
 | Approvals | `mode: "off"` | `mode: "smart"` + a small `deny` list |
 | Unattended (`-q`, cron) | `"approve"` | `"deny"` — it finds another way |
-| Docker socket | mounted | not mounted |
-| Limits | 4 CPU / 6 GB | 2 CPU / 3 GB |
+| Policy source | `hermes_agents` in `host_vars/llm/main.yml` | same |
 
-Two containers instead of two profiles in one home: the sandbox is the
-container, so the separation is real and not a config flag. They share the
-model, so nothing evicts anything — the ~200 s reload only happens when the
-*model* changes, not when the agent does.
+The dashboard is per machine: one server on 9119 with a profile switcher in the
+sidebar and `?profile=uncensored` deep links.
+
+They share the model, so nothing evicts anything — the ~200 s reload only happens
+when the *model* changes, not when the agent does.

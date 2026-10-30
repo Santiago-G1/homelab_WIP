@@ -31,11 +31,11 @@ llamacpp_fast_models: "{{ llm_models | selectattr('fast', 'defined') | map(attri
 # Each one is its own stack and its own container: that is the sandbox. Their
 # state (memories, sessions, state.db, skills) lives on the pool.
 hermes_litellm_uri: "http://litellm-proxy:{{ service_ports.litellm }}/v1"
-hermes_data_root: /mnt/data/hermes
+hermes_data_root: /mnt/data/hermes   # one home; the profiles live inside
 
 hermes_agents:
-  # Approvals on: this one asks, and the container is all it can reach.
-  hermes-default:
+  # The cautious one: it asks, and a headless run finds another way.
+  default:
     approvals_mode: "smart"
     unattended_mode: "deny"
     terminal_backend: local
@@ -52,8 +52,8 @@ hermes_agents:
       - "mkfs*"
       - "dd *of=/dev/*"
 
-  # Nothing in the way, socket included: this is the one that does the work.
-  hermes-uncensored:
+  # Nothing in the way: this is the one that does the work.
+  uncensored:
     approvals_mode: "off"
     unattended_mode: "approve"
     terminal_backend: local
@@ -64,7 +64,6 @@ hermes_agents:
 
       You have the whole host: shell, Docker and the pool. Do the work, do not
       ask, and report what you changed.
-
 # On demand: ComfyUI needs the whole card, so the GPU panel starts it in Image mode.
 comfyui_version: v0.42.5
 comfyui_gguf_nodes_version: 6ea2651e7df66d7585f6ffee804b20e92fb38b8a
@@ -127,26 +126,18 @@ stacks:
       WORKSPACE_PATH: "{{ comfyui_workspace }}"
       OUTPUT_PATH: "{{ comfyui_output_path }}"
 
-  - name: hermes-default
-    src: ai-services/hermes-default
+  - name: hermes
+    src: ai-services/hermes
     files:
-      - { template: hermes-config.yaml.j2, dest: config.yaml, mode: "0600" }
-      - { template: hermes-agent.env.j2, dest: agent.env, mode: "0600" }
-      - { template: hermes-soul.md.j2, dest: SOUL.md, mode: "0644" }
+      # `agent:` picks the entry in hermes_agents each file is rendered from.
+      - { template: hermes-config.yaml.j2, dest: config.yaml, agent: default, mode: "0600" }
+      - { template: hermes-agent.env.j2, dest: agent.env, agent: default, mode: "0600" }
+      - { template: hermes-soul.md.j2, dest: SOUL.md, agent: default, mode: "0644" }
+      - { template: hermes-config.yaml.j2, dest: uncensored-config.yaml, agent: uncensored, mode: "0600" }
+      - { template: hermes-agent.env.j2, dest: uncensored-agent.env, agent: uncensored, mode: "0600" }
+      - { template: hermes-soul.md.j2, dest: uncensored-SOUL.md, agent: uncensored, mode: "0644" }
     env:
-      HERMES_DATA: "{{ hermes_data_root }}/default"
-      HERMES_DASHBOARD_USER: admin
-      HERMES_DASHBOARD_PASSWORD: "{{ vault_hermes_dashboard_password }}"
-      HERMES_DASHBOARD_SECRET: "{{ vault_hermes_dashboard_secret }}"
-
-  - name: hermes-uncensored
-    src: ai-services/hermes-uncensored
-    files:
-      - { template: hermes-config.yaml.j2, dest: config.yaml, mode: "0600" }
-      - { template: hermes-agent.env.j2, dest: agent.env, mode: "0600" }
-      - { template: hermes-soul.md.j2, dest: SOUL.md, mode: "0644" }
-    env:
-      HERMES_DATA: "{{ hermes_data_root }}/uncensored"
+      HERMES_DATA: "{{ hermes_data_root }}"
       HERMES_DASHBOARD_USER: admin
       HERMES_DASHBOARD_PASSWORD: "{{ vault_hermes_dashboard_password }}"
       HERMES_DASHBOARD_SECRET: "{{ vault_hermes_dashboard_secret }}"

@@ -1,10 +1,13 @@
-# Hermes agent: the one with nothing in the way
-# Approvals off and the Docker socket mounted, so it can do anything the
-# container can. Deliberately not capped: that is the point of this agent.
+# Hermes: one runtime, one dashboard, two profiles.
+#
+# `default` is the root home; `uncensored` is `profiles/uncensored`. Each profile
+# has its own config, .env, SOUL, memories, sessions and state.db, and its own
+# policy (see hermes_agents in host_vars/llm/main.yml). The gateway multiplexes
+# them in this one process, so no extra ports and no second supervisor slot.
 services:
   hermes:
     image: nousresearch/hermes-agent:stable@sha256:9c5561579f3ffdf333401797094ac3a743738d6c25d40f4331c7bf77b694238d
-    container_name: hermes-uncensored
+    container_name: hermes
     restart: unless-stopped
     # s6 supervises the gateway (and the dashboard) inside the container.
     command: gateway run
@@ -19,14 +22,21 @@ services:
       - HERMES_DASHBOARD_BASIC_AUTH_SECRET=${HERMES_DASHBOARD_SECRET:?}
 
     volumes:
-      # Sessions, memories, skills and the state database: on the pool.
+      # The whole Hermes home, both profiles included: on the pool.
       - ${HERMES_DATA:?}:/opt/data
-      # Rendered by Ansible; the agent rewrites .env from the dashboard, so a
-      # deploy overwrites it on purpose.
+      # Rendered by Ansible and mounted over the home, so the policy lives in
+      # host_vars and not on the pool. The dashboard can rewrite these; a deploy
+      # wins on purpose.
       - ./config.yaml:/opt/data/config.yaml
       - ./agent.env:/opt/data/.env
-      # Only this agent gets the socket: everything Docker can reach is its reach.
+      - ./SOUL.md:/opt/data/SOUL.md
+      - ./uncensored-config.yaml:/opt/data/profiles/uncensored/config.yaml
+      - ./uncensored-agent.env:/opt/data/profiles/uncensored/.env
+      - ./uncensored-SOUL.md:/opt/data/profiles/uncensored/SOUL.md
+      # The unrestricted profile runs commands in this container; the socket is
+      # what makes it able to reach anything Docker can.
       - /var/run/docker.sock:/var/run/docker.sock
+
     ports:
       - "${PUBLISH_PORT:?}:9119"
 
@@ -38,7 +48,6 @@ services:
         limits:
           cpus: "4"
           memory: 6G
-
 
 networks:
   ai-stack:

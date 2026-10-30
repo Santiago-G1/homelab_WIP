@@ -1,6 +1,6 @@
-# Rendered by Ansible (roles/stacks). Policy per agent: hermes_agents in
-# host_vars/llm/main.yml. The dashboard can rewrite this file; a deploy wins.
-{% set a = hermes_agents[stack.name] %}
+# Rendered by Ansible (roles/stacks): the policy of one profile.
+# `hermes_agents` in host_vars/llm/main.yml is the source, keyed by profile name.
+{% set a = hermes_agents[item.agent] %}
 model:
   provider: litellm
   default: "{{ agent_model }}"

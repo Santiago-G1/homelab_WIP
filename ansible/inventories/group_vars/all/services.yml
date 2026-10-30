@@ -39,8 +39,7 @@ service_ports:
   gpu_panel: 8099
   litellm: 4000
   searxng: 8081
-  hermes_uncensored: 9119
-  hermes_default: 9120
+  hermes: 9119
   comfyui: 8188
 
 homelab_services:
@@ -271,16 +270,16 @@ homelab_services:
 
   - host: hermes
     server: llm
-    port: "{{ service_ports.hermes_uncensored }}"
-    title: Hermes (uncensored)
+    port: "{{ service_ports.hermes }}"
+    title: Hermes
     icon: mdi:robot
     group: AI
-    note: Approvals off and the Docker socket mounted; the dashboard needs its password.
+    note: Two profiles, one dashboard; the sidebar switches between them.
   - host: agent
     server: llm
-    port: "{{ service_ports.hermes_default }}"
-    title: Hermes (default)
+    port: "{{ service_ports.hermes }}"
+    title: Hermes (old agent link)
     icon: mdi:robot-outline
     group: AI
-    note: Approvals on; the container is all this one can reach.
+    note: Same dashboard as `hermes`, kept so the old bookmark keeps working.
     verify: true
