@@ -88,7 +88,7 @@ Limit a run with `--limit <host>` and preview with `--check --diff`.
 ## Adding a local model
 
 Models are declared once in `inventories/host_vars/llm/models.yml`; LiteLLM's
-model list, the router presets and ZeroClaw's model are all derived from it. Add
+model list, the router presets and the agents' model are all derived from it. Add
 the `.gguf` to the AI host's models directory, add its name to that file, then:
 
 ```bash
@@ -121,7 +121,7 @@ ansible-vault edit inventories/group_vars/all/vault.yml
 
 Alerts are evaluated by Prometheus and shown in Prometheus and Grafana, and
 Alertmanager relays them to Telegram: the bot token and the chat id live in the
-vault (`vault_alertmanager_telegram_bot_token`, `vault_zeroclaw_telegram_user_id`).
+vault (`vault_alertmanager_telegram_bot_token`, `vault_agent_telegram_user_id`).
 
 Certificates are issued by Let's Encrypt through the Cloudflare DNS-01 challenge
 (the token lives in the vault as `vault_cloudflare_api_token`), including the

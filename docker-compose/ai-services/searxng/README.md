@@ -1,13 +1,13 @@
 # SearXNG
 
 Metasearch instance on the AI container (`192.168.10.26`), deployed as a Compose
-stack on the same `ai-stack` network as LiteLLM and ZeroClaw. It exists because
+stack on the same `ai-stack` network as LiteLLM and the agents. It exists because
 the agent's `web_search` tool defaults to DuckDuckGo, whose HTML endpoint starts
 throttling the daemon after a handful of queries; a local metasearch has no
 per-client quota and no API key to rotate.
 
 ```
-agent tool call ──► zeroclaw ──► http://searxng:8080/search?…&format=json
+agent tool call ──► hermes ──► http://searxng:8080/search?…&format=json
                                     (ai-stack network)
 
 browser ──► Caddy (CT 104) ──► https://search.<domain> ──► 192.168.10.26:8081
@@ -59,7 +59,7 @@ turned on first.
 
 ```sh
 # Deploy (from the control node, CT 100) — no llama.cpp rebuild
-ansible-playbook playbooks/llm-models.yml -e '{"stacks_only":["searxng","zeroclaw"]}'
+ansible-playbook playbooks/llm-models.yml -e '{"stacks_only":["searxng"]}'
 
 # On the AI container
 cd /opt/docker/searxng

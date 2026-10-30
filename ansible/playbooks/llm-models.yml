@@ -1,13 +1,15 @@
 ---
 # Model changes without recompiling llama.cpp: skips the build in roles/llamacpp
-# and re-deploys only LiteLLM and ZeroClaw. Models: host_vars/llm/models.yml.
+# and re-deploys only LiteLLM and the two Hermes stacks.
+# Models: host_vars/llm/models.yml.
 - name: Local model changes on the AI host (no rebuild)
   hosts: ai
   vars:
     llamacpp_skip_build: true
     stacks_only:
       - litellm
-      - zeroclaw
+      - hermes-default
+      - hermes-uncensored
   roles:
     - llamacpp
     - stacks

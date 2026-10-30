@@ -265,7 +265,7 @@
     state: directory
     mode: "0755"
 
-# The models ZeroClaw serves live on this container's root disk (the SSD) and
+# The models the agents use live on this container's root disk (the SSD) and
 # are symlinked into the router's directory: the pool reads a 21 GiB GGUF at
 # ~60 MB/s and the disk at ~255 MB/s (5m40s -> 3m25s to load, measured). The
 # router follows the symlink, so a moved model notifies a restart.

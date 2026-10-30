@@ -38,9 +38,6 @@ override.tf.json
 *.vault
 .vault_pass
 
-# ZEROCLAW (perfiles locales, no se publican)
-**/zeroclaw-local.toml
-
 # SISTEMA
 .DS_Store
 Thumbs.db

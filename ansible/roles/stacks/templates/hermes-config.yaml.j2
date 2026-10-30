@@ -1,0 +1,32 @@
+# Rendered by Ansible (roles/stacks). Policy per agent: hermes_agents in
+# host_vars/llm/main.yml. The dashboard can rewrite this file; a deploy wins.
+{% set a = hermes_agents[stack.name] %}
+model:
+  provider: litellm
+  default: "{{ agent_model }}"
+  base_url: "{{ hermes_litellm_uri }}"
+
+# OpenAI-compatible route to the LiteLLM proxy next door.
+providers:
+  litellm:
+    api: "{{ hermes_litellm_uri }}"
+    key_env: LITELLM_API_KEY
+    default_model: "{{ agent_model }}"
+
+approvals:
+  mode: "{{ a.approvals_mode }}"
+  # Nobody is watching a cron or a one-shot run: this is what they do instead.
+  cron_mode: "{{ a.unattended_mode }}"
+  single_query_mode: "{{ a.unattended_mode }}"
+  unattended_mode: "{{ a.unattended_mode }}"
+{% if a.deny is defined %}
+  # Blocks before any mode is consulted, including `mode: off`.
+  deny:
+{% for pattern in a.deny %}
+    - "{{ pattern }}"
+{% endfor %}
+{% endif %}
+
+terminal:
+  backend: "{{ a.terminal_backend }}"
+  timeout: 300

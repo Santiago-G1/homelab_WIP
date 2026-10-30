@@ -1,6 +1,6 @@
 ---
 # P100 (sm_60). llama.cpp runs bare metal in router mode; LiteLLM, SearXNG,
-# ZeroClaw and ComfyUI are Compose stacks on the same host.
+# Hermes and ComfyUI are Compose stacks on the same host.
 #
 # The CUDA/llama.cpp build defaults live in roles/llamacpp/defaults, and the
 # driver version in group_vars/gpu (this host is in [gpu]): only what differs
@@ -16,44 +16,54 @@ litellm_backend_api_key: "{{ vault_litellm_backend_api_key }}"
 docker_networks:
   - ai-stack
 
-zeroclaw_litellm_uri: "http://litellm-proxy:{{ service_ports.litellm }}/v1"
-# The agent model's window comes from models.yml, so switching models there
-# moves these two with it; the reply budget is the remaining quarter.
-# The models ZeroClaw serves are the ones that must not sit minutes in silence.
-# The pool reads a 21 GiB GGUF at ~60 MB/s (5m40s before the first token); this
-# container's root disk is on the SSD (~255 MB/s, 3m25s measured). One model
-# fits: the thin pool is at ~86 % afterwards. Add a name here when there is room
-# (see docs/llm-models.md, "Where the file lives").
-llamacpp_fast_models_dir: /var/lib/llama/models
-# Derived from models.yml: `fast: true` marks the models that fit on the SSD.
-llamacpp_fast_models: "{{ llm_models | selectattr('fast', 'defined') | map(attribute='name') | list }}"
-
-zeroclaw_context_window: >-
-  {{ (llm_models | selectattr('agent', 'defined') | first).args | default({})
-     | dict2items | selectattr('key', 'equalto', 'ctx-size')
-     | map(attribute='value') | first | default(262144) }}
-zeroclaw_max_context_tokens: "{{ (zeroclaw_context_window | int * 3 // 4) }}"
-# A 21 GiB model takes minutes to load from the pool before it answers.
-zeroclaw_message_timeout_secs: 900     # per channel message (LLM + tools)
-zeroclaw_provider_timeout_secs: 900    # per HTTP request to LiteLLM
-# Local models cost nothing per call, so the stock ceilings (12 iterations, 20
-# actions/hour, 8k reply) only cut real work short. A tool result is capped at
-# 8k chars on purpose: every result stays in the history and is re-prefilled at
-# ~550 t/s on the P100, so 40k-char pages were what made a turn sit 27 s before
-# the first token (long enough for the dashboard to cancel it).
-zeroclaw_max_tool_iterations: 40
-zeroclaw_max_actions_per_hour: 1000
-zeroclaw_max_tool_result_chars: 8000
-zeroclaw_max_tokens: 16384
-# Named by config.toml and built by the stack.
-zeroclaw_sandbox_image: zeroclaw-sandbox:1
-
 searxng_host: searxng
 searxng_port: 8080                      # llama.cpp owns 8080 on the LAN
 searxng_instance_name: "Homelab search"
 searxng_base_url: "https://search.{{ vault_domainname_hs }}/"
-zeroclaw_searxng_instance_url: "http://{{ searxng_host }}:{{ searxng_port }}"
-zeroclaw_telegram_user_id: "{{ vault_zeroclaw_telegram_user_id }}"
+
+# The agent model's window comes from models.yml, and the models that must not
+# sit minutes in silence are the ones marked `fast: true` there: the pool reads a
+# 21 GiB GGUF at ~60 MB/s (5m40s) while this host's SSD does ~255 MB/s (3m25s).
+llamacpp_fast_models_dir: /var/lib/llama/models
+llamacpp_fast_models: "{{ llm_models | selectattr('fast', 'defined') | map(attribute='name') | list }}"
+
+# --- Hermes agents -------------------------------------------------------
+# Each one is its own stack and its own container: that is the sandbox. Their
+# state (memories, sessions, state.db, skills) lives on the pool.
+hermes_litellm_uri: "http://litellm-proxy:{{ service_ports.litellm }}/v1"
+hermes_data_root: /mnt/data/hermes
+
+hermes_agents:
+  # Approvals on: this one asks, and the container is all it can reach.
+  hermes-default:
+    approvals_mode: "smart"
+    unattended_mode: "deny"
+    terminal_backend: local
+    soul: |
+      # default
+
+      You are **default**, the cautious agent of a self-hosted homelab.
+
+      Ask before anything destructive, stay inside the paths you were given, and
+      say what you are about to do before you do it. When nobody answers, find
+      another way instead of insisting.
+    deny:
+      - "rm -rf /*"
+      - "mkfs*"
+      - "dd *of=/dev/*"
+
+  # Nothing in the way, socket included: this is the one that does the work.
+  hermes-uncensored:
+    approvals_mode: "off"
+    unattended_mode: "approve"
+    terminal_backend: local
+    soul: |
+      # uncensored
+
+      You are **uncensored**, the agent of a self-hosted homelab.
+
+      You have the whole host: shell, Docker and the pool. Do the work, do not
+      ask, and report what you changed.
 
 # On demand: ComfyUI needs the whole card, so the GPU panel starts it in Image mode.
 comfyui_version: v0.42.5
@@ -89,8 +99,8 @@ stacks:
       password_env: LITELLM_DB_PASSWORD
       database_env: LITELLM_DB_NAME
     agent_keys:
-      - value: "{{ vault_zeroclaw_litellm_api_key }}"
-        models: "{{ zeroclaw_models }}"
+      - value: "{{ vault_agent_litellm_api_key }}"
+        models: "{{ agent_models }}"
 
   - name: searxng
     src: ai-services/searxng
@@ -117,20 +127,29 @@ stacks:
       WORKSPACE_PATH: "{{ comfyui_workspace }}"
       OUTPUT_PATH: "{{ comfyui_output_path }}"
 
-  - name: zeroclaw
-    src: ai-services/zeroclaw
-    build_services: [zeroclaw, sandbox]
-    dirs:
-      - { path: data/.zeroclaw }
-      - { path: workspace }
+  - name: hermes-default
+    src: ai-services/hermes-default
     files:
-      - { template: zeroclaw-config.toml.j2, dest: data/.zeroclaw/config.toml }
+      - { template: hermes-config.yaml.j2, dest: config.yaml, mode: "0600" }
+      - { template: hermes-agent.env.j2, dest: agent.env, mode: "0600" }
+      - { template: hermes-soul.md.j2, dest: SOUL.md, mode: "0644" }
     env:
-      ZEROCLAW_LITELLM_API_KEY: "{{ vault_zeroclaw_litellm_api_key }}"
-      ZEROCLAW_TELEGRAM_BOT_TOKEN: "{{ vault_zeroclaw_telegram_bot_token }}"
-      # Interpolation only, and no ZEROCLAW_ prefix: that prefix is the daemon's
-      # own config-override namespace.
-      ZC_SANDBOX_IMAGE: "{{ zeroclaw_sandbox_image }}"
+      HERMES_DATA: "{{ hermes_data_root }}/default"
+      HERMES_DASHBOARD_USER: admin
+      HERMES_DASHBOARD_PASSWORD: "{{ vault_hermes_dashboard_password }}"
+      HERMES_DASHBOARD_SECRET: "{{ vault_hermes_dashboard_secret }}"
+
+  - name: hermes-uncensored
+    src: ai-services/hermes-uncensored
+    files:
+      - { template: hermes-config.yaml.j2, dest: config.yaml, mode: "0600" }
+      - { template: hermes-agent.env.j2, dest: agent.env, mode: "0600" }
+      - { template: hermes-soul.md.j2, dest: SOUL.md, mode: "0644" }
+    env:
+      HERMES_DATA: "{{ hermes_data_root }}/uncensored"
+      HERMES_DASHBOARD_USER: admin
+      HERMES_DASHBOARD_PASSWORD: "{{ vault_hermes_dashboard_password }}"
+      HERMES_DASHBOARD_SECRET: "{{ vault_hermes_dashboard_secret }}"
 
   - name: gpu-panel
     src: app-services/gpu-panel

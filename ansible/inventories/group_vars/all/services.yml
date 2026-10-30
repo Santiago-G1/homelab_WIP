@@ -39,7 +39,8 @@ service_ports:
   gpu_panel: 8099
   litellm: 4000
   searxng: 8081
-  zeroclaw: 42617
+  hermes_uncensored: 9119
+  hermes_default: 9120
   comfyui: 8188
 
 homelab_services:
@@ -268,11 +269,18 @@ homelab_services:
       frees the GPU and starts it, and the panel stops it again when llama.cpp
       is used or after its idle timer. No auth, so LAN-only.
 
-  - host: agent
+  - host: hermes
     server: llm
-    port: "{{ service_ports.zeroclaw }}"
-    title: ZeroClaw
+    port: "{{ service_ports.hermes_uncensored }}"
+    title: Hermes (uncensored)
     icon: mdi:robot
     group: AI
-    note: ZeroClaw gateway; pairing (not the proxy) is what authenticates it.
+    note: Approvals off and the Docker socket mounted; the dashboard needs its password.
+  - host: agent
+    server: llm
+    port: "{{ service_ports.hermes_default }}"
+    title: Hermes (default)
+    icon: mdi:robot-outline
+    group: AI
+    note: Approvals on; the container is all this one can reach.
     verify: true
