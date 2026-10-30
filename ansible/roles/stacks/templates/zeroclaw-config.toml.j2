@@ -27,6 +27,10 @@ channels = ["telegram.home"]
 # Must match the compose bind mount: the sandbox mounts it by host path.
 path = "{{ stacks_root }}/zeroclaw/workspace"
 
+# Local agents and risk profiles live in a gitignored file, so a clone renders
+# without them.
+{% include 'zeroclaw-local.toml' ignore missing %}
+
 [risk_profiles.sandboxed]
 # `supervised` asks before risky tools.
 level = "supervised"
