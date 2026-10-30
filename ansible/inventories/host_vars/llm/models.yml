@@ -117,8 +117,10 @@ llm_models:
   # so speculative decoding works: decode 56-69 t/s vs 32.4, acceptance 58-69%.
   # The full 262144 window costs 14.2 + 14.9 GiB of the 2x16 GB, so ub 1024 and
   # a single slot are the stable point (ub 2048 dies on a long prefill).
+  # Not a ZeroClaw profile (`agent_alias`) on purpose: llama.cpp keeps one GGUF
+  # resident (--models-max 1) and the post-turn memory consolidation runs on the
+  # agent's own profile, so a second one evicted the coder after every turn.
   - name: Qwen3.6-35B-A3B-MTP-UD-Q4_K_XL
-    agent_alias: local
     args:
       n-gpu-layers: 99
       ctx-size: 262144
@@ -206,7 +208,9 @@ llamacpp_model_overrides: >-
   {{ llm_models | selectattr('args', 'defined')
      | items2dict(key_name='name', value_name='args') }}
 zeroclaw_model: "{{ (llm_models | selectattr('agent', 'defined') | first).name }}"
-# Each `agent_alias` becomes a ZeroClaw provider profile (`litellm.<alias>`), so
-# the chat can switch between them with `/models litellm.<alias>`.
+# Each `agent_alias` becomes a ZeroClaw provider profile (`litellm.<alias>`);
+# `agent: true` picks the one the agent uses by default. Keep it to a single
+# entry: any extra profile is a second model ZeroClaw can call, and with
+# `--models-max 1` that call evicts the resident GGUF (see the note above).
 zeroclaw_primary_alias: "{{ (llm_models | selectattr('agent', 'defined') | first).agent_alias }}"
 zeroclaw_models: "{{ llm_models | selectattr('agent_alias', 'defined') | map(attribute='name') | list }}"

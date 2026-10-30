@@ -11,10 +11,9 @@ services:
     restart: unless-stopped
 
     environment:
-      # Secrets only, as ZEROCLAW_<a.b.c> overrides.
-      - ZEROCLAW_providers__models__litellm__local__api_key=${ZEROCLAW_LITELLM_API_KEY:?ZEROCLAW_LITELLM_API_KEY is required}
-      # One override per provider profile; the alias mirrors `agent_alias`
-      # in models.yml.
+      # Secrets only, as ZEROCLAW_<a.b.c> overrides. One override per provider
+      # profile, and the alias mirrors `agent_alias` in models.yml: one
+      # profile, because the router keeps a single GGUF resident.
       - ZEROCLAW_providers__models__litellm__coder__api_key=${ZEROCLAW_LITELLM_API_KEY:?ZEROCLAW_LITELLM_API_KEY is required}
       - ZEROCLAW_channels__telegram__home__bot_token=${ZEROCLAW_TELEGRAM_BOT_TOKEN:?ZEROCLAW_TELEGRAM_BOT_TOKEN is required}
       - ZEROCLAW_gateway__host=0.0.0.0

@@ -8,7 +8,7 @@ Compose stack next to the LiteLLM proxy it talks to. The gateway is served at
 agent.<domain>  ──►  Caddy (CT 104)  ──►  zeroclaw:42617
                                             │
 Telegram (long polling)  ─────────────────► │
-                                            ├─ provider: litellm.local
+                                            ├─ provider: litellm.coder
                                             │    http://litellm-proxy:4000/v1
                                             │    (shared `ai-stack` network)
                                             └─ shell tool: throwaway sandbox
