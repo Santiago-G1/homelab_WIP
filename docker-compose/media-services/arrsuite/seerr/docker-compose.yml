@@ -6,7 +6,7 @@ services:
       - LOG_LEVEL=debug
       - TZ=${TZ:-Etc/UTC}
     ports:
-      - "5055:5055"
+      - "${PUBLISH_PORT:?}:5055"
     volumes:
       - ./data:/app/config
     networks:

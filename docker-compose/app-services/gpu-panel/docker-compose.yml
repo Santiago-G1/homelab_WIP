@@ -5,7 +5,7 @@ services:
     container_name: gpu-panel
     restart: unless-stopped
     ports:
-      - "8099:8099"
+      - "${PUBLISH_PORT:?}:8099"
     environment:
       - TZ=${TZ:-Etc/UTC}
       - PANEL_USER=${PANEL_USER:-admin}

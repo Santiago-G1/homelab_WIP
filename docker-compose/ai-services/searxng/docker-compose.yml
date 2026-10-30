@@ -18,7 +18,7 @@ services:
 
     ports:
       # 8080 belongs to llama.cpp; Caddy and Glance reach it on this port.
-      - "${SEARXNG_PUBLISH_PORT:-8081}:8080"
+      - "${PUBLISH_PORT:?}:8080"
 
     networks:
       - ai-stack

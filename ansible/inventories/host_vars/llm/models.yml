@@ -82,6 +82,7 @@ llm_models:
   # acceptance, and ub 2048 buys nothing at 6k while eating the VRAM headroom.
   - name: Cyber-Tiel-Coder-35B-A3B-MTP-UD-Q4_K_XL
     agent: true
+    fast: true            # kept on the AI host's SSD (see llamacpp_fast_models)
     args:
       n-gpu-layers: 99
       ctx-size: 262144
@@ -119,6 +120,7 @@ llm_models:
   # Not the agent's model (`agent: true`): llama.cpp holds one GGUF at a time,
   # so a second profile unloads the agent's model after every turn.
   - name: Qwen3.6-35B-A3B-MTP-UD-Q4_K_XL
+    fast: true            # kept on the AI host's SSD
     args:
       n-gpu-layers: 99
       ctx-size: 262144

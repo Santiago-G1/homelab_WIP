@@ -13,7 +13,7 @@
 {% set alt_status_codes = ok_status_codes | join(', ') %}
 
 server:
-  port: 8080
+  port: {{ service_ports.glance }}
   # TLS ends at Caddy: the client address is the X-Forwarded-For one.
   proxied: true
 

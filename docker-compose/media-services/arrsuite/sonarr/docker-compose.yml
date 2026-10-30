@@ -10,7 +10,7 @@ services:
       - ./data:/config
       - ${DATA_MOUNT:?DATA_MOUNT is required}:/data
     ports:
-      - "8989:8989"
+      - "${PUBLISH_PORT:?}:8989"
     networks:
       - arrsuite-stack
     restart: unless-stopped

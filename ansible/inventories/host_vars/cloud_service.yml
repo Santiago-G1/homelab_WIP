@@ -18,6 +18,8 @@ stacks:
       CLOUD_MOUNT: "{{ vault_cloud_mount }}"
       FILEBROWSER_ADMIN_PASSWORD: "{{ vault_filebrowser_admin_password }}"
       ONLYOFFICE_JWT_SECRET: "{{ vault_onlyoffice_jwt_secret }}"
+      # The sidecar is not its own stack, so its port is set here.
+      ONLYOFFICE_PUBLISH_PORT: "{{ service_ports.onlyoffice }}"
   - name: samba
     src: app-services/cloud/samba
     env:

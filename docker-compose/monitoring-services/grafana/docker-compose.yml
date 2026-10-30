@@ -25,7 +25,7 @@ services:
       # Static path, so it lives here and not in the .env (no env_file).
       GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/homelab-overview.json
     ports:
-      - '3000:3000'
+      - '${PUBLISH_PORT:?}:3000'
     volumes:
       - ./config:/var/lib/grafana
       - ./provisioning:/etc/grafana/provisioning:ro

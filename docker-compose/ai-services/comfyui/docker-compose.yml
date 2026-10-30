@@ -30,7 +30,7 @@ services:
       - /usr/lib/x86_64-linux-gnu/libnvidia-ptxjitcompiler.so.1:/usr/lib/x86_64-linux-gnu/libnvidia-ptxjitcompiler.so.1:ro
     ports:
       # 8080 is llama.cpp and 8081 SearXNG on this host.
-      - "${COMFYUI_PUBLISH_PORT:?}:8188"
+      - "${PUBLISH_PORT:?}:8188"
     environment:
       TZ: ${TZ:-Etc/UTC}
       COMFYUI_ARGS: ${COMFYUI_ARGS:?}

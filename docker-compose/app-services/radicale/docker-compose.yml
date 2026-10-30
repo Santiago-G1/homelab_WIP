@@ -3,7 +3,7 @@ services:
     image: tomsquest/docker-radicale:latest@sha256:6a79ac587412f09e586848c08876edacd787f51a86b20fbdd85989504c08dab9
     container_name: radicale
     ports:
-      - "5232:5232"
+      - "${PUBLISH_PORT:?}:5232"
     init: true
     read_only: true
     security_opt:

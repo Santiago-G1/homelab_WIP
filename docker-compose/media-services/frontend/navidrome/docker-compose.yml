@@ -11,5 +11,5 @@ services:
       - ./config:/data
       - ${DATA_MOUNT:?DATA_MOUNT is required}/music:/music:ro
     ports:
-      - 4533:4533
+      - "${PUBLISH_PORT:?}:4533"
     restart: unless-stopped

@@ -12,7 +12,7 @@ services:
     env_file:
       - .env
     ports:
-      - '2283:2283'
+      - '${PUBLISH_PORT:?}:2283'
     depends_on:
       - redis
       - database

@@ -36,7 +36,7 @@ services:
 
     ports:
       # Publishes the port the daemon listens on; both come from service_ports.
-      - "${ZC_PORT:?}:${ZC_PORT:?}"   # pairing required; Caddy is the entry point
+      - "${PUBLISH_PORT:?}:${PUBLISH_PORT:?}"   # pairing required; Caddy is the entry point
 
     networks:
       - ai-stack

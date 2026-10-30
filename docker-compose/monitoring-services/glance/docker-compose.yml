@@ -5,7 +5,7 @@ services:
     container_name: glance
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "${PUBLISH_PORT:?}:${PUBLISH_PORT:?}"
     environment:
       - TZ=${TZ:-Etc/UTC}
       # glance.yml keeps ${...} placeholders; these resolve them at startup.
