@@ -26,4 +26,7 @@ new profile have to be created before the first deploy:
 install -d -o 10000 -g 10000 -m 700 /mnt/data/hermes/profiles/uncensored
 touch /mnt/data/hermes/profiles/uncensored/{config.yaml,.env,SOUL.md}
 chown 10000:10000 /mnt/data/hermes/profiles/uncensored/{config.yaml,.env,SOUL.md}
+mkdir -p /mnt/data/hermes/workspace
+touch /mnt/data/hermes/workspace/AGENTS.md
+chown -R 10000:10000 /mnt/data/hermes/workspace
 ```

@@ -33,6 +33,8 @@ services:
       - ./uncensored-config.yaml:/opt/data/profiles/uncensored/config.yaml
       - ./uncensored-agent.env:/opt/data/profiles/uncensored/.env
       - ./uncensored-SOUL.md:/opt/data/profiles/uncensored/SOUL.md
+      # The agent's project context: the homelab's rules, in the system prompt.
+      - ./AGENTS.md:/opt/data/workspace/AGENTS.md
       # The unrestricted profile runs commands in this container; the socket is
       # what makes it able to reach anything Docker can.
       - /var/run/docker.sock:/var/run/docker.sock

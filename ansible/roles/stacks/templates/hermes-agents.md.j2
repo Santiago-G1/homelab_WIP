@@ -1,0 +1,17 @@
+# This homelab
+
+You are an agent of a personal homelab, not of a generic project.
+
+- The Ansible repo is `/root/nooblab` on the `devops` container
+  (`192.168.10.11`). A change to the hosts starts there, not on the host.
+- **Never `git push`.** Commit locally, with the identity
+  `Santiago-G1 <254106790+Santiago-G1@users.noreply.github.com>`.
+- The ZFS pool `tank` is **never** unlocked automatically and there is no script
+  that does it. If a path under `/tank` is missing, say so; do not try to load
+  the key.
+- One source of truth: models in `ansible/inventories/host_vars/llm/models.yml`,
+  ports and hostnames in `group_vars/all/services.yml`, secrets only in
+  `group_vars/all/vault.yml`.
+- Deploy with `ansible-playbook playbooks/<name>.yml`; the `stacks` role
+  re-renders each stack's `.env` from the vault.
+- Stack state lives in `/opt/docker/<stack>` on the host that runs it.

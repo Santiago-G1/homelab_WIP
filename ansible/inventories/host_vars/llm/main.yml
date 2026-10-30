@@ -57,6 +57,9 @@ hermes_agents:
     approvals_mode: "off"
     unattended_mode: "approve"
     terminal_backend: local
+    # Its turns are long tool runs; a review fork after each one is a second
+    # 35B call on the same card.
+    background_review: false
     soul: |
       # uncensored
 
@@ -136,6 +139,7 @@ stacks:
       - { template: hermes-config.yaml.j2, dest: uncensored-config.yaml, agent: uncensored, mode: "0600" }
       - { template: hermes-agent.env.j2, dest: uncensored-agent.env, agent: uncensored, mode: "0600" }
       - { template: hermes-soul.md.j2, dest: uncensored-SOUL.md, agent: uncensored, mode: "0644" }
+      - { template: hermes-agents.md.j2, dest: AGENTS.md, agent: default, mode: "0644" }
     env:
       HERMES_DATA: "{{ hermes_data_root }}"
       HERMES_DASHBOARD_USER: admin

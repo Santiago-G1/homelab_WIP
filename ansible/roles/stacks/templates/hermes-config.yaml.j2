@@ -27,6 +27,25 @@ approvals:
 {% endfor %}
 {% endif %}
 
+# A local 35B pays for every extra call, and the post-turn memory/skills review
+# is a whole model call per turn: off where the agent mostly runs tools.
+auxiliary:
+  background_review:
+    enabled: {{ 'true' if a.background_review | default(true) else 'false' }}
+
+compression:
+  # The summarizer is a full 35B call: compact early, and while the card is idle
+  # instead of in the middle of a request. 0.25 x 262k is ~65k tokens.
+  threshold: 0.25
+  idle_compact_after_seconds: 300
+  tail_mode: lean
+
+# Snapshots the working tree before the agent edits files, so `hermes
+# checkpoints` can undo a bad turn (opt-in upstream, off by default).
+checkpoints:
+  enabled: true
+
 terminal:
   backend: "{{ a.terminal_backend }}"
+  cwd: /opt/data/workspace
   timeout: 300
