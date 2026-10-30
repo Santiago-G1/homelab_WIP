@@ -1,4 +1,9 @@
 ---
+# dockurr/samba creates the account with this uid/gid, and the templates have to
+# name the same numbers.
+samba_uid: 1000
+samba_gid: 1000
+
 stacks:
   - name: filebrowser
     src: app-services/cloud/filebrowser
@@ -18,6 +23,8 @@ stacks:
     env:
       CLOUD_MOUNT: "{{ vault_cloud_mount }}"
       LLM_MOUNT: "{{ vault_llm_mount }}"
+      SAMBA_UID: "{{ samba_uid }}"
+      SAMBA_GID: "{{ samba_gid }}"
     files:
       - { template: samba-users.conf.j2, dest: users.conf, mode: "0600" }
       - { template: samba-smb.conf.j2, dest: smb.conf }

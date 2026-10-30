@@ -134,20 +134,19 @@ of two facts that only bite together:
 
 ```yaml
   - name: Cyber-Tiel-Coder-35B-A3B-MTP-UD-Q4_K_XL
-    agent: true            # the agent's model; profile `litellm.coder`
-    agent_alias: coder
+    agent: true            # the agent's model; profile `litellm.agent`
 ```
 
-Every entry with `agent_alias` becomes `[providers.models.litellm.<alias>]` in
-`config.toml`, carrying that model's own `ctx-size` and `temp`; `agent: true`
-picks the default, and `zeroclaw_models` derives the LiteLLM virtual key's
-allowlist from the same list.
+That entry becomes `[providers.models.litellm.agent]` in `config.toml`, carrying
+its own `ctx-size` and `temp`, and `zeroclaw_models` derives the LiteLLM virtual
+key's allowlist from the same flag. The profile key is fixed because the compose
+env that carries the api key
+(`ZEROCLAW_providers__models__litellm__agent__api_key`) cannot follow a
+variable.
 
 The rest of `llm_models` is still served: the router loads those on demand for
-any other client that names them through LiteLLM (port 4000). A second profile
-for the chat is `agent_alias: <alias>` on one of them plus its
-`ZEROCLAW_providers__models__litellm__<alias>__api_key` override in the stack's
-compose, at the cost of the swap above after every turn.
+any other client that names them through LiteLLM (port 4000). There is no
+second agent profile: it would pay the swap above after every turn.
 
 ## The P100 is shared
 

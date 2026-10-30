@@ -2,22 +2,22 @@
 # the daemon adds pairing tokens to this file, so expect drift.
 schema_version = 3
 
-{# Only the agent's model gets a profile: the router keeps one GGUF resident. #}
-{% for m in llm_models | selectattr('agent_alias', 'defined') %}
-[providers.models.litellm.{{ m.agent_alias }}]
+{# One profile, fixed key: the router keeps one GGUF resident, and the compose
+   env that carries the api key cannot follow a variable. #}
+{% set m = (llm_models | selectattr('agent', 'defined') | first) %}
+[providers.models.litellm.agent]
 uri = "{{ zeroclaw_litellm_uri }}"
 model = "{{ m.name }}"
-context_window = {{ m.args['ctx-size'] if m.args is defined and m.args['ctx-size'] is defined else zeroclaw_context_window }}
-max_tokens = {{ zeroclaw_max_tokens | default(16384) }}
-timeout_secs = {{ zeroclaw_provider_timeout_secs | default(900) }}
+context_window = {{ (m.args | default({}))['ctx-size'] | default(zeroclaw_context_window) }}
+max_tokens = {{ zeroclaw_max_tokens }}
+timeout_secs = {{ zeroclaw_provider_timeout_secs }}
 {% if m.args is defined and m.args['temp'] is defined %}
 temperature = {{ m.args['temp'] }}
 {% endif %}
 
-{% endfor %}
 [agents.default]
 enabled = true
-model_provider = "litellm.{{ zeroclaw_primary_alias }}"
+model_provider = "litellm.agent"
 risk_profile = "sandboxed"
 runtime_profile = "agent"
 # An enabled channel no agent lists is not started.
@@ -37,18 +37,18 @@ level = "supervised"
 workspace_only = true
 sandbox_enabled = true
 sandbox_backend = "docker"
-sandbox_image = "zeroclaw-sandbox:1"
+sandbox_image = "{{ zeroclaw_sandbox_image }}"
 
 [runtime_profiles.agent]
 agentic = true
 # Nothing here is billed per call, so what needs bounding is time and looping:
 # the stock 12 iterations, 20 actions/hour and 2 KB per tool result cut a normal
 # read -> edit -> test turn short.
-max_tool_iterations = {{ zeroclaw_max_tool_iterations | default(40) }}
-max_actions_per_hour = {{ zeroclaw_max_actions_per_hour | default(1000) }}
-max_tool_result_chars = {{ zeroclaw_max_tool_result_chars | default(40000) }}
+max_tool_iterations = {{ zeroclaw_max_tool_iterations }}
+max_actions_per_hour = {{ zeroclaw_max_actions_per_hour }}
+max_tool_result_chars = {{ zeroclaw_max_tool_result_chars }}
 # The agent's budget, not the server's: leaves room for the reply.
-max_context_tokens = {{ zeroclaw_max_context_tokens | default(24000) }}
+max_context_tokens = {{ zeroclaw_max_context_tokens }}
 
 [web_search]
 # DuckDuckGo starts returning empty results after a few queries, so search goes
@@ -62,7 +62,7 @@ timeout_secs = 15
 [channels]
 # The local models load on demand, so a message can wait minutes before the
 # first token: the stock 300 s budget cuts it off.
-message_timeout_secs = {{ zeroclaw_message_timeout_secs | default(900) }}
+message_timeout_secs = {{ zeroclaw_message_timeout_secs }}
 
 [channels.telegram.home]
 enabled = true
@@ -73,7 +73,7 @@ channel = "telegram.home"
 external_peers = ["{{ zeroclaw_telegram_user_id }}"]
 
 [gateway]
-port = 42617
+port = {{ service_ports.zeroclaw }}
 host = "0.0.0.0"
 allow_public_bind = true
 require_pairing = true

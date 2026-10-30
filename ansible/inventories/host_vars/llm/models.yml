@@ -82,7 +82,6 @@ llm_models:
   # acceptance, and ub 2048 buys nothing at 6k while eating the VRAM headroom.
   - name: Cyber-Tiel-Coder-35B-A3B-MTP-UD-Q4_K_XL
     agent: true
-    agent_alias: coder
     args:
       n-gpu-layers: 99
       ctx-size: 262144
@@ -117,7 +116,7 @@ llm_models:
   # so speculative decoding works: decode 56-69 t/s vs 32.4, acceptance 58-69%.
   # The full 262144 window costs 14.2 + 14.9 GiB of the 2x16 GB, so ub 1024 and
   # a single slot are the stable point (ub 2048 dies on a long prefill).
-  # Not a ZeroClaw profile (`agent_alias`): llama.cpp holds one GGUF at a time,
+  # Not the agent's model (`agent: true`): llama.cpp holds one GGUF at a time,
   # so a second profile unloads the agent's model after every turn.
   - name: Qwen3.6-35B-A3B-MTP-UD-Q4_K_XL
     args:
@@ -207,7 +206,6 @@ llamacpp_model_overrides: >-
   {{ llm_models | selectattr('args', 'defined')
      | items2dict(key_name='name', value_name='args') }}
 zeroclaw_model: "{{ (llm_models | selectattr('agent', 'defined') | first).name }}"
-# Each `agent_alias` becomes a ZeroClaw provider profile (`litellm.<alias>`);
-# `agent: true` picks the default. One profile only: see the note above.
-zeroclaw_primary_alias: "{{ (llm_models | selectattr('agent', 'defined') | first).agent_alias }}"
-zeroclaw_models: "{{ llm_models | selectattr('agent_alias', 'defined') | map(attribute='name') | list }}"
+# `agent: true` picks the model ZeroClaw serves, under the fixed `litellm.agent`
+# profile. One profile only: see the note above.
+zeroclaw_models: "{{ llm_models | selectattr('agent', 'defined') | map(attribute='name') | list }}"

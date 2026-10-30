@@ -46,6 +46,8 @@ zeroclaw_max_tool_iterations: 40
 zeroclaw_max_actions_per_hour: 1000
 zeroclaw_max_tool_result_chars: 8000
 zeroclaw_max_tokens: 16384
+# Named by config.toml and built by the stack.
+zeroclaw_sandbox_image: zeroclaw-sandbox:1
 
 searxng_host: searxng
 searxng_port: 8080                      # llama.cpp owns 8080 on the LAN
@@ -131,6 +133,10 @@ stacks:
     env:
       ZEROCLAW_LITELLM_API_KEY: "{{ vault_zeroclaw_litellm_api_key }}"
       ZEROCLAW_TELEGRAM_BOT_TOKEN: "{{ vault_zeroclaw_telegram_bot_token }}"
+      # Interpolation only, and no ZEROCLAW_ prefix: that prefix is the daemon's
+      # own config-override namespace.
+      ZC_PORT: "{{ service_ports.zeroclaw }}"
+      ZC_SANDBOX_IMAGE: "{{ zeroclaw_sandbox_image }}"
 
   - name: gpu-panel
     src: app-services/gpu-panel

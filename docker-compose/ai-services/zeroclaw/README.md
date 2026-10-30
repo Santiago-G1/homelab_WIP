@@ -8,7 +8,7 @@ Compose stack next to the LiteLLM proxy it talks to. The gateway is served at
 agent.<domain>  ──►  Caddy (CT 104)  ──►  zeroclaw:42617
                                             │
 Telegram (long polling)  ─────────────────► │
-                                            ├─ provider: litellm.coder
+                                            ├─ provider: litellm.agent
                                             │    http://litellm-proxy:4000/v1
                                             │    (shared `ai-stack` network)
                                             └─ shell tool: throwaway sandbox
@@ -40,11 +40,11 @@ Two secrets, both in the encrypted vault, both rendered into `.env` by the
 
 | Vault variable | Reaches the container as |
 | --- | --- |
-| `vault_zeroclaw_litellm_api_key` | `ZEROCLAW_providers__models__litellm__coder__api_key` |
+| `vault_zeroclaw_litellm_api_key` | `ZEROCLAW_providers__models__litellm__agent__api_key` |
 | `vault_zeroclaw_telegram_bot_token` | `ZEROCLAW_channels__telegram__home__bot_token` |
 
 The rendered `config.toml` has neither field: both are schema-mirror overrides
-that only ever exist in the process memory (the config carries the alias and
+that only ever exist in the process memory (the config carries the provider key and
 the channel, never the credential). `zeroclaw config save` masks them and never
 writes them back, and so does `zeroclaw config list`.
 
