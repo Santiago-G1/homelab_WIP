@@ -8,7 +8,7 @@ module "ai" {
   cpu_cores  = 4
   memory     = 12288
   swap       = 9192
-  disk_size  = 78
+  disk_size  = 92
 
   # PVE creates the nodes root:root 0660, which llama-server (video group)
   # cannot open; gid is the container-side id (video = 44).

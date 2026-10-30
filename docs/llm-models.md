@@ -76,9 +76,10 @@ context and tensor setup, not I/O.
 
 Two things to keep in mind:
 
-- The SSD is the `local-lvm` thin pool, and it is nearly full (~40 GiB free of
-  165 GiB, one 21 GiB model fits). The role says which model it had to leave on
-  the pool; add it to the list when there is room, and the next deploy moves it.
+- The SSD is the `local-lvm` thin pool, and it is small: both 21 GiB models fit,
+  but the pool sits at ~85 % afterwards. The role checks the free space first and
+  says which model it had to leave on the pool instead of filling it; add it to
+  the list when there is room and the next deploy moves it.
 - A moved model is no longer inside the pool: it lives on the container's disk,
   so a `pct destroy` loses it. The recovery is downloading it again.
 

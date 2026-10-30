@@ -285,29 +285,28 @@
     src="{{ llamacpp_models_dir }}/{{ item }}.gguf"
     dst="{{ llamacpp_fast_models_dir }}/{{ item }}.gguf"
     if [ -L "$src" ] && [ "$(readlink "$src")" = "$dst" ]; then
-      echo "already linked"
+      echo ok
       exit 0
     fi
     if [ -f "$src" ]; then
       need=$(( $(stat -c%s "$src") / 1024 + 3145728 ))
       avail=$(df -Pk "{{ llamacpp_fast_models_dir }}" | awk 'NR==2 {print $4}')
       if [ "$avail" -lt "$need" ]; then
-        echo "sin espacio para {{ item }}: $(( (need - avail) / 1024 )) MiB de menos"
+        echo "no space for {{ item }}: $(( (need - avail) / 1024 )) MiB short"
         exit 0
       fi
       mv "$src" "$dst"
-      echo "moved"
     fi
     if [ ! -f "$dst" ]; then
-      echo "ni $src ni $dst existen" >&2
+      echo "neither $src nor $dst exists" >&2
       exit 1
     fi
     ln -sfn "$dst" "$src"
-    echo "linked"
+    echo moved
   args:
     executable: /bin/bash
   register: llamacpp_fast_move
-  changed_when: llamacpp_fast_move.stdout is match('^(moved|linked)$')
+  changed_when: llamacpp_fast_move.stdout == 'moved'
   loop: "{{ llamacpp_fast_models }}"
   loop_control:
     label: "{{ item }}"
@@ -316,7 +315,7 @@
 - name: Report the models that stay on the pool
   ansible.builtin.debug:
     msg: "{{ item.item }} stays on {{ llamacpp_models_dir }} ({{ item.stdout }})"
-  loop: "{{ llamacpp_fast_move.results | default([]) | selectattr('stdout', 'search', 'sin espacio') | list }}"
+  loop: "{{ llamacpp_fast_move.results | default([]) | selectattr('stdout', 'search', 'no space for') | list }}"
   loop_control:
     label: "{{ item.item }}"
   when: llamacpp_fast_move is defined
