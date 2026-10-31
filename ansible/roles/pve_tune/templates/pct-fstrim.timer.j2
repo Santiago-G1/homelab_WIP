@@ -1,0 +1,10 @@
+# Managed by Ansible (roles/pve_tune).
+[Unit]
+Description=Weekly pct fstrim, so the thin pool does not creep towards full
+
+[Timer]
+OnCalendar=Sun *-*-* 03:30:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

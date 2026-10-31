@@ -1,0 +1,9 @@
+#!/bin/sh
+# Managed by Ansible (roles/pve_tune).
+# A container's filesystem never issues discards, so every block it frees stays
+# allocated in the LVM-thin pool until someone runs `pct fstrim`. The pool was
+# at 96.7 % with 6.8 GB of dead blocks; after one pass it dropped to 92.6 %.
+# `fstrim` inside the guest fails with EPERM, so this has to run on the host.
+for c in $(pct list | awk 'NR > 1 && $2 == "running" { print $1 }'); do
+    pct fstrim "$c" 2>/dev/null | sed "s/^/CT $c: /"
+done

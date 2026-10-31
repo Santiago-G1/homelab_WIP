@@ -99,3 +99,29 @@
   loop:
     - nvidia-power-cap.service
     - nvidia-p100-tune.service
+- name: Install the container TRIM script
+  ansible.builtin.template:
+    src: pct-fstrim.sh.j2
+    dest: /usr/local/sbin/pct-fstrim.sh
+    mode: "0755"
+
+- name: Install the container TRIM unit
+  ansible.builtin.template:
+    src: pct-fstrim.service.j2
+    dest: /etc/systemd/system/pct-fstrim.service
+    mode: "0644"
+  notify: Reload systemd
+
+- name: Install the container TRIM timer
+  ansible.builtin.template:
+    src: pct-fstrim.timer.j2
+    dest: /etc/systemd/system/pct-fstrim.timer
+    mode: "0644"
+  notify: Reload systemd
+
+- name: Run the weekly container TRIM
+  ansible.builtin.systemd:
+    name: pct-fstrim.timer
+    enabled: true
+    state: started
+    daemon_reload: true
