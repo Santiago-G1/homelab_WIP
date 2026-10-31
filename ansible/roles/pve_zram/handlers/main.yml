@@ -1,4 +1,7 @@
 ---
-- name: Reload systemd
+# The device keeps the size it was created with, so the config only lands on a
+# fresh device: swap back in, reset and up again.
+- name: Restart zramswap
   ansible.builtin.systemd:
-    daemon_reload: true
+    name: zramswap.service
+    state: restarted

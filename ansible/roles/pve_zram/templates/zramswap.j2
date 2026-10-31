@@ -1,0 +1,8 @@
+# Managed by Ansible (roles/pve_zram).
+ALGO={{ pve_zram_algorithm }}
+
+# Share of RAM; this wins over SIZE.
+PERCENT={{ pve_zram_percent }}
+SIZE=512
+
+PRIORITY={{ pve_zram_priority }}

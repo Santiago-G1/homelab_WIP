@@ -1,4 +1,7 @@
 ---
-# zram-tools manages one device; this one is the overflow it cannot have.
-zram_extra_size_mb: 6144
-zram_extra_priority: 50
+# One zram device, a share of RAM. A second device buys nothing: every zram
+# page costs host memory either way, and different priorities only make the
+# kernel fill one disk before touching the other.
+pve_zram_percent: 75
+pve_zram_algorithm: zstd
+pve_zram_priority: 100
