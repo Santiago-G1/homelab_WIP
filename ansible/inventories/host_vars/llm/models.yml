@@ -84,6 +84,7 @@ llm_models:
     agent: true
     fast: true            # kept on the AI host's SSD (see llamacpp_fast_models)
     args:
+      load-mode: dio       # 22 GB: it can never be cached, so read it direct
       n-gpu-layers: 99
       ctx-size: 262144
       cache-type-k: f16
@@ -122,6 +123,7 @@ llm_models:
   - name: Qwen3.6-35B-A3B-MTP-UD-Q4_K_XL
     fast: true            # kept on the AI host's SSD
     args:
+      load-mode: dio       # 22 GB: it can never be cached, so read it direct
       n-gpu-layers: 99
       ctx-size: 262144
       # The spare VRAM pays for f16; q8_0 is the floor.
