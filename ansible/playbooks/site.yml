@@ -44,3 +44,4 @@
   hosts: proxmox_host
   roles:
     - pve_zram
+    - pve_tune

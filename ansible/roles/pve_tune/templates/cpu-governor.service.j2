@@ -1,0 +1,13 @@
+# Managed by Ansible (roles/pve_tune).
+[Unit]
+Description=CPU governor: {{ pve_tune_governor }} (the box idles most of the time)
+Documentation=man:cpufreq-set(1)
+After=multi-user.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/sh -c 'for c in /sys/devices/system/cpu/cpu[0-9]*/cpufreq/scaling_governor; do echo {{ pve_tune_governor }} > $c; done'
+
+[Install]
+WantedBy=multi-user.target

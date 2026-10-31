@@ -1,0 +1,15 @@
+# Managed by Ansible (roles/pve_tune).
+[Unit]
+Description=Cap the Tesla P100s at {{ pve_tune_gpu_power_limit_w }} W
+After=nvidia-persistenced.service systemd-modules-load.service
+Wants=nvidia-persistenced.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/nvidia-power-cap.sh
+# The driver re-arms the default limit a few seconds after it initialises.
+ExecStartPost=/bin/sh -c 'sleep 45; /usr/local/sbin/nvidia-power-cap.sh'
+
+[Install]
+WantedBy=multi-user.target

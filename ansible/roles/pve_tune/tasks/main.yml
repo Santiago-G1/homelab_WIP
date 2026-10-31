@@ -1,0 +1,101 @@
+---
+# CPU frequency. The unit is a template because the governor is the only knob.
+- name: Install the CPU governor unit
+  ansible.builtin.template:
+    src: cpu-governor.service.j2
+    dest: /etc/systemd/system/cpu-governor.service
+    mode: "0644"
+  notify: Reload systemd
+
+- name: Apply the governor at boot and now
+  ansible.builtin.systemd:
+    name: cpu-governor.service
+    enabled: true
+    state: started
+    daemon_reload: true
+
+# IRQs: two GPUs, an NIC and two HDDs pinning interrupts to four cores.
+- name: Install irqbalance
+  ansible.builtin.apt:
+    name: irqbalance
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Run irqbalance
+  ansible.builtin.systemd:
+    name: irqbalance.service
+    enabled: true
+    state: started
+
+# ksmtuned only counts memory committed to qemu processes. This host runs
+# containers only, so it never enables KSM; and KSM itself only scans pages
+# marked MADV_MERGEABLE, which no LXC payload sets. Measured: pages_scanned 0.
+# Leaving it enabled is a daemon doing nothing every 60 seconds.
+- name: Retire ksmtuned (it only tracks qemu, and there are no VMs here)
+  ansible.builtin.systemd:
+    name: ksmtuned.service
+    enabled: false
+    state: stopped
+    masked: true
+
+# ZFS ARC ceiling. The runtime value is what matters until the next boot; the
+# modprobe file makes it survive one.
+- name: Read the live ARC ceiling
+  ansible.builtin.slurp:
+    src: /sys/module/zfs/parameters/zfs_arc_max
+  register: pve_tune_arc_live
+
+- name: Raise the ARC ceiling for the next boot
+  ansible.builtin.lineinfile:
+    path: /etc/modprobe.d/zfs.conf
+    regexp: '^options zfs zfs_arc_max='
+    line: "options zfs zfs_arc_max={{ pve_tune_arc_max_bytes }}"
+    insertafter: '^(#|$)'
+    mode: "0644"
+  when: (pve_tune_arc_live.content | b64decode | trim) != (pve_tune_arc_max_bytes | string)
+
+- name: Raise the live ARC ceiling
+  ansible.builtin.copy:
+    content: "{{ pve_tune_arc_max_bytes }}\n"
+    dest: /sys/module/zfs/parameters/zfs_arc_max
+    mode: "0644"
+  when: (pve_tune_arc_live.content | b64decode | trim) != (pve_tune_arc_max_bytes | string)
+
+- name: Schedule a monthly scrub
+  ansible.builtin.systemd:
+    name: "zfs-scrub-monthly@{{ pve_tune_scrub_pool }}.timer"
+    enabled: true
+    state: started
+
+# GPU power and clocks. Two units because the driver re-arms the power cap after
+# it settles, so one applies at boot and the other 45 s later.
+- name: Install the GPU power cap script
+  ansible.builtin.template:
+    src: nvidia-power-cap.sh.j2
+    dest: /usr/local/sbin/nvidia-power-cap.sh
+    mode: "0755"
+
+- name: Install the GPU power cap unit
+  ansible.builtin.template:
+    src: nvidia-power-cap.service.j2
+    dest: /etc/systemd/system/nvidia-power-cap.service
+    mode: "0644"
+  notify: Reload systemd
+
+- name: Install the GPU clock unit
+  ansible.builtin.template:
+    src: nvidia-p100-tune.service.j2
+    dest: /etc/systemd/system/nvidia-p100-tune.service
+    mode: "0644"
+  notify: Reload systemd
+
+- name: Apply the caps at boot
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+    daemon_reload: true
+  loop:
+    - nvidia-power-cap.service
+    - nvidia-p100-tune.service

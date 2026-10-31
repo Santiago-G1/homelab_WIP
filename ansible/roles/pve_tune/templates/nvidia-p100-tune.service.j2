@@ -1,0 +1,18 @@
+# Managed by Ansible (roles/pve_tune).
+# GP100 ships at 1202 MHz in some SKUs and the card will not boost past whatever
+# the application clock asks for, so both the cap and the clock have to be set.
+[Unit]
+Description=Tesla P100 (GP100) power/clock tuning: {{ pve_tune_gpu_clock_sm_mhz }} MHz, {{ pve_tune_gpu_power_limit_w }} W cap
+Documentation=man:nvidia-smi(1)
+After=nvidia-persistenced.service
+Wants=nvidia-persistenced.service
+ConditionPathExists=/dev/nvidia0
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/nvidia-smi -pl {{ pve_tune_gpu_power_limit_w }}
+ExecStart=/usr/bin/nvidia-smi -ac {{ pve_tune_gpu_clock_mem_mhz }},{{ pve_tune_gpu_clock_sm_mhz }}
+
+[Install]
+WantedBy=multi-user.target

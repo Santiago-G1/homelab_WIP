@@ -40,3 +40,15 @@
       PermitRootLogin prohibit-password
       X11Forwarding no
   notify: restart ssh
+
+# journald: CT 122 had 405 MB of logs and CT 121 223 MB. The logs are page cache
+# the LLM cannot use and writes the SMR member of the mirror does not need.
+- name: Cap the journal at 100 MB
+  ansible.builtin.copy:
+    dest: /etc/systemd/journald.conf.d/99-max-use.conf
+    mode: "0644"
+    content: |
+      [Journal]
+      SystemMaxUse=100M
+      RuntimeMaxUse=32M
+  notify: restart journald

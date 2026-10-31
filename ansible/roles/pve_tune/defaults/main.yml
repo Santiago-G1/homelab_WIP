@@ -1,0 +1,29 @@
+---
+# Host-level tuning for the hypervisor itself. Nothing here touches a
+# container: it is CPU frequency, IRQ distribution, ZFS page cache, scrub
+# scheduling and the GPU power caps. Everything below was measured on this
+# board before being written down (see docs/ for the numbers).
+#
+# CPU governor: `performance` kept all four cores at 3.65 GHz while the box
+# idled at 83 %. A/B of the whole LLM battery (40k prefill, code, prose, long
+# generation, 4 bursts): schedutil is identical or better on every test and the
+# package drops from 17 W to 15 W.
+pve_tune_governor: schedutil
+
+# ZFS: 96.6 % hit rate but the old 2 GiB cap was only ever using 500 MB. ARC is
+# reclaimable, so 3 GiB costs the LLM nothing and saves seeks on the HDD mirror.
+pve_tune_arc_max_bytes: 3221225472
+
+# P100 sweet spot, measured per card with llama-bench: 200 W is the lowest limit
+# that holds the 1328 MHz app clock with no throttling; 225 and 250 W give the
+# exact same throughput, and the card self-limits around 195 W anyway.
+# Note: with `-ac` set the power limit is advisory (at -pl 125 it drew 134 W to
+# hold the clock), so 200 W is a target, not a hard ceiling.
+pve_tune_gpu_power_limit_w: 200
+pve_tune_gpu_clock_mem_mhz: 715    # HBM2 stock; never raise
+pve_tune_gpu_clock_sm_mhz: 1328    # GP100 max boost
+
+# Monthly scrub. There is no timer by default on this install and the last one
+# was 2026-09-13: on a mirror with an SMR member that is how silent corruption
+# goes unnoticed.
+pve_tune_scrub_pool: tank
