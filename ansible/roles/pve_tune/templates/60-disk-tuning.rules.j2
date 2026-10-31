@@ -1,0 +1,5 @@
+# Managed by Ansible (roles/pve_tune).
+# SSD: no elevator, latency over throughput.
+ACTION=="add|change", SUBSYSTEM=="block", KERNEL=="sd*", ATTR{queue/rotational}=="0", ATTR{queue/scheduler}="none", ATTR{queue/read_ahead_kb}="{{ pve_tune_ssd_read_ahead_kb }}", ATTR{queue/add_random}="0"
+# HDDs: mq-deadline, so the bios ZFS submits still get merged.
+ACTION=="add|change", SUBSYSTEM=="block", KERNEL=="sd*", ATTR{queue/rotational}=="1", ATTR{queue/scheduler}="mq-deadline", ATTR{queue/read_ahead_kb}="{{ pve_tune_hdd_read_ahead_kb }}", ATTR{queue/nr_requests}="{{ pve_tune_hdd_nr_requests }}", ATTR{queue/add_random}="0"

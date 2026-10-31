@@ -7,6 +7,15 @@ pve_tune_governor: schedutil
 # ARC is reclaimable; 3 GiB saves seeks on the HDD mirror.
 pve_tune_arc_max_bytes: 3221225472
 
+# ZFS commits every 5 s by default; 10 s lets the SMR member of the mirror
+# write longer sequential runs.
+pve_tune_zfs_txg_timeout: 10
+
+# One list for the modprobe file and for the running module.
+pve_tune_zfs_params:
+  zfs_arc_max: "{{ pve_tune_arc_max_bytes }}"
+  zfs_txg_timeout: "{{ pve_tune_zfs_txg_timeout }}"
+
 # Lowest cap that holds the 1328 MHz application clock on its own.
 pve_tune_gpu_power_limit_w: 200
 pve_tune_gpu_clock_mem_mhz: 715    # HBM2 stock; never raise
@@ -14,3 +23,8 @@ pve_tune_gpu_clock_sm_mhz: 1328    # GP100 max boost
 
 pve_tune_scrub_pool: tank
 pve_tune_fstrim_on_calendar: "Sun *-*-* 03:30:00"
+
+# Block queue: the SSD takes no elevator, the HDDs keep mq-deadline.
+pve_tune_ssd_read_ahead_kb: 256
+pve_tune_hdd_read_ahead_kb: 8192
+pve_tune_hdd_nr_requests: 256

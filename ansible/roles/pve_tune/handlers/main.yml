@@ -2,3 +2,11 @@
 - name: Reload systemd
   ansible.builtin.systemd:
     daemon_reload: true
+
+# New queue rules only land on the live devices on a change event.
+- name: Reload udev
+  ansible.builtin.shell: |
+    set -eu
+    udevadm control --reload-rules
+    udevadm trigger --subsystem-match=block --action=change
+  changed_when: true

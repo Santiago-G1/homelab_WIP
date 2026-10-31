@@ -37,27 +37,29 @@
     state: stopped
     masked: true
 
-# ARC ceiling: the runtime value now, the modprobe file for the next boot.
-- name: Read the live ARC ceiling
+# ZFS tunables: the modprobe file for the next boot, /sys for the running one.
+- name: Write the ZFS module options
+  ansible.builtin.template:
+    src: zfs.conf.j2
+    dest: /etc/modprobe.d/zfs.conf
+    mode: "0644"
+
+- name: Read the live ZFS tunables
   ansible.builtin.slurp:
-    src: /sys/module/zfs/parameters/zfs_arc_max
-  register: pve_tune_arc_live
+    src: "/sys/module/zfs/parameters/{{ item.key }}"
+  loop: "{{ pve_tune_zfs_params | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  register: pve_tune_zfs_live
 
-- name: Raise the ARC ceiling for the next boot
-  ansible.builtin.lineinfile:
-    path: /etc/modprobe.d/zfs.conf
-    regexp: '^options zfs zfs_arc_max='
-    line: "options zfs zfs_arc_max={{ pve_tune_arc_max_bytes }}"
-    insertafter: '^(#|$)'
-    mode: "0644"
-  when: (pve_tune_arc_live.content | b64decode | trim) != (pve_tune_arc_max_bytes | string)
-
-- name: Raise the live ARC ceiling
-  ansible.builtin.copy:
-    content: "{{ pve_tune_arc_max_bytes }}\n"
-    dest: /sys/module/zfs/parameters/zfs_arc_max
-    mode: "0644"
-  when: (pve_tune_arc_live.content | b64decode | trim) != (pve_tune_arc_max_bytes | string)
+- name: Apply the ZFS tunables to the running module
+  ansible.builtin.shell: printf '%s\n' {{ item.item.value }} > {{ item.item.key }}
+  args:
+    chdir: /sys/module/zfs/parameters
+  loop: "{{ pve_tune_zfs_live.results }}"
+  loop_control:
+    label: "{{ item.item.key }}"
+  when: item.content | b64decode | trim != item.item.value | string
 
 - name: Schedule a monthly scrub
   ansible.builtin.systemd:
@@ -121,3 +123,20 @@
     enabled: true
     state: started
     daemon_reload: true
+
+# Block queue, by rotational flag so the device names can move.
+- name: Install the block-queue rules
+  ansible.builtin.template:
+    src: 60-disk-tuning.rules.j2
+    dest: /etc/udev/rules.d/60-disk-tuning.rules
+    mode: "0644"
+  notify: Reload udev
+
+- name: Drop the queue rules written by hand
+  ansible.builtin.file:
+    path: "/etc/udev/rules.d/{{ item }}"
+    state: absent
+  loop:
+    - 60-disk-optimization.rules
+    - 60-iosched.rules
+  notify: Reload udev

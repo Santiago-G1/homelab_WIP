@@ -1,0 +1,2 @@
+# Managed by Ansible (roles/pve_tune).
+options zfs{% for key, value in pve_tune_zfs_params.items() %} {{ key }}={{ value }}{% endfor %}
