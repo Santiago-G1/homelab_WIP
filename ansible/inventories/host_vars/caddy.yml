@@ -9,5 +9,5 @@ stacks:
     env:
       CLOUDFLARE_API_TOKEN: "{{ vault_cloudflare_api_token }}"
 
-# Probed through the proxy with real SNI; the catalog decides which services.
+# Probed through the proxy with real SNI.
 proxy_checks: "{{ homelab_services | selectattr('verify', 'defined') | selectattr('verify') | list }}"

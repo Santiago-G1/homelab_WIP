@@ -1,6 +1,5 @@
 ---
-# dockurr/samba creates the account with this uid/gid, and the templates have to
-# name the same numbers.
+# dockurr/samba creates the account with this uid/gid; the templates repeat it.
 samba_uid: 1000
 samba_gid: 1000
 
@@ -8,11 +7,10 @@ stacks:
   - name: filebrowser
     src: app-services/cloud/filebrowser
     dirs:
-      # filebrowser runs as uid 1000 and needs its data dir writable.
+      # filebrowser runs as uid 1000 and does not chown its data dir.
       - { path: config, owner: "1000", group: "1000" }
     files:
-      # Rendered (not committed) because the OnlyOffice URL is the published
-      # name of this service, taken from the catalog.
+      # Rendered: the OnlyOffice URL comes from the catalog.
       - { template: filebrowser-config.yaml.j2, dest: config/config.yaml }
     env:
       CLOUD_MOUNT: "{{ vault_cloud_mount }}"

@@ -15,8 +15,7 @@ general:
   instance_name: "{{ searxng_instance_name }}"
 
 server:
-  # Not public: no bot detection, no limiter (it would also need valkey). The
-  # only client is the agent; revisit if this is ever published outside the LAN.
+  # Not public: no bot detection, no limiter (it would need valkey).
   limiter: false
   public_instance: false
   image_proxy: true

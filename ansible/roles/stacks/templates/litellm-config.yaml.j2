@@ -1,6 +1,6 @@
 # Managed by Ansible. Every advertised model needs a line in litellm_models:
-# a wildcard route would also publish LiteLLM's OpenAI catalogue. Only the top
-# level of llamacpp_models_dir is addressable.
+# Only the top level of llamacpp_models_dir is addressable: a wildcard route
+# would publish the whole catalogue.
 model_list:
 {% for model in litellm_models %}
   - model_name: "{{ model }}"

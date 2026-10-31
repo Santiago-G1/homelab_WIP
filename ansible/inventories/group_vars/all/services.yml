@@ -11,9 +11,8 @@
 
 ok_status_codes: [401, 403]   # several services answer 401/403 without a session
 
-# Every LAN port Ansible needs, in one place. The compose files own the real
-# published ports and this map has to match them: playbooks/verify.yml reads
-# them back from `docker compose config` and compares the two lists.
+# Published ports. The compose files are the source of truth; verify.yml reads
+# them back and compares the two lists.
 service_ports:
   blocky: 4000
   glance: 8080
@@ -250,10 +249,7 @@ homelab_services:
       not become a public hostname in the tunnel.
     verify: true
 
-  # On demand: ComfyUI is an image-generation stack that needs the whole P100,
-  # so the GPU panel starts it as its own mode and stops it again when the card
-  # goes back to llama.cpp. That is why it is not in the availability widget or
-  # in verify's route checks (a stopped but healthy service would look DOWN).
+  # On demand: the GPU panel owns its lifetime, so it is not probed.
   - host: comfy
     server: llm
     port: "{{ service_ports.comfyui }}"

@@ -3,7 +3,7 @@
 Description=Weekly pct fstrim, so the thin pool does not creep towards full
 
 [Timer]
-OnCalendar=Sun *-*-* 03:30:00
+OnCalendar={{ pve_tune_fstrim_on_calendar }}
 Persistent=true
 
 [Install]

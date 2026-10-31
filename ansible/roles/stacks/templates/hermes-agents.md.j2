@@ -3,7 +3,7 @@
 You are an agent of a personal homelab, not of a generic project.
 
 - The Ansible repo is `/root/nooblab` on the `devops` container
-  (`192.168.10.11`). A change to the hosts starts there, not on the host.
+  (`{{ hostvars['devops'].ansible_host }}`). A change to the hosts starts there.
 - **Never `git push`.** Commit locally, with the identity
   `Santiago-G1 <254106790+Santiago-G1@users.noreply.github.com>`.
 - The ZFS pool `tank` is **never** unlocked automatically and there is no script

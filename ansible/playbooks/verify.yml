@@ -35,9 +35,8 @@
       changed_when: false
       failed_when: ondemand_ps.stdout | length == 0
 
-    # service_ports (group_vars/all/services.yml) mirrors what the compose files
-    # publish, and Caddy and Glance point at it. Read the real ports back here;
-    # the last play compares both lists.
+    # service_ports mirrors what the compose files publish; the last play
+    # compares both lists.
     - name: Read the ports every stack publishes
       ansible.builtin.command:
         cmd: docker compose config --format json
@@ -138,9 +137,8 @@
         status_code: 200
       when: comfy_state.stdout | default('') == 'running'
 
-# The port map and the compose files are two declarations of the same ports;
-# this is what keeps them from drifting apart. It runs on the control node
-# because it needs every container's list, so a --limit run skips it.
+# The port map and the compose files declare the same ports twice; this keeps
+# them from drifting. It needs every container, so a --limit run skips it.
 - name: The port map matches what Compose publishes
   hosts: devops
   gather_facts: false

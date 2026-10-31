@@ -1,9 +1,8 @@
-# Managed by Ansible. /tank/immich is owned by uid 999 (the original install).
+# Managed by Ansible.
 services:
   immich-server:
-    user: "999:991"
-    # P100 (NVENC/NVDEC) plus the iGPU for VAAPI. The accel setting lives in
-    # Immich's admin UI, not here.
+    user: "{{ immich_uid }}:{{ immich_gid }}"
+    # P100 (NVENC/NVDEC) plus the iGPU for VAAPI; the accel setting is in the UI.
     devices:
       - /dev/nvidia0:/dev/nvidia0
       - /dev/nvidiactl:/dev/nvidiactl

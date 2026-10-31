@@ -29,7 +29,7 @@ auxiliary:
     enabled: {{ 'true' if a.background_review | default(true) else 'false' }}
 
 compression:
-  # Compact at ~65k tokens and while the card is idle: the summarizer is a full call.
+  # Compact at ~65k tokens and while the card is idle.
   threshold: 0.25
   idle_compact_after_seconds: 300
   tail_mode: lean
@@ -38,7 +38,7 @@ compression:
 checkpoints:
   enabled: true
 
-# Facts in SQLite, additive to the 2.2k-char MEMORY.md; no key, no model call.
+# Facts in SQLite, additive to MEMORY.md; no key and no model call.
 memory:
   provider: "{{ a.memory_provider }}"
   write_approval: {{ 'true' if a.memory_write_approval else 'false' }}

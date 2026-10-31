@@ -1,6 +1,5 @@
 ---
-# The one place the userspace driver version is declared. It is not a free
-# choice: the kernel module stays on the PVE host, so this has to be the branch
-# that module was built from (`nvidia-smi --query-gpu=driver_version` there).
-# R580 is the last branch with Pascal support.
+# Userspace driver version. It must match the module on the PVE host
+# (`nvidia-smi --query-gpu=driver_version` there). R580 is the last branch
+# with Pascal support.
 nvidia_driver_version: "580.159.04"

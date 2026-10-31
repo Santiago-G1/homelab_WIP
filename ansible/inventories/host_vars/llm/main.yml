@@ -1,14 +1,10 @@
 ---
 # P100 (sm_60). llama.cpp runs bare metal in router mode; LiteLLM, SearXNG,
-# Hermes and ComfyUI are Compose stacks on the same host.
-#
-# The CUDA/llama.cpp build defaults live in roles/llamacpp/defaults, and the
-# driver version in group_vars/gpu (this host is in [gpu]): only what differs
-# from those belongs here.
-#
-# The port is here and not only in the role default because the stacks below
-# read it too: llama.cpp, LiteLLM's api_base and the GPU panel have to agree.
-llamacpp_port: 8080
+# Hermes and ComfyUI are Compose stacks on the same host. Build defaults live in
+# roles/llamacpp/defaults, the driver version in group_vars/gpu.
+
+llm_ctid: 126                # Proxmox container id, read by the panel
+llamacpp_port: 8080          # read by LiteLLM and the panel too
 
 litellm_api_base: "http://{{ ansible_host }}:{{ llamacpp_port }}/v1"
 litellm_backend_api_key: "{{ vault_litellm_backend_api_key }}"
@@ -17,39 +13,37 @@ docker_networks:
   - ai-stack
 
 searxng_host: searxng
-searxng_port: 8080                      # llama.cpp owns 8080 on the LAN
+searxng_container_port: 8080            # on the LAN 8080 is llama.cpp
+searxng_uid: "977"
+searxng_gid: "977"
 searxng_instance_name: "Homelab search"
 searxng_base_url: "https://search.{{ vault_domainname_hs }}/"
 
-# The agent model's window comes from models.yml, and the models that must not
-# sit minutes in silence are the ones marked `fast: true` there: the pool reads a
-# 21 GiB GGUF at ~60 MB/s (5m40s) while this host's SSD does ~255 MB/s (3m25s).
+# Models marked `fast: true` in models.yml are kept on the local SSD.
 llamacpp_fast_models_dir: /var/lib/llama/models
 llamacpp_fast_models: "{{ llm_models | selectattr('fast', 'defined') | map(attribute='name') | list }}"
 
 # --- Hermes agents -------------------------------------------------------
-# Each one is its own stack and its own container: that is the sandbox. Their
-# state (memories, sessions, state.db, skills) lives on the pool.
+# One container per agent; its state lives on the pool.
 hermes_litellm_uri: "http://litellm-proxy:{{ service_ports.litellm }}/v1"
 # Container port, not the published one: both stacks share `ai-stack`.
-hermes_searxng_uri: "http://{{ searxng_host }}:{{ searxng_port }}"
+hermes_searxng_uri: "http://{{ searxng_host }}:{{ searxng_container_port }}"
 hermes_data_root: /mnt/data/hermes   # one home; the profiles live inside
 hermes_uid: "10000"                  # the hermes user inside the container
 hermes_gid: "10000"
 
 hermes_agents:
-  # The cautious one: it asks, and a headless run finds another way.
+  # Asks before acting; finds another way when nobody answers.
   default:
     approvals_mode: "smart"
     unattended_mode: "deny"
     terminal_backend: local
-    # The only one with a channel: the bot is its face.
+    # The only one with a Telegram channel.
     telegram: true
     memory_provider: holographic
-    # Autosaves are free to land; flip to true to review them with /memory pending.
+    # Set to true to review automatic writes with /memory pending.
     memory_write_approval: false
-    # Nightly deterministic consolidation of the fact store: no model call unless
-    # the wake gate finds something worth asking about.
+    # Nightly consolidation of the fact store.
     plugins:
       - hermes-dreaming
     soul: |
@@ -65,13 +59,12 @@ hermes_agents:
       - "mkfs*"
       - "dd *of=/dev/*"
 
-  # Nothing in the way: this is the one that does the work.
+  # No approvals: this is the one that does the work.
   uncensored:
     approvals_mode: "off"
     unattended_mode: "approve"
     terminal_backend: local
-    # Its turns are long tool runs; a review fork after each one is a second
-    # 35B call on the same card.
+    # A review fork after each turn would be a second 35B call.
     background_review: false
     memory_provider: holographic
     memory_write_approval: false
@@ -105,7 +98,7 @@ stacks:
       - { template: litellm-config.yaml.j2, dest: config.yaml }
     env:
       LITELLM_DB_PASSWORD: "{{ vault_litellm_db_password }}"
-      # Explicit so the reconcile can read them from the rendered .env.
+      # Read back from the rendered .env by the postgres reconcile.
       LITELLM_DB_USER: litellm
       LITELLM_DB_NAME: litellm
       LITELLM_MASTER_KEY: "{{ vault_litellm_master_key }}"
@@ -124,7 +117,7 @@ stacks:
     src: ai-services/searxng
     dirs:
       - { path: config }
-      - { path: data/cache, owner: "977", group: "977" }
+      - { path: data/cache, owner: "{{ searxng_uid }}", group: "{{ searxng_gid }}" }
     files:
       - { template: searxng-settings.yml.j2, dest: config/settings.yml }
     env:
@@ -147,7 +140,7 @@ stacks:
 
   - name: hermes
     src: ai-services/hermes
-    # Render into the pool home: Hermes replaces its config by rename (EBUSY on a mount).
+    # Hermes replaces its config by rename: it has to live on the pool.
     dirs:
       - { path: "{{ hermes_data_root }}/workspace", owner: "{{ hermes_uid }}", group: "{{ hermes_gid }}", mode: "0755" }
       - { path: "{{ hermes_data_root }}/profiles/uncensored", owner: "{{ hermes_uid }}", group: "{{ hermes_gid }}", mode: "0700" }
@@ -177,20 +170,18 @@ stacks:
       PANEL_PASSWORD: "{{ vault_gpu_panel_password }}"
       PANEL_TOKEN: "{{ vault_gpu_panel_token }}"
       LLAMA_URL: "http://{{ ansible_host }}:{{ llamacpp_port }}"
-      # The card is driven over SSH to the PVE: an unprivileged container cannot
-      # set the power limit, and the same key reaches Immich and Jellyfin.
+      # The cards are driven over SSH: a container cannot set a power limit.
       PVE_HOST: "root@{{ hostvars['pve'].ansible_host }}"
       IMMICH_HOST: "root@{{ hostvars['immich'].ansible_host }}"
       FRONTEND_HOST: "root@{{ hostvars['frontend'].ansible_host }}"
-      # Jellyfin's config on that host, read over the same SSH: the path follows
-      # stacks_root so the panel has no /opt/docker of its own.
+      # Read over the same SSH; the path follows stacks_root.
       JELLYFIN_XML: "{{ stacks_root }}/jellyfin/config/encoding.xml"
-      AI_CTID: "126"   # this container, for llama-server's journald logs
-      # Over the LAN: inside the panel container 127.0.0.1 is the panel itself.
+      AI_CTID: "{{ llm_ctid }}"     # for llama-server's journald logs
+      # Over the LAN: inside the container 127.0.0.1 is the panel itself.
       COMFY_URL: "http://{{ ansible_host }}:{{ service_ports.comfyui }}"
       COMFY_UI_URL: "https://comfy.{{ vault_domainname_hs }}/"
       COMFY_CONTAINER: comfyui
-      # Only these ids are ever printed; anything else the router serves stays unnamed.
+      # Only these ids are ever shown; anything else stays unnamed.
       LLAMA_PUBLIC_MODELS: "{{ llm_models | map(attribute='name') | join(',') }}"
 
 health_checks:

@@ -67,8 +67,7 @@
       loop_control:
         label: "{{ item.dest }}"
 
-    # The set is tagged per llama.cpp ref: failing here names the mismatch
-    # instead of leaving a clone error.
+    # The set is tagged per llama.cpp ref: failing here names the mismatch.
     - name: List the patch set's refs
       ansible.builtin.command:
         argv: [git, ls-remote, "--tags", "--heads", "{{ llamacpp_p100_patches_repo }}"]
@@ -158,8 +157,7 @@
       register: llamacpp_flags_recorded
       failed_when: false
 
-    # Signature of ref + patches + flags: re-applying the patches would touch
-    # every mtime and rebuild the whole CUDA tree on each run.
+    # ref + patches + flags: re-applying would rebuild the whole CUDA tree.
     - name: Set the build signature
       ansible.builtin.set_fact:
         llamacpp_signature: |
@@ -265,10 +263,8 @@
     state: directory
     mode: "0755"
 
-# The models the agents use live on this container's root disk (the SSD) and
-# are symlinked into the router's directory: the pool reads a 21 GiB GGUF at
-# ~60 MB/s and the disk at ~255 MB/s (5m40s -> 3m25s to load, measured). The
-# router follows the symlink, so a moved model notifies a restart.
+# The models the agents use live on this container's SSD and are symlinked into
+# the router's directory, which follows the link and restarts when it moves.
 - name: Fast disk for the models the agent serves
   ansible.builtin.file:
     path: "{{ llamacpp_fast_models_dir }}"
@@ -276,9 +272,8 @@
     mode: "0755"
   when: llamacpp_fast_models | default([]) | length > 0
 
-# mv, not cp: a second 21 GiB copy would eat a pool that is already at 87 %.
-# When the disk cannot hold the next model this says so and goes on, so a later
-# deploy with room moves it without editing anything.
+# mv, not cp: a second copy would eat the pool. When the disk cannot hold it,
+# this says so and goes on, so a later deploy with room moves it.
 - name: Move the agent's models to the fast disk and link them back
   ansible.builtin.shell: |
     set -euo pipefail

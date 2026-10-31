@@ -31,9 +31,8 @@
   roles:
     - tailscale
 
-# llama.cpp in router mode, compiled on the container (LiteLLM comes from the
-# docker_hosts play above). The userspace driver is the GPU play's job: the AI
-# host is in [gpu], so it is installed before anything touches the card.
+# llama.cpp in router mode, compiled on the container (LiteLLM, SearXNG, Hermes
+# and the panel come from the docker_hosts play above).
 - name: AI host (llama.cpp bare metal)
   hosts: ai
   roles:

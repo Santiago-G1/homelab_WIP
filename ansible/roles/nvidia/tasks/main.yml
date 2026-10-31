@@ -1,8 +1,6 @@
 ---
-# Userspace driver only: the kernel module lives on the PVE host and the nodes
-# come from Terraform, so this installs the libraries at the host's version.
-# There is no default on purpose (group_vars/gpu): a stale one here is what
-# silently installs libraries that do not match the running kernel module.
+# Userspace driver only: the kernel module lives on the PVE host, so this must
+# match its version. There is no role default on purpose (group_vars/gpu).
 - name: Assert the driver version is declared
   ansible.builtin.assert:
     that: nvidia_driver_version is defined and nvidia_driver_version | length > 0

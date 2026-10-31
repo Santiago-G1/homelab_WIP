@@ -1,4 +1,8 @@
 ---
+# /tank/immich is owned by these; the override runs the server as them.
+immich_uid: 999
+immich_gid: 991
+
 stacks:
   - name: immich
     src: media-services/immich
@@ -11,9 +15,8 @@ stacks:
       DB_USERNAME: "{{ vault_immich_db_username }}"
       DB_PASSWORD: "{{ vault_immich_db_password }}"
       DB_DATABASE_NAME: "{{ vault_immich_db_database_name }}"
-    # ./database was initialised once with these names; the role reconciles the
-    # cluster against the rendered .env before the app starts, so rotating the
-    # password in the vault does not leave the server crash-looping on 28P01.
+    # ./database was initialised with these names. The role reconciles the
+    # cluster before the app starts, so a vault rotation does not break login.
     postgres:
       service: database
       container: immich_postgres

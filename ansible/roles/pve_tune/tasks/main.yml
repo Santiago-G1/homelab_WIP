@@ -1,5 +1,5 @@
 ---
-# CPU frequency. The unit is a template because the governor is the only knob.
+# CPU frequency.
 - name: Install the CPU governor unit
   ansible.builtin.template:
     src: cpu-governor.service.j2
@@ -14,7 +14,7 @@
     state: started
     daemon_reload: true
 
-# IRQs: two GPUs, an NIC and two HDDs pinning interrupts to four cores.
+# Spread the GPU and disk interrupts across the four cores.
 - name: Install irqbalance
   ansible.builtin.apt:
     name: irqbalance
@@ -28,10 +28,8 @@
     enabled: true
     state: started
 
-# ksmtuned only counts memory committed to qemu processes. This host runs
-# containers only, so it never enables KSM; and KSM itself only scans pages
-# marked MADV_MERGEABLE, which no LXC payload sets. Measured: pages_scanned 0.
-# Leaving it enabled is a daemon doing nothing every 60 seconds.
+# ksmtuned only counts memory committed to qemu processes and this host runs
+# containers, so it never enables KSM.
 - name: Retire ksmtuned (it only tracks qemu, and there are no VMs here)
   ansible.builtin.systemd:
     name: ksmtuned.service
@@ -39,8 +37,7 @@
     state: stopped
     masked: true
 
-# ZFS ARC ceiling. The runtime value is what matters until the next boot; the
-# modprobe file makes it survive one.
+# ARC ceiling: the runtime value now, the modprobe file for the next boot.
 - name: Read the live ARC ceiling
   ansible.builtin.slurp:
     src: /sys/module/zfs/parameters/zfs_arc_max
@@ -68,8 +65,7 @@
     enabled: true
     state: started
 
-# GPU power and clocks. Two units because the driver re-arms the power cap after
-# it settles, so one applies at boot and the other 45 s later.
+# GPU power and clocks. Two units: the driver re-arms the cap after it settles.
 - name: Install the GPU power cap script
   ansible.builtin.template:
     src: nvidia-power-cap.sh.j2

@@ -65,8 +65,7 @@
     # An absolute dest writes into a state dir instead of the project.
     dest: "{{ item.dest if item.dest.startswith('/') else stacks_root ~ '/' ~ stack.name ~ '/' ~ item.dest }}"
     mode: "{{ item.mode | default('0644') }}"
-    # Only when the entry asks for it: a container running as a non-root user
-    # (alertmanager as nobody) needs the owner set too.
+    # Only when the entry asks for it: a non-root container needs the owner set.
     owner: "{{ item.owner | default(omit) }}"
     group: "{{ item.group | default(omit) }}"
   loop: "{{ stack.files | default([]) }}"
@@ -74,8 +73,7 @@
     label: "{{ item.dest }}"
   register: stack_files
 
-# Services behind a Compose profile are built here on purpose: the profile keeps
-# them out of `up`, and only their image is wanted.
+# Services behind a Compose profile are built here: only their image is wanted.
 - name: "{{ stack.name }} | build the images declared for the stack"
   ansible.builtin.command:
     cmd: >-
@@ -86,8 +84,8 @@
   register: stack_build
   changed_when: "'Successfully built' in stack_build.stdout"
 
-# POSTGRES_USER/POSTGRES_PASSWORD are only read by the first initdb, so a vault
-# rotation leaves the cluster with the old roles and the app dies on 28P01.
+# POSTGRES_* are read by the first initdb only, so a vault rotation has to be
+# reconciled into the cluster or the app dies on 28P01.
 - name: "{{ stack.name }} | reconcile the Postgres credentials"
   ansible.builtin.script: >-
     postgres-credentials.sh
@@ -101,10 +99,8 @@
   changed_when: "'changed=1' in postgres_creds.stdout"
   when: stack.postgres is defined
 
-# An on-demand stack (stacks_on_demand, e.g. ComfyUI) is created but never
-# started here: the GPU panel owns its lifetime, and starting it during a deploy
-# would take the card away from llama.cpp. Its image is still built, so a
-# version bump is applied now and the panel starts it with the new image.
+# An on-demand stack is created but never started: the GPU panel owns its
+# lifetime. Its image is still built, so a version bump applies now.
 - name: "{{ stack.name }} | bring the stack up"
   ansible.builtin.command:
     cmd: >-
@@ -121,8 +117,7 @@
   ansible.builtin.command:
     cmd: docker compose restart
     chdir: "{{ stacks_root }}/{{ stack.name }}"
-  # `docker compose restart` also starts a stopped container, which would hand
-  # the card to an on-demand stack behind the panel's back.
+  # `restart` also starts a stopped container, which would take the card.
   when: >-
     (stack_files.changed | default(false) or stack_sync.changed | default(false))
     and stack.name not in (stacks_on_demand | default([]))

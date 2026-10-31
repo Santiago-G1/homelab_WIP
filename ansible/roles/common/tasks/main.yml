@@ -41,8 +41,7 @@
       X11Forwarding no
   notify: restart ssh
 
-# journald: CT 122 had 405 MB of logs and CT 121 223 MB. The logs are page cache
-# the LLM cannot use and writes the SMR member of the mirror does not need.
+# journald: the container roots are on the thin pool, so cap the logs.
 - name: Cap the journal at 100 MB
   ansible.builtin.copy:
     dest: /etc/systemd/journald.conf.d/99-max-use.conf

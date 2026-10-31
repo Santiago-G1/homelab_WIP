@@ -1,6 +1,5 @@
 ---
-# `zramswap` fills up and then the kernel cannot evict anything: every
-# allocation goes to direct reclaim and the host stops answering.
+# A second swap device, so a full zramswap cannot freeze the host.
 - name: Install the extra zram swap script
   ansible.builtin.template:
     src: zram-extra.sh.j2

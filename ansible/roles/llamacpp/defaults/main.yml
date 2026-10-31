@@ -1,6 +1,6 @@
 ---
-# llama.cpp ref to build. The P100 patch set is tagged with the same name, so this
-# moves both trees (see "Bumping llama.cpp" in docs/llamacpp-build.md).
+# llama.cpp ref to build. The P100 patch set is tagged with the same name, so
+# one bump moves both.
 llamacpp_version: v0.7.0
 llamacpp_port: 8080
 llamacpp_models_dir: /mnt/data/models
@@ -10,10 +10,8 @@ llamacpp_global_args:
   n-gpu-layers: 99
   c: 8192
   flash-attn: "on"
-  # Host-side prompt-state cache (MiB). The fork defaults to 8192 per model and
-  # this host only has 16 GiB of RAM: the 35B filled it up and 7.9 GiB of it
-  # ended up in zram, so decode fell from 73 to ~60 t/s while zram sat at 100 %.
-  # 2048 is what the Swift preset already uses. Raising it needs 32 GiB.
+  # Host-side prompt cache (MiB). 8192 per model does not fit in 16 GiB of RAM;
+  # raising it needs 32 GiB.
   cache-ram: 2048
 llamacpp_model_overrides: {}
 
@@ -29,17 +27,15 @@ llamacpp_build_jobs: 2                 # the host has reset under 4 parallel LTO
 llamacpp_build_targets: [llama-server, llama-bench, llama-cli]
 llamacpp_tools_dir: /opt/llama.cpp-tools
 
-# P100 (sm_60) patches, maintained in their own repository and re-cut for every
-# upstream ref. Pin a commit instead of a tag for a reproducible build: upstream
-# moves its tags when it re-cuts one.
+# P100 (sm_60) patch set, kept in its own repository. Pin a commit for a
+# reproducible build: upstream re-cuts its tags.
 llamacpp_p100_patches: true
 llamacpp_p100_patches_repo: https://github.com/sbendhiba/llama-cpp-pascal-patches
 llamacpp_p100_patches_version: "{{ llamacpp_version }}"
 llamacpp_p100_patches_dir: /opt/llama.cpp-patches
 # Patches allowed not to apply. Empty: every one is required.
 llamacpp_p100_patches_optional: []
-# Last resort for an unpatched ref: skip what does not apply and build a
-# partially patched tree instead of failing.
+# Skip what does not apply instead of failing the build.
 llamacpp_p100_patches_ignore_missing: false
 # The sm_60 fp16 carve-out warns instead of failing when upstream moved a gate.
 llamacpp_p100_carveout_strict: false
@@ -75,13 +71,11 @@ llamacpp_cmake_args:
   - -DCMAKE_CUDA_HOST_COMPILER=/usr/bin/g++
   - -DGGML_CCACHE=OFF
 
-# The fork build is not compiled by this role (it is a hand build, see
-# docs/llm-models.md). When the binary is there, the drop-in below is installed
-# and the service runs it; when it is missing, the role's own build is used.
+# Built by hand (docs/llm-models.md). When the binary exists the drop-in below
+# runs it; otherwise the role's own build is used.
 llamacpp_kmic_binary: /opt/llama.cpp-kmic/build-opt/bin/llama-server
 llamacpp_kmic_env:
-  # No-op on this board: the pairing is CNS, so cross-device copies stage
-  # through host RAM anyway (see docs/llm-models.md).
+  # No-op here: cross-device copies already stage through host RAM.
   GGML_CUDA_P2P: "1"
   # CUDA graphs for the single-token MTP draft only (1 = full graphs, OOM).
   GGML_CUDA_GRAPHS_PRE_VOLTA: "3"
