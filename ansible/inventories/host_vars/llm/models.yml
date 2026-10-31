@@ -8,10 +8,8 @@
 #   args  per-model llama-server options (default: llamacpp_global_args).
 #   agent set on exactly one model: the one the agent talks to.
 llm_models:
-  # Bigger ubatch means fewer graph launches. Measured on the P100 @ 512
-  # defaults: 9B pp2048 614 -> 781 t/s at ub 2048; the 12-13 GiB models become
-  # unstable there (VRAM pressure), so they stay at 1024: 35B-A3B pp2048
-  # 486 -> 669 t/s, 27B pp2048 134 -> 153 t/s. Decode is unaffected.
+  # A bigger ubatch means fewer graph launches. Above 1024 the 12-13 GiB
+  # models run out of VRAM.
   - name: Qwen3.5-9B-UD-Q4_K_XL
     args:
       n-gpu-layers: 99
@@ -76,10 +74,8 @@ llm_models:
       cache-reuse: 256
 
   # Coding fine-tune of the same shape (unsloth-dynamic tiers, MTP head at Q3_K).
-  # UD-Q4_K_XL is the card's "start here". Measured on the two P100s with f16 KV:
-  # decode 60-71 t/s (acceptance ~73 %), 278 t/s prefill and 36 t/s decode over a
-  # full 244k-token prompt, 14.3 + 14.7 GiB. Drafting past 3 tokens halves the
-  # acceptance, and ub 2048 buys nothing at 6k while eating the VRAM headroom.
+  # UD-Q4_K_XL is the card's "start here"; drafting past 3 tokens lowers the
+  # acceptance rate.
   - name: Cyber-Tiel-Coder-35B-A3B-MTP-UD-Q4_K_XL
     agent: true
     fast: true            # kept on the AI host's SSD (see llamacpp_fast_models)
@@ -96,9 +92,7 @@ llm_models:
       parallel: 1
       batch-size: 2048
       ubatch-size: 1024
-      # Reuse the KV after a divergence instead of re-prefilling the whole
-      # prompt: the agent rebuilds its history every turn, so the prefix
-      # rarely matches token-for-token (see docs/llm-models.md).
+      # Reuse the KV after a divergence instead of re-prefilling the prompt.
       cache-reuse: 256
       spec-type: draft-mtp
       spec-draft-n-max: 3
@@ -114,10 +108,9 @@ llm_models:
       top-k: 20
       min-p: 0.0
 
-  # MTP build: it carries the blk.40 draft head (the non-MTP file does not),
-  # so speculative decoding works: decode 56-69 t/s vs 32.4, acceptance 58-69%.
-  # The full 262144 window costs 14.2 + 14.9 GiB of the 2x16 GB, so ub 1024 and
-  # a single slot are the stable point (ub 2048 dies on a long prefill).
+  # MTP build: it carries the blk.40 draft head (the non-MTP file does not), so
+  # speculative decoding works. The full window fills both cards: it needs
+  # ub 1024 and a single slot.
   # Not the agent's model (`agent: true`): llama.cpp holds one GGUF at a time,
   # so a second profile unloads the agent's model after every turn.
   - name: Qwen3.6-35B-A3B-MTP-UD-Q4_K_XL
@@ -135,9 +128,7 @@ llm_models:
       parallel: 1
       batch-size: 2048
       ubatch-size: 1024
-      # Reuse the KV after a divergence instead of re-prefilling the whole
-      # prompt: the agent rebuilds its history every turn, so the prefix
-      # rarely matches token-for-token (see docs/llm-models.md).
+      # Reuse the KV after a divergence instead of re-prefilling the prompt.
       cache-reuse: 256
       spec-type: draft-mtp
       spec-draft-n-max: 3
@@ -155,13 +146,9 @@ llm_models:
       presence-penalty: 1.5
       repeat-penalty: 1.0
 
-  # 131k is the model's full window, and it is what fits: the QAD-Q4_0 build is
-  # 13.6 GB, so weights + the main q8_0 KV (only 10 of the 40 layers attend, so
-  # ~10.6 KiB/token) + buffers leave ~1.3 GB free on the 16 GB card.
-  # That is not enough for the DSpark drafter (~1.5 GB: 0.66 GB weights + its
-  # own q8 KV + prefill buffers), so it is downloaded but NOT enabled: with it
-  # the window drops to ~100k and the server still dies on the first long
-  # prefill. See docs/llm-models.md before turning spec decoding back on.
+  # 131k is the model's full window and what fits on one card: weights plus the
+  # q8_0 KV leave no room for the DSpark drafter, so it is downloaded but not
+  # enabled. See docs/llm-models.md before turning spec decoding back on.
   - name: LFM2.5-24B-A2B-QAD-Q4_0
     args:
       n-gpu-layers: 99
@@ -180,9 +167,8 @@ llm_models:
       top-k: 50
       repeat-penalty: 1.05
   # Hybrid 4.45B: 9 of 36 layers attend fully and the rest slide at 512 tokens,
-  # so only ~35.6 KiB/token of KV in f16 and 131072 fits in 8.2 GiB of one card.
-  # On card 1 because Immich ML only binds /dev/nvidia0; q8_0 KV costs 25 % of
-  # the decode, so f16 is the floor here.
+  # so f16 KV fits one card at 131072. Card 1, because Immich ML binds only
+  # /dev/nvidia0; q8_0 KV costs a quarter of the decode speed.
   - name: Spark-X2.6-4B-Q4_K_M
     args:
       n-gpu-layers: 99
