@@ -68,6 +68,8 @@
     # Only when the entry asks for it: a non-root container needs the owner set.
     owner: "{{ item.owner | default(omit) }}"
     group: "{{ item.group | default(omit) }}"
+    # `force: false` seeds the file once and leaves it to the service after that.
+    force: "{{ item.force | default(true) | bool }}"
   loop: "{{ stack.files | default([]) }}"
   loop_control:
     label: "{{ item.dest }}"

@@ -148,11 +148,14 @@ stacks:
       - { path: "{{ hermes_data_root }}/scripts", owner: "{{ hermes_uid }}", group: "{{ hermes_gid }}", mode: "0755" }
     files:
       # `agent:` picks the entry in hermes_agents each file is rendered from.
-      - { template: hermes-config.yaml.j2, dest: "{{ hermes_data_root }}/config.yaml", agent: default, owner: "{{ hermes_uid }}", group: "{{ hermes_gid }}", mode: "0600" }
-      - { template: hermes-agent.env.j2, dest: "{{ hermes_data_root }}/.env", agent: default, owner: "{{ hermes_uid }}", group: "{{ hermes_gid }}", mode: "0600" }
+      # config.yaml and .env are seeded only (force: false): Hermes writes to both
+      # at runtime (config version, multiplexed profiles, the Telegram home
+      # channel, its own API key) and a re-render would throw that away.
+      - { template: hermes-config.yaml.j2, dest: "{{ hermes_data_root }}/config.yaml", agent: default, owner: "{{ hermes_uid }}", group: "{{ hermes_gid }}", mode: "0600", force: false }
+      - { template: hermes-agent.env.j2, dest: "{{ hermes_data_root }}/.env", agent: default, owner: "{{ hermes_uid }}", group: "{{ hermes_gid }}", mode: "0600", force: false }
       - { template: hermes-soul.md.j2, dest: "{{ hermes_data_root }}/SOUL.md", agent: default, owner: "{{ hermes_uid }}", group: "{{ hermes_gid }}", mode: "0644" }
-      - { template: hermes-config.yaml.j2, dest: "{{ hermes_data_root }}/profiles/uncensored/config.yaml", agent: uncensored, owner: "{{ hermes_uid }}", group: "{{ hermes_gid }}", mode: "0600" }
-      - { template: hermes-agent.env.j2, dest: "{{ hermes_data_root }}/profiles/uncensored/.env", agent: uncensored, owner: "{{ hermes_uid }}", group: "{{ hermes_gid }}", mode: "0600" }
+      - { template: hermes-config.yaml.j2, dest: "{{ hermes_data_root }}/profiles/uncensored/config.yaml", agent: uncensored, owner: "{{ hermes_uid }}", group: "{{ hermes_gid }}", mode: "0600", force: false }
+      - { template: hermes-agent.env.j2, dest: "{{ hermes_data_root }}/profiles/uncensored/.env", agent: uncensored, owner: "{{ hermes_uid }}", group: "{{ hermes_gid }}", mode: "0600", force: false }
       - { template: hermes-soul.md.j2, dest: "{{ hermes_data_root }}/profiles/uncensored/SOUL.md", agent: uncensored, owner: "{{ hermes_uid }}", group: "{{ hermes_gid }}", mode: "0644" }
       - { template: hermes-agents.md.j2, dest: "{{ hermes_data_root }}/workspace/AGENTS.md", agent: default, owner: "{{ hermes_uid }}", group: "{{ hermes_gid }}", mode: "0644" }
       - { template: hermes-dreaming.json.j2, dest: "{{ hermes_data_root }}/dreaming.json", agent: default, owner: "{{ hermes_uid }}", group: "{{ hermes_gid }}", mode: "0600" }
