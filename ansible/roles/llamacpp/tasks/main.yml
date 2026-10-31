@@ -46,7 +46,7 @@
     - name: Clone llama.cpp
       ansible.builtin.git:
         repo: https://github.com/ggml-org/llama.cpp
-        dest: /opt/llama.cpp
+        dest: "{{ llamacpp_src_dir }}"
         version: "{{ llamacpp_version }}"
         force: true
 
@@ -144,19 +144,19 @@
 
     - name: Check whether the binary exists
       ansible.builtin.stat:
-        path: /opt/llama.cpp/build/bin/llama-server
+        path: "{{ llamacpp_src_dir }}/build/bin/llama-server"
       register: llamacpp_bin
 
     # A truncated binary is newer than its objects, so make would skip it.
     - name: Drop a truncated llama-server binary
       ansible.builtin.file:
-        path: /opt/llama.cpp/build/bin/llama-server
+        path: "{{ llamacpp_src_dir }}/build/bin/llama-server"
         state: absent
       when: llamacpp_bin.stat.exists and llamacpp_bin.stat.size | default(1) == 0
 
     - name: Read the recorded build signature
       ansible.builtin.slurp:
-        src: /opt/llama.cpp/.ansible-build-flags
+        src: "{{ llamacpp_src_dir }}/.ansible-build-flags"
       register: llamacpp_flags_recorded
       failed_when: false
 
@@ -181,7 +181,7 @@
     - name: Reset the llama.cpp tree to the requested ref
       ansible.builtin.command: git reset --hard {{ llamacpp_version }}
       args:
-        chdir: /opt/llama.cpp
+        chdir: "{{ llamacpp_src_dir }}"
       changed_when: false
       when: llamacpp_rebuild
 
@@ -189,7 +189,7 @@
       ansible.builtin.command:
         argv: "{{ [llamacpp_tools_dir ~ '/apply-patches.sh', llamacpp_p100_patches_dir ~ '/patches'] }}"
       args:
-        chdir: /opt/llama.cpp
+        chdir: "{{ llamacpp_src_dir }}"
       environment:
         LLAMACPP_PATCH_OPTIONAL: "{{ llamacpp_p100_patches_optional | join(' ') }}"
         LLAMACPP_PATCH_IGNORE_MISSING: "{{ '1' if llamacpp_p100_patches_ignore_missing else '' }}"
@@ -213,7 +213,7 @@
         llamacpp_carveout_argv: >-
           {{ [llamacpp_tools_dir ~ '/carveout-sm60-fp16.py']
              + (['--strict'] if llamacpp_p100_carveout_strict else [])
-             + ['/opt/llama.cpp'] }}
+             + [llamacpp_src_dir] }}
 
     - name: Carve sm_60 out of the fp16 fast path (attention + mmvf)
       ansible.builtin.command:
@@ -224,7 +224,7 @@
     - name: Configure the build
       ansible.builtin.command:
         argv: "{{ ['cmake', '-B', 'build'] + llamacpp_cmake_args }}"
-        chdir: /opt/llama.cpp
+        chdir: "{{ llamacpp_src_dir }}"
       environment:
         PATH: "{{ llamacpp_cuda_root }}/bin:{{ ansible_env.PATH }}"
       when: llamacpp_rebuild
@@ -235,7 +235,7 @@
         argv: >-
           {{ ['cmake', '--build', 'build', '-j' ~ llamacpp_build_jobs, '--target']
              + llamacpp_build_targets }}
-        chdir: /opt/llama.cpp
+        chdir: "{{ llamacpp_src_dir }}"
       environment:
         PATH: "{{ llamacpp_cuda_root }}/bin:{{ ansible_env.PATH }}"
       when: llamacpp_rebuild
@@ -246,7 +246,7 @@
     - name: Record the build signature
       ansible.builtin.copy:
         content: "{{ llamacpp_signature }}"
-        dest: /opt/llama.cpp/.ansible-build-flags
+        dest: "{{ llamacpp_src_dir }}/.ansible-build-flags"
         mode: "0644"
       when: llamacpp_rebuild
 

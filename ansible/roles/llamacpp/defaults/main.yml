@@ -3,6 +3,7 @@
 # one bump moves both.
 llamacpp_version: v0.7.0
 llamacpp_port: 8080
+llamacpp_src_dir: /opt/llama.cpp
 llamacpp_models_dir: /mnt/data/models
 llamacpp_models_max: 1
 llamacpp_preset_file: /etc/llama/models.ini
@@ -10,8 +11,7 @@ llamacpp_global_args:
   n-gpu-layers: 99
   c: 8192
   flash-attn: "on"
-  # Host-side prompt cache (MiB). 8192 per model does not fit in 16 GiB of RAM;
-  # raising it needs 32 GiB.
+  # Host-side prompt cache (MiB). 16 GiB of RAM holds no more than this.
   cache-ram: 2048
 llamacpp_model_overrides: {}
 
@@ -23,7 +23,7 @@ llamacpp_cuda_root: /usr/local/cuda-12.8
 llamacpp_cuda_arch: "60-real"          # Tesla P100 = 60
 llamacpp_cuda_force_mmq: "OFF"         # sm_60 has no dp4a
 llamacpp_cpu_flags: "-march=ivybridge -mtune=ivybridge -O3 -fopenmp -pipe -funroll-loops"
-llamacpp_build_jobs: 2                 # the host has reset under 4 parallel LTO jobs
+llamacpp_build_jobs: 2                 # LTO with more jobs than this resets the host
 llamacpp_build_targets: [llama-server, llama-bench, llama-cli]
 llamacpp_tools_dir: /opt/llama.cpp-tools
 

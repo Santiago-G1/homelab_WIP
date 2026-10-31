@@ -10,7 +10,7 @@ Group=llama
 SupplementaryGroups=video
 CacheDirectory=llama
 Environment=LLAMA_CACHE=/var/cache/llama
-ExecStart=/opt/llama.cpp/build/bin/llama-server \
+ExecStart={{ llamacpp_src_dir }}/build/bin/llama-server \
   --models-dir {{ llamacpp_models_dir }} \
   --models-preset {{ llamacpp_preset_file }} \
   --models-max {{ llamacpp_models_max }} \
