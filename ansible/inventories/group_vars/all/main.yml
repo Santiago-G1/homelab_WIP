@@ -9,6 +9,9 @@ stack_env_common:
   DOMAINNAME_HS: "{{ vault_domainname_hs }}"
   TZ: "{{ timezone }}"
   STACKS_ROOT: "{{ stacks_root }}"
+  # The *arr and syncthing images run as this uid/gid inside the container.
+  PUID: "1000"
+  PGID: "1000"
 
 stacks_root: /opt/docker
 compose_src_root: "{{ playbook_dir }}/../../docker-compose"

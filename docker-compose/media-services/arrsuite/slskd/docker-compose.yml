@@ -4,8 +4,8 @@ services:
     container_name: slskd
     environment:
       - TZ=${TZ:-Etc/UTC}
-      - PUID=1000
-      - PGID=1000   
+      - PUID=${PUID:?}
+      - PGID=${PGID:?}
       - SLSKD_REMOTE_CONFIGURATION=true
       - SLSKD_API_KEY=${SLSKD_API_KEY:?SLSKD_API_KEY is required}
       - SLSKD_SLSK_USERNAME=${SLSKD_USERNAME:?SLSKD_USERNAME is required}
