@@ -1,0 +1,16 @@
+#!/bin/bash
+# Managed by Ansible (roles/pve_zram). Second zram device as extra swap.
+set -eu
+SIZE_MB={{ zram_extra_size_mb }}
+PRIO={{ zram_extra_priority }}
+DEV=/dev/zram1
+
+swapon --show=NAME --noheadings | grep -qx "$DEV" && exit 0
+[ -e "$DEV" ] || cat /sys/class/zram-control/hot_add >/dev/null
+
+if [ "$(cat /sys/block/zram1/disksize)" = "0" ]; then
+  echo zstd > /sys/block/zram1/comp_algorithm
+  echo $(( SIZE_MB * 1024 * 1024 )) > /sys/block/zram1/disksize
+  mkswap "$DEV" >/dev/null
+fi
+swapon -p "$PRIO" "$DEV"

@@ -1,0 +1,13 @@
+[Unit]
+Description=Extra zram swap (second device, after zramswap)
+Documentation=man:zram(8)
+After=zramswap.service
+Wants=zramswap.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/zram-extra.sh
+
+[Install]
+WantedBy=multi-user.target

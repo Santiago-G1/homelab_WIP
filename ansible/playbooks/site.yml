@@ -38,3 +38,9 @@
   hosts: ai
   roles:
     - llamacpp
+
+# The hypervisor's own knobs (swap capacity and similar): never the base role.
+- name: Hypervisor tuning
+  hosts: proxmox_host
+  roles:
+    - pve_zram

@@ -1,0 +1,4 @@
+---
+# zram-tools manages one device; this one is the overflow it cannot have.
+zram_extra_size_mb: 6144
+zram_extra_priority: 50
