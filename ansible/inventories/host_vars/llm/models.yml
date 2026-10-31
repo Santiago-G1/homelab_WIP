@@ -121,7 +121,6 @@ llm_models:
   # Not the agent's model (`agent: true`): llama.cpp holds one GGUF at a time,
   # so a second profile unloads the agent's model after every turn.
   - name: Qwen3.6-35B-A3B-MTP-UD-Q4_K_XL
-    fast: true            # kept on the AI host's SSD
     args:
       load-mode: dio       # 22 GB: it can never be cached, so read it direct
       n-gpu-layers: 99
