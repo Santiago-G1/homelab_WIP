@@ -47,6 +47,9 @@ vault_agent_telegram_bot_token: 123456789:replace-me
 # Telegram account allowed to talk to the agent; numeric ID only.
 vault_agent_telegram_user_id: 123456789
 
+# Bot the Prometheus alertmanager posts to; it can be the same bot.
+vault_alertmanager_telegram_bot_token: 123456789:replace-me
+
 # Hermes dashboard (Caddy asks for these before the agent's own auth gate).
 vault_hermes_dashboard_password: replace-me
 vault_hermes_dashboard_secret: replace-me
