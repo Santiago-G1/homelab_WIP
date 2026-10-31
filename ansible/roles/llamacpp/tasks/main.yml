@@ -310,6 +310,35 @@
     label: "{{ item }}"
   notify: restart llama-server
 
+# A model that loses `fast` goes back to the pool: the SSD holds the one the
+# agent serves, not a second copy of the catalogue.
+- name: Send the models that are no longer fast back to the pool
+  ansible.builtin.shell: |
+    set -euo pipefail
+    keep=" {{ llamacpp_fast_models | default([]) | join(' ') }} "
+    for src in {{ llamacpp_models_dir }}/*.gguf; do
+      [ -L "$src" ] || continue
+      dst=$(readlink "$src")
+      case "$dst" in {{ llamacpp_fast_models_dir }}/*) ;; *) continue ;; esac
+      [ -f "$dst" ] || continue
+      name=$(basename "$src" .gguf)
+      case "$keep" in *" $name "*) continue ;; esac
+      avail=$(df -Pk "{{ llamacpp_models_dir }}" | awk 'NR==2 {print $4}')
+      need=$(( $(stat -c%s "$dst") / 1024 + 3145728 ))
+      if [ "$avail" -lt "$need" ]; then
+        echo "no space for $name on the pool: $(( (need - avail) / 1024 )) MiB short"
+        continue
+      fi
+      tmp="{{ llamacpp_models_dir }}/.$name.gguf.moving"
+      mv "$dst" "$tmp"
+      rm -f "$src"
+      mv "$tmp" "$src"
+      echo "moved $name back to the pool"
+    done
+  register: llamacpp_fast_evict
+  changed_when: "'moved ' in llamacpp_fast_evict.stdout"
+  notify: restart llama-server
+
 - name: Report the models that stay on the pool
   ansible.builtin.debug:
     msg: "{{ item.item }} stays on {{ llamacpp_models_dir }} ({{ item.stdout }})"
