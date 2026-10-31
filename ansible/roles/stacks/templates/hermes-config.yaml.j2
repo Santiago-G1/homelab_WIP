@@ -29,7 +29,7 @@ auxiliary:
     enabled: {{ 'true' if a.background_review | default(true) else 'false' }}
 
 compression:
-  # Compact at ~65k tokens and while the card is idle.
+  # Compact at a quarter of the window, or while the card is idle.
   threshold: 0.25
   idle_compact_after_seconds: 300
   tail_mode: lean

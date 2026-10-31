@@ -41,7 +41,7 @@
       X11Forwarding no
   notify: restart ssh
 
-# journald: the container roots are on the thin pool, so cap the logs.
+# journald: cap the logs so a container cannot fill its disk.
 - name: Create the journald drop-in directory
   ansible.builtin.file:
     path: /etc/systemd/journald.conf.d

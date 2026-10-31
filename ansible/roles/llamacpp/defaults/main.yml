@@ -23,7 +23,7 @@ llamacpp_cuda_root: /usr/local/cuda-12.8
 llamacpp_cuda_arch: "60-real"          # Tesla P100 = 60
 llamacpp_cuda_force_mmq: "OFF"         # sm_60 has no dp4a
 llamacpp_cpu_flags: "-march=ivybridge -mtune=ivybridge -O3 -fopenmp -pipe -funroll-loops"
-llamacpp_build_jobs: 2                 # LTO with more jobs than this resets the host
+llamacpp_build_jobs: 2                 # LTO is memory-hungry: keep it low
 llamacpp_build_targets: [llama-server, llama-bench, llama-cli]
 llamacpp_tools_dir: /opt/llama.cpp-tools
 

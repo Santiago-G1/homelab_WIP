@@ -14,7 +14,7 @@
     state: started
     daemon_reload: true
 
-# Spread the GPU and disk interrupts across the four cores.
+# Spread the GPU and disk interrupts across the cores.
 - name: Install irqbalance
   ansible.builtin.apt:
     name: irqbalance
@@ -28,8 +28,7 @@
     enabled: true
     state: started
 
-# ksmtuned only counts memory committed to qemu processes and this host runs
-# containers, so it never enables KSM.
+# ksmtuned only counts qemu memory, and this host runs containers.
 - name: Retire ksmtuned (it only tracks qemu, and there are no VMs here)
   ansible.builtin.systemd:
     name: ksmtuned.service

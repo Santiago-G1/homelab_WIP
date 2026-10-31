@@ -4,11 +4,11 @@
 
 pve_tune_governor: schedutil
 
-# ARC is reclaimable; 3 GiB saves seeks on the HDD mirror.
+# ARC is reclaimable, so this costs the containers nothing.
 pve_tune_arc_max_bytes: 3221225472
 
-# ZFS commits every 5 s by default; 10 s lets the SMR member of the mirror
-# write longer sequential runs.
+# ZFS commits every 5 s by default; a longer TXG gives the shingled disk
+# longer sequential runs.
 pve_tune_zfs_txg_timeout: 10
 
 # One list for the modprobe file and for the running module.
