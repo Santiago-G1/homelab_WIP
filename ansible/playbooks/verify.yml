@@ -138,7 +138,8 @@
       when: comfy_state.stdout | default('') == 'running'
 
 # The port map and the compose files declare the same ports twice; this keeps
-# them from drifting. It needs every container, so a --limit run skips it.
+# them from drifting. It needs every container, so a stopped one has to be
+# reported as stopped, not as a publish that went missing.
 - name: The port map matches what Compose publishes
   hosts: devops
   gather_facts: false
@@ -152,6 +153,23 @@
       {{ service_ports.values() | map('int') | sort
          | difference((all_published_ports | map('int') | list) + host_network_ports) }}
   tasks:
+    # Without its ports a host's service_ports entries fall into
+    # undeclared_ports, which then blames the port map for a stopped container.
+    - name: Note the docker hosts that did not report their ports
+      ansible.builtin.set_fact:
+        ports_missing_hosts: "{{ (ports_missing_hosts | default([])) + [item] }}"
+      loop: "{{ groups['docker_hosts'] }}"
+      when: hostvars[item].published_ports is not defined
+
+    - name: Every docker host reported its published ports
+      ansible.builtin.assert:
+        that: ports_missing_hosts | default([]) | length == 0
+        fail_msg: >-
+          {{ ports_missing_hosts | default([]) | join(', ') }} did not report:
+          the container is stopped or unreachable, so the port map cannot be
+          checked. Start it and re-run.
+        success_msg: "All {{ groups['docker_hosts'] | length }} docker hosts reported."
+
     - name: Every service_ports entry is published by a stack
       ansible.builtin.assert:
         that: undeclared_ports | length == 0
@@ -160,4 +178,4 @@
           publishes {{ 'it' if undeclared_ports | length == 1 else 'them' }}:
           Caddy and Glance would point at a closed port.
         success_msg: "{{ service_ports | length }} ports declared, all published."
-      when: all_published_ports | length > 0
+      when: ports_missing_hosts | default([]) | length == 0
