@@ -10,6 +10,11 @@ llamacpp_global_args:
   n-gpu-layers: 99
   c: 8192
   flash-attn: "on"
+  # Host-side prompt-state cache (MiB). The fork defaults to 8192 per model and
+  # this host only has 16 GiB of RAM: the 35B filled it up and 7.9 GiB of it
+  # ended up in zram, so decode fell from 73 to ~60 t/s while zram sat at 100 %.
+  # 2048 is what the Swift preset already uses. Raising it needs 32 GiB.
+  cache-ram: 2048
 llamacpp_model_overrides: {}
 
 cuda_toolkit_package: cuda-toolkit-12-8   # needs the glibc 2.41 patch in tasks/main.yml
