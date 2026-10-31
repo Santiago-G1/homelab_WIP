@@ -45,7 +45,7 @@ variable "bridge" {
 }
 
 variable "default_dns" {
-  description = "DNS servers (Adguard Home, Cloudflare fallback)"
+  description = "DNS servers (Blocky, public resolver as fallback)"
   type        = list(string)
   default     = ["192.168.10.3", "1.1.1.1"]
 }
