@@ -6,7 +6,6 @@ services:
     security_opt:
       - no-new-privileges:true
     restart: unless-stopped
-    # profiles: ["core", "all"]
     environment:
       - DOMAIN=https://password.${DOMAINNAME_HS}
     # Reached by the reverse proxy on another container, so publish the port.

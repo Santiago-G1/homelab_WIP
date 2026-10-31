@@ -1,5 +1,5 @@
-# ComfyUI on the P100. The GPU panel starts it on demand: llama.cpp alone holds
-# ~15.8 of the 16 GB.
+# ComfyUI on the P100. The GPU panel starts it on demand: llama.cpp holds the
+# card on its own.
 services:
   comfyui:
     build:
