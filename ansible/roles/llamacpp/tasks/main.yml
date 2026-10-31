@@ -123,6 +123,9 @@
         chdir: "{{ llamacpp_p100_patches_dir }}"
       register: llamacpp_patches_head
       changed_when: false
+      # Read-only, and the build signature below is wrong without it: under
+      # --check the task would be skipped and every run would look like a rebuild.
+      check_mode: false
       when: llamacpp_p100_patches
 
     - name: Collect the patch set signature
