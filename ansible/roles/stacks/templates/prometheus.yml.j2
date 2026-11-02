@@ -7,7 +7,7 @@ alerting:
   # Firing rules go to alertmanager, which turns them into Telegram messages.
   alertmanagers:
     - static_configs:
-        - targets: ['alertmanager:9093']
+        - targets: ['alertmanager:{{ monitoring_ports.alertmanager }}']
 
 rule_files:
   - /etc/prometheus/rules/*.yml

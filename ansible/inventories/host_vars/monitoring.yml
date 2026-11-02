@@ -2,14 +2,20 @@
 docker_networks:
   - homelab_monitoring
 
+# Ports inside the compose network, which is how prometheus and grafana address each other.
+# The published one, if any, is in service_ports.
+monitoring_ports:
+  prometheus: 9090
+  alertmanager: 9093
+
 # Prometheus scrapes and Grafana queries at the same cadence.
 monitoring_interval: 30s
 
 prometheus_jobs:
-  - { job: prometheus,    targets: ["localhost:9090"] }
+  - { job: prometheus,    targets: ["localhost:{{ monitoring_ports.prometheus }}"] }
   - { job: node_exporter, hosts: "{{ node_exporter_hosts }}", port: 9100 }
   - { job: blocky,        targets: ["{{ hostvars['blocky'].ansible_host }}:{{ service_ports.blocky }}"] }
-  - { job: alertmanager,  targets: ["alertmanager:9093"] }
+  - { job: alertmanager,  targets: ["alertmanager:{{ monitoring_ports.alertmanager }}"] }
   # No `llama` job: in router mode its metrics live on the loaded model's port.
 
 glance_admin_user: admin
