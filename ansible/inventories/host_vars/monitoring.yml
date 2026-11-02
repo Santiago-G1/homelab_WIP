@@ -2,13 +2,13 @@
 docker_networks:
   - homelab_monitoring
 
-# Ports inside the compose network, which is how prometheus and grafana address each other.
+# Ports inside the compose network, which is how the stack's services address each other.
 # The published one, if any, is in service_ports.
 monitoring_ports:
   prometheus: 9090
   alertmanager: 9093
 
-# Prometheus scrapes and Grafana queries at the same cadence.
+# Prometheus scrape and rule-evaluation interval, and the cadence Grafana queries it at.
 monitoring_interval: 30s
 
 prometheus_jobs:
