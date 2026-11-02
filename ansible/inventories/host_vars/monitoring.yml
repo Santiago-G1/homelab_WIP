@@ -1,8 +1,9 @@
 ---
-# prometheus and grafana share this network: the datasource addresses
-# `prometheus:9090`.
 docker_networks:
   - homelab_monitoring
+
+# Prometheus scrapes and Grafana queries at the same cadence.
+monitoring_interval: 30s
 
 prometheus_jobs:
   - { job: prometheus,    targets: ["localhost:9090"] }

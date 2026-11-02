@@ -1,7 +1,7 @@
 # Managed by Ansible (roles/stacks).
 global:
-  scrape_interval: 30s
-  evaluation_interval: 30s
+  scrape_interval: {{ monitoring_interval }}
+  evaluation_interval: {{ monitoring_interval }}
 
 alerting:
   # Firing rules go to alertmanager, which turns them into Telegram messages.
