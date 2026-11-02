@@ -18,7 +18,7 @@ bootstrapDns:
 
 ports:
   dns: 53
-  # 80 serves DoH, 4000 the API and the metrics the dashboard reads.
+  # Both serve DoH, the API and metrics; 4000 is the one the proxy publishes.
   http:
     - 80
     - 4000
