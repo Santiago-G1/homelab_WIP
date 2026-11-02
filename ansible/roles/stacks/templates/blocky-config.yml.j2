@@ -18,7 +18,7 @@ bootstrapDns:
 
 ports:
   dns: 53
-  # 80 keeps the old DoH URL working; 4000 is what the proxy and Prometheus use.
+  # 80 serves DoH, 4000 the API and the metrics the dashboard reads.
   http:
     - 80
     - 4000
