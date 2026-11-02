@@ -42,6 +42,9 @@ docker_daemon_options:
     max-size: 10m
     max-file: "3"
 
+# Every managed host runs the exporter on this port; the scrape config reads it too.
+node_exporter_port: 9100
+
 # Scrape targets, keyed by inventory name so every series carries its hostname.
 node_exporter_hosts: >-
   {{ dict((groups['lxc'] + groups['management'])
