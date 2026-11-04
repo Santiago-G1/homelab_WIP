@@ -22,6 +22,39 @@ The role records the resolved patch-set commit in
 `/opt/llama.cpp/.ansible-build-flags`, so moving a tag upstream is visible and
 triggers a rebuild instead of silently changing the tree.
 
+## The Kmic P100 fork (the binary this homelab actually serves)
+
+The Pascal kernel work we run does **not** come from the patch set above: it
+comes from the P100 fork `https://github.com/Kmic-68/llama.cpp`, built by hand in
+the AI container:
+
+```
+/opt/llama.cpp-kmic            # checkout
+/opt/llama.cpp-kmic/build-opt  # the tree the drop-in runs (llamacpp_kmic_binary)
+```
+
+The role only *points* at the prebuilt binary (`llamacpp_kmic_binary`); it never
+clones or rebuilds the fork. A rebuild is therefore a manual step, and this is
+the revision this homelab was last built and verified against:
+
+| what | value |
+|---|---|
+| fork revision | `83a7f0839` (branch `p100-optimizations`, 2026-11-04) |
+| binary the drop-in runs | `build-opt/bin/llama-server` |
+| previous binary kept for rollback | `build-opt.prev-bin` |
+
+Measured moving from the previous revision to this one (A/B in the same session,
+35B, production preset): short-prompt prefill 269 -> 406 t/s (+50.8 %), decode
++1.8 %, perplexity bit-identical (`5.4029` with `-ub 1`, `5.3998` with `-ub 5`),
+no regression on Swift 27B / 9B / Spark 4B (+-0.3 %). The revision also fixes an
+out-of-bounds read in the GDN state gather that hit the hybrid recurrent models
+from depth 1024.
+
+Caveat: the live `/etc/llama/models.ini` in the AI container has drifted ahead
+of `inventories/host_vars/llm/models.yml` (the Swift runs ctx 262144 with a q8_0
+KV cache and ub 512 there, while the inventory still says 155648 / f16 / 1024).
+A playbook run reverts that tuning, so reconcile the two before the next deploy.
+
 ## Bumping llama.cpp
 
 1. Look at the tags the patch set publishes:
