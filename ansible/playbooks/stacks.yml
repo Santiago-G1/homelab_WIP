@@ -1,0 +1,12 @@
+---
+# Only the Compose projects: no package upgrade and no llama.cpp rebuild, which
+# is what `site.yml` would also do on these hosts.
+#
+#   ansible-playbook playbooks/stacks.yml --limit ai -e '{"stacks_only":["gpu-panel"]}'
+#
+# Without `stacks_only` every stack declared for the host is deployed. Stacks
+# and their sources: host_vars/<host>/main.yml.
+- name: Compose stacks
+  hosts: docker_hosts
+  roles:
+    - stacks

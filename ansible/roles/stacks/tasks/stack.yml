@@ -5,6 +5,17 @@
     state: directory
     mode: "0755"
 
+# A stack declares one source and only one: `src:` is a directory in this
+# repository, `repo:` a repository of its own.
+- name: "{{ stack.name }} | assert the project has exactly one source"
+  ansible.builtin.assert:
+    that: (stack.src is defined) != (stack.repo is defined)
+    fail_msg: >-
+      {{ stack.name }} declares
+      {{ 'both' if (stack.src is defined and stack.repo is defined) else 'neither' }}
+      of `src:` and `repo:`; it needs exactly one.
+    quiet: true
+
 # rsync would replace a bind-mounted file with a source directory of the same name.
 - name: "{{ stack.name }} | assert no rendered file is a directory in the source"
   ansible.builtin.assert:
@@ -19,10 +30,10 @@
   loop_control:
     label: "{{ item.dest }}"
   delegate_to: localhost
-  when: stack.files is defined
+  when: stack.src is defined and stack.files is defined
 
 # rsync, not copy, so the rendered .env is never overwritten by the repo's.
-- name: "{{ stack.name }} | sync the Compose project"
+- name: "{{ stack.name }} | sync the Compose project from this repository"
   ansible.posix.synchronize:
     src: "{{ compose_src_root }}/{{ stack.src }}/"
     dest: "{{ stacks_root }}/{{ stack.name }}/"
@@ -39,6 +50,48 @@
       - "--no-perms"
       - "--omit-dir-times"
   register: stack_sync
+  when: stack.src is defined
+
+# The checkout is the deployed copy: `force` discards local edits on purpose.
+# The rendered .env is gitignored upstream, so it survives the checkout.
+- name: "{{ stack.name }} | stat the checkout"
+  ansible.builtin.stat:
+    path: "{{ stacks_root }}/{{ stack.name }}/.git"
+  register: stack_checkout
+  when: stack.repo is defined
+
+- name: "{{ stack.name }} | list what is already in the project directory"
+  ansible.builtin.find:
+    paths: "{{ stacks_root }}/{{ stack.name }}"
+    patterns: "*"
+    hidden: true
+    file_type: any
+  register: stack_entries
+  when: stack.repo is defined
+
+# git only writes into an empty directory, so a project copied there by the old
+# rsync path has to be moved out of the way once. The rendered .env does not
+# need saving: the task below rewrites it from the vault on this same run.
+- name: "{{ stack.name }} | assert the directory can hold the checkout"
+  ansible.builtin.assert:
+    that: stack_entries.matched == 0 or stack_checkout.stat.exists
+    fail_msg: >-
+      {{ stacks_root }}/{{ stack.name }} has files but no .git, so it cannot be
+      cloned over: this stack moved to its own repository. Move the directory
+      aside and run the playbook again.
+    quiet: true
+  when: stack.repo is defined
+
+- name: "{{ stack.name }} | check out the Compose project from its own repository"
+  ansible.builtin.git:
+    repo: "{{ stack.repo }}"
+    # A moving branch, not a tag: these stacks deploy what the branch says.
+    version: "{{ stack.repo_version | default('main') }}"
+    dest: "{{ stacks_root }}/{{ stack.name }}"
+    force: true
+    depth: 1
+  register: stack_repo
+  when: stack.repo is defined
 
 - name: "{{ stack.name }} | create data directories"
   ansible.builtin.file:
@@ -121,7 +174,9 @@
     chdir: "{{ stacks_root }}/{{ stack.name }}"
   # `restart` also starts a stopped container, which would take the card.
   when: >-
-    (stack_files.changed | default(false) or stack_sync.changed | default(false))
+    (stack_files.changed | default(false)
+     or stack_sync.changed | default(false)
+     or stack_repo.changed | default(false))
     and stack.name not in (stacks_on_demand | default([]))
   changed_when: true
 
