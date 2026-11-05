@@ -178,9 +178,9 @@ stacks:
       PANEL_TOKEN: "{{ vault_gpu_panel_token }}"
       LLAMA_URL: "http://{{ ansible_host }}:{{ llamacpp_port }}"
       # The cards are driven over SSH: a container cannot set a power limit.
-      PVE_HOST: "root@{{ hostvars['pve'].ansible_host }}"
+      GPU_HOST: "root@{{ hostvars['pve'].ansible_host }}"
       IMMICH_HOST: "root@{{ hostvars['immich'].ansible_host }}"
-      FRONTEND_HOST: "root@{{ hostvars['frontend'].ansible_host }}"
+      JELLYFIN_HOST: "root@{{ hostvars['frontend'].ansible_host }}"
       # Read over the same SSH; the path follows stacks_root.
       JELLYFIN_XML: "{{ stacks_root }}/jellyfin/config/encoding.xml"
       AI_CTID: "{{ llm_ctid }}"     # for llama-server's journald logs
