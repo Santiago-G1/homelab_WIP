@@ -71,5 +71,25 @@ Once the underlying infrastructure is provisioned, Ansible connects to the newly
 - Installing the Docker runtime engine and dependencies.
 - Injecting required environment variables and setting up system mount points.
 - Orchestrating the execution of local Docker Compose stacks.
+
+### 3. Checking a change before it lands
+
+Every check below runs without touching a host, and CI runs them on every push
+(`.github/workflows/ci.yml`):
+
+```sh
+cd ansible
+ansible-lint                          # profile min, from ansible/.ansible-lint
+ansible-playbook --syntax-check playbooks/site.yml
+ansible-playbook playbooks/site.yml --check     # what a real run would change
+ansible-playbook playbooks/verify.yml           # what is actually running now
+terraform fmt -check -recursive terraform
+```
+
+`--check` answers whether the branch changes anything: `changed=0` everywhere
+means the hosts already do what the branch says, and anything else is exactly the
+diff the next real run applies. `verify.yml` asks the opposite question —
+containers up, endpoints answering, the port map and the compose files agreeing —
+and is the one to run afterwards.
 ---
 
