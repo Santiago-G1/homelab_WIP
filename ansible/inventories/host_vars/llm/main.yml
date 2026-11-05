@@ -166,7 +166,8 @@ stacks:
       HERMES_DASHBOARD_SECRET: "{{ vault_hermes_dashboard_secret }}"
 
   - name: gpu-panel
-    src: app-services/gpu-panel
+    # The panel has its own repository: its code is not in this one.
+    repo: https://github.com/Santiago-G1/gpupanel.git
     build: true
     env:
       PANEL_USER: admin
