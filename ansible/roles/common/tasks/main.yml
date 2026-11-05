@@ -24,7 +24,7 @@
     cache_valid_time: 3600
 
 - name: Authorize the admin SSH keys
-  ansible.builtin.authorized_key:
+  ansible.posix.authorized_key:
     user: root
     key: "{{ item }}"
     state: present
