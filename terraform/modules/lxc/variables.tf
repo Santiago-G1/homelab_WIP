@@ -22,8 +22,14 @@ variable "template" {
 }
 
 variable "ip_address" {
-  description = "IP address without mask (e.g. 192.168.10.20); the module appends /24"
+  description = "IP address without mask (e.g. 192.168.10.20); the module appends ip_prefix_length"
   type        = string
+}
+
+variable "ip_prefix_length" {
+  description = "CIDR prefix length appended to ip_address"
+  type        = number
+  default     = 24
 }
 
 variable "gateway" {
@@ -39,7 +45,7 @@ variable "bridge" {
 }
 
 variable "default_dns" {
-  description = "DNS servers (Adguard Home, Cloudflare fallback)"
+  description = "DNS servers (Blocky, public resolver as fallback)"
   type        = list(string)
   default     = ["192.168.10.3", "1.1.1.1"]
 }

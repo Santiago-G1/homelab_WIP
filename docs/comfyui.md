@@ -121,6 +121,11 @@ The panel's **How to use** page (sidebar, next to the dashboard) carries the
 per-mode explanation and the ComfyUI recipe; the dashboard itself only shows live
 state. `POST /api/auto` accepts `comfy_idle_min` next to the other two timers.
 
+A deploy (`playbooks/site.yml`) syncs, builds and **creates** the container but
+never starts it: `stacks_on_demand` in `host_vars/llm/main.yml` is what tells the
+`stacks` role to run `docker compose create` instead of `up -d`, so a deploy
+cannot take the card away from llama.cpp. The panel's Start button does the rest.
+
 Verify: `ansible-playbook playbooks/verify.yml` checks that the container exists
 and, when it is running, that `/system_stats` answers. The `comfy.` route is not
 in the availability widget on purpose: a stopped-but-healthy on-demand service

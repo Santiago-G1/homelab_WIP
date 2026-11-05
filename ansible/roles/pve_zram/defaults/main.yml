@@ -1,0 +1,6 @@
+---
+# One zram device, a share of RAM. A second device buys nothing: every zram
+# page costs host memory either way.
+pve_zram_percent: 75
+pve_zram_algorithm: zstd
+pve_zram_priority: 100

@@ -3,3 +3,7 @@
   ansible.builtin.service:
     name: ssh
     state: restarted
+- name: restart journald
+  ansible.builtin.service:
+    name: systemd-journald
+    state: restarted

@@ -1,12 +1,14 @@
 ---
-# /tank/media is bind-mounted read-only at /mnt/media on this container.
+# Media is bind-mounted read-only here; the stacks get its path as DATA_MOUNT.
+stack_env_host:
+  DATA_MOUNT: /mnt/media
+
 stacks:
   - { name: jellyfin,  src: media-services/frontend/jellyfin }
   - { name: komga,     src: media-services/frontend/komga }
   - name: navidrome
     src: media-services/frontend/navidrome
-    # The official image does not chown its data dir, so create it as the
-    # matching container uid (see the ACLs on /tank/media/music).
+    # The image does not chown its data dir: create it as the container uid.
     dirs:
       - { path: config, owner: "1010", group: "1010" }
 

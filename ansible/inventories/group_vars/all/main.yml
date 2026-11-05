@@ -4,10 +4,14 @@ timezone: America/Bogota
 lan_cidr: 192.168.10.0/24    # advertised by the Tailscale subnet router
 homelab_repo: Santiago-G1/homelab_WIP
 
-# Merged under each stack's own env; containers read them from the .env.
+# Merged into every stack's .env; a host adds to it with `stack_env_host`.
 stack_env_common:
   DOMAINNAME_HS: "{{ vault_domainname_hs }}"
   TZ: "{{ timezone }}"
+  STACKS_ROOT: "{{ stacks_root }}"
+  # The *arr and syncthing images run as this uid/gid inside the container.
+  PUID: "1000"
+  PGID: "1000"
 
 stacks_root: /opt/docker
 compose_src_root: "{{ playbook_dir }}/../../docker-compose"
@@ -37,6 +41,9 @@ docker_daemon_options:
   log-opts:
     max-size: 10m
     max-file: "3"
+
+# Every managed host runs the exporter on this port; the scrape config reads it too.
+node_exporter_port: 9100
 
 # Scrape targets, keyed by inventory name so every series carries its hostname.
 node_exporter_hosts: >-

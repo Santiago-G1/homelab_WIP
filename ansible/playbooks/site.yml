@@ -31,10 +31,16 @@
   roles:
     - tailscale
 
-# llama.cpp in router mode, compiled on the container (LiteLLM comes from the
-# docker_hosts play above): NVIDIA driver, then CUDA toolkit + llama.cpp + unit.
+# llama.cpp in router mode, compiled on the container (LiteLLM, SearXNG, Hermes
+# and the panel come from the docker_hosts play above).
 - name: AI host (llama.cpp bare metal)
   hosts: ai
   roles:
-    - nvidia
     - llamacpp
+
+# The hypervisor's own knobs (swap capacity and similar): never the base role.
+- name: Hypervisor tuning
+  hosts: proxmox_host
+  roles:
+    - pve_zram
+    - pve_tune

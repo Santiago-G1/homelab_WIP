@@ -8,7 +8,9 @@
 # rsync would replace a bind-mounted file with a source directory of the same name.
 - name: "{{ stack.name }} | assert no rendered file is a directory in the source"
   ansible.builtin.assert:
-    that: not ((compose_src_root ~ '/' ~ stack.src ~ '/' ~ item.dest) is directory)
+    that: >-
+      item.dest.startswith('/')
+      or not ((compose_src_root ~ '/' ~ stack.src ~ '/' ~ item.dest) is directory)
     fail_msg: >-
       {{ stack.src }}/{{ item.dest }} is a directory in the repo, but Ansible
       renders it as a file: delete it (empty directories are not tracked by
@@ -28,6 +30,9 @@
     rsync_opts:
       - "--exclude=.env"
       - "--exclude=.env.template"
+      # Python bytecode from a local run is not part of the project.
+      - "--exclude=__pycache__"
+      - "--exclude=*.pyc"
       # Modes and owners of runtime dirs belong to the `dirs` task below.
       - "--no-owner"
       - "--no-group"
@@ -37,7 +42,8 @@
 
 - name: "{{ stack.name }} | create data directories"
   ansible.builtin.file:
-    path: "{{ stacks_root }}/{{ stack.name }}/{{ item.path }}"
+    # An absolute path lives outside the Compose project, e.g. in a state dir.
+    path: "{{ item.path if item.path.startswith('/') else stacks_root ~ '/' ~ stack.name ~ '/' ~ item.path }}"
     state: directory
     owner: "{{ item.owner | default('root') }}"
     group: "{{ item.group | default('root') }}"
@@ -56,19 +62,20 @@
 - name: "{{ stack.name }} | render extra configuration files"
   ansible.builtin.template:
     src: "{{ item.template }}"
-    dest: "{{ stacks_root }}/{{ stack.name }}/{{ item.dest }}"
+    # An absolute dest writes into a state dir instead of the project.
+    dest: "{{ item.dest if item.dest.startswith('/') else stacks_root ~ '/' ~ stack.name ~ '/' ~ item.dest }}"
     mode: "{{ item.mode | default('0644') }}"
-    # Only when the entry asks for it: a container running as a non-root user
-    # (alertmanager as nobody) needs the owner set too.
+    # Only when the entry asks for it: a non-root container needs the owner set.
     owner: "{{ item.owner | default(omit) }}"
     group: "{{ item.group | default(omit) }}"
+    # `force: false` seeds the file once and leaves it to the service after that.
+    force: "{{ item.force | default(true) | bool }}"
   loop: "{{ stack.files | default([]) }}"
   loop_control:
     label: "{{ item.dest }}"
   register: stack_files
 
-# Services behind a Compose profile are built here on purpose: the profile keeps
-# them out of `up`, and only their image is wanted.
+# Services behind a Compose profile are built here: only their image is wanted.
 - name: "{{ stack.name }} | build the images declared for the stack"
   ansible.builtin.command:
     cmd: >-
@@ -79,8 +86,8 @@
   register: stack_build
   changed_when: "'Successfully built' in stack_build.stdout"
 
-# POSTGRES_USER/POSTGRES_PASSWORD are only read by the first initdb, so a vault
-# rotation leaves the cluster with the old roles and the app dies on 28P01.
+# POSTGRES_* are read by the first initdb only, so a vault rotation has to be
+# reconciled into the cluster or the app dies on 28P01.
 - name: "{{ stack.name }} | reconcile the Postgres credentials"
   ansible.builtin.script: >-
     postgres-credentials.sh
@@ -94,9 +101,13 @@
   changed_when: "'changed=1' in postgres_creds.stdout"
   when: stack.postgres is defined
 
+# An on-demand stack is created but never started: the GPU panel owns its
+# lifetime. Its image is still built, so a version bump applies now.
 - name: "{{ stack.name }} | bring the stack up"
   ansible.builtin.command:
-    cmd: "docker compose up -d --remove-orphans{{ ' --build' if stack.build | default(false) else '' }}"
+    cmd: >-
+      docker compose {{ 'create' if stack.name in (stacks_on_demand | default([])) else 'up -d' }}
+      --remove-orphans{{ ' --build' if stack.build | default(false) else '' }}
     chdir: "{{ stacks_root }}/{{ stack.name }}"
   register: compose_up
   changed_when: >-
@@ -108,7 +119,10 @@
   ansible.builtin.command:
     cmd: docker compose restart
     chdir: "{{ stacks_root }}/{{ stack.name }}"
-  when: stack_files.changed | default(false) or stack_sync.changed | default(false)
+  # `restart` also starts a stopped container, which would take the card.
+  when: >-
+    (stack_files.changed | default(false) or stack_sync.changed | default(false))
+    and stack.name not in (stacks_on_demand | default([]))
   changed_when: true
 
 # LiteLLM keeps a key's model allowlist in its database, not in config.yaml.

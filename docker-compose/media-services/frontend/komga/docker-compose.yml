@@ -6,7 +6,7 @@ services:
       - TZ=${TZ:-Etc/UTC}
     volumes:
       - ./config:/config
-      - /mnt/media/comics:/data
+      - ${DATA_MOUNT:?DATA_MOUNT is required}/comics:/data
     ports:
-      - 25600:25600
+      - "${PUBLISH_PORT:?}:25600"
     restart: unless-stopped

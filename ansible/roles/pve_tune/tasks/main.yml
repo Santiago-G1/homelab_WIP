@@ -1,0 +1,141 @@
+---
+# CPU frequency.
+- name: Install the CPU governor unit
+  ansible.builtin.template:
+    src: cpu-governor.service.j2
+    dest: /etc/systemd/system/cpu-governor.service
+    mode: "0644"
+  notify: Reload systemd
+
+- name: Apply the governor at boot and now
+  ansible.builtin.systemd:
+    name: cpu-governor.service
+    enabled: true
+    state: started
+    daemon_reload: true
+
+# Spread the GPU and disk interrupts across the cores.
+- name: Install irqbalance
+  ansible.builtin.apt:
+    name: irqbalance
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Run irqbalance
+  ansible.builtin.systemd:
+    name: irqbalance.service
+    enabled: true
+    state: started
+
+# ksmtuned only counts qemu memory, and this host runs containers.
+- name: Retire ksmtuned (it only tracks qemu, and there are no VMs here)
+  ansible.builtin.systemd:
+    name: ksmtuned.service
+    enabled: false
+    state: stopped
+    masked: true
+
+# ZFS tunables: the modprobe file for the next boot, /sys for the running one.
+- name: Write the ZFS module options
+  ansible.builtin.template:
+    src: zfs.conf.j2
+    dest: /etc/modprobe.d/zfs.conf
+    mode: "0644"
+
+- name: Read the live ZFS tunables
+  ansible.builtin.slurp:
+    src: "/sys/module/zfs/parameters/{{ item.key }}"
+  loop: "{{ pve_tune_zfs_params | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  register: pve_tune_zfs_live
+
+- name: Apply the ZFS tunables to the running module
+  ansible.builtin.shell: printf '%s\n' {{ item.item.value }} > {{ item.item.key }}
+  args:
+    chdir: /sys/module/zfs/parameters
+  loop: "{{ pve_tune_zfs_live.results }}"
+  loop_control:
+    label: "{{ item.item.key }}"
+  when: item.content | b64decode | trim != item.item.value | string
+
+- name: Schedule a monthly scrub
+  ansible.builtin.systemd:
+    name: "zfs-scrub-monthly@{{ pve_tune_scrub_pool }}.timer"
+    enabled: true
+    state: started
+
+# GPU power and clocks. Two units: the driver re-arms the cap after it settles.
+- name: Install the GPU power cap script
+  ansible.builtin.template:
+    src: nvidia-power-cap.sh.j2
+    dest: /usr/local/sbin/nvidia-power-cap.sh
+    mode: "0755"
+
+- name: Install the GPU power cap unit
+  ansible.builtin.template:
+    src: nvidia-power-cap.service.j2
+    dest: /etc/systemd/system/nvidia-power-cap.service
+    mode: "0644"
+  notify: Reload systemd
+
+- name: Install the GPU clock unit
+  ansible.builtin.template:
+    src: nvidia-p100-tune.service.j2
+    dest: /etc/systemd/system/nvidia-p100-tune.service
+    mode: "0644"
+  notify: Reload systemd
+
+- name: Apply the caps at boot
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+    daemon_reload: true
+  loop:
+    - nvidia-power-cap.service
+    - nvidia-p100-tune.service
+- name: Install the container TRIM script
+  ansible.builtin.template:
+    src: pct-fstrim.sh.j2
+    dest: /usr/local/sbin/pct-fstrim.sh
+    mode: "0755"
+
+- name: Install the container TRIM unit
+  ansible.builtin.template:
+    src: pct-fstrim.service.j2
+    dest: /etc/systemd/system/pct-fstrim.service
+    mode: "0644"
+  notify: Reload systemd
+
+- name: Install the container TRIM timer
+  ansible.builtin.template:
+    src: pct-fstrim.timer.j2
+    dest: /etc/systemd/system/pct-fstrim.timer
+    mode: "0644"
+  notify: Reload systemd
+
+- name: Run the weekly container TRIM
+  ansible.builtin.systemd:
+    name: pct-fstrim.timer
+    enabled: true
+    state: started
+    daemon_reload: true
+
+# Block queue, by rotational flag so the device names can move.
+- name: Install the block-queue rules
+  ansible.builtin.template:
+    src: 60-disk-tuning.rules.j2
+    dest: /etc/udev/rules.d/60-disk-tuning.rules
+    mode: "0644"
+  notify: Reload udev
+
+- name: Drop the queue rules written by hand
+  ansible.builtin.file:
+    path: "/etc/udev/rules.d/{{ item }}"
+    state: absent
+  loop:
+    - 60-disk-optimization.rules
+    - 60-iosched.rules
+  notify: Reload udev

@@ -46,7 +46,7 @@
     - name: Clone llama.cpp
       ansible.builtin.git:
         repo: https://github.com/ggml-org/llama.cpp
-        dest: /opt/llama.cpp
+        dest: "{{ llamacpp_src_dir }}"
         version: "{{ llamacpp_version }}"
         force: true
 
@@ -67,8 +67,7 @@
       loop_control:
         label: "{{ item.dest }}"
 
-    # The set is tagged per llama.cpp ref: failing here names the mismatch
-    # instead of leaving a clone error.
+    # The set is tagged per llama.cpp ref: failing here names the mismatch.
     - name: List the patch set's refs
       ansible.builtin.command:
         argv: [git, ls-remote, "--tags", "--heads", "{{ llamacpp_p100_patches_repo }}"]
@@ -124,6 +123,9 @@
         chdir: "{{ llamacpp_p100_patches_dir }}"
       register: llamacpp_patches_head
       changed_when: false
+      # Read-only, and the build signature below is wrong without it: under
+      # --check the task would be skipped and every run would look like a rebuild.
+      check_mode: false
       when: llamacpp_p100_patches
 
     - name: Collect the patch set signature
@@ -142,24 +144,23 @@
 
     - name: Check whether the binary exists
       ansible.builtin.stat:
-        path: /opt/llama.cpp/build/bin/llama-server
+        path: "{{ llamacpp_src_dir }}/build/bin/llama-server"
       register: llamacpp_bin
 
     # A truncated binary is newer than its objects, so make would skip it.
     - name: Drop a truncated llama-server binary
       ansible.builtin.file:
-        path: /opt/llama.cpp/build/bin/llama-server
+        path: "{{ llamacpp_src_dir }}/build/bin/llama-server"
         state: absent
       when: llamacpp_bin.stat.exists and llamacpp_bin.stat.size | default(1) == 0
 
     - name: Read the recorded build signature
       ansible.builtin.slurp:
-        src: /opt/llama.cpp/.ansible-build-flags
+        src: "{{ llamacpp_src_dir }}/.ansible-build-flags"
       register: llamacpp_flags_recorded
       failed_when: false
 
-    # Signature of ref + patches + flags: re-applying the patches would touch
-    # every mtime and rebuild the whole CUDA tree on each run.
+    # ref + patches + flags: re-applying would rebuild the whole CUDA tree.
     - name: Set the build signature
       ansible.builtin.set_fact:
         llamacpp_signature: |
@@ -180,7 +181,7 @@
     - name: Reset the llama.cpp tree to the requested ref
       ansible.builtin.command: git reset --hard {{ llamacpp_version }}
       args:
-        chdir: /opt/llama.cpp
+        chdir: "{{ llamacpp_src_dir }}"
       changed_when: false
       when: llamacpp_rebuild
 
@@ -188,7 +189,7 @@
       ansible.builtin.command:
         argv: "{{ [llamacpp_tools_dir ~ '/apply-patches.sh', llamacpp_p100_patches_dir ~ '/patches'] }}"
       args:
-        chdir: /opt/llama.cpp
+        chdir: "{{ llamacpp_src_dir }}"
       environment:
         LLAMACPP_PATCH_OPTIONAL: "{{ llamacpp_p100_patches_optional | join(' ') }}"
         LLAMACPP_PATCH_IGNORE_MISSING: "{{ '1' if llamacpp_p100_patches_ignore_missing else '' }}"
@@ -212,7 +213,7 @@
         llamacpp_carveout_argv: >-
           {{ [llamacpp_tools_dir ~ '/carveout-sm60-fp16.py']
              + (['--strict'] if llamacpp_p100_carveout_strict else [])
-             + ['/opt/llama.cpp'] }}
+             + [llamacpp_src_dir] }}
 
     - name: Carve sm_60 out of the fp16 fast path (attention + mmvf)
       ansible.builtin.command:
@@ -223,7 +224,7 @@
     - name: Configure the build
       ansible.builtin.command:
         argv: "{{ ['cmake', '-B', 'build'] + llamacpp_cmake_args }}"
-        chdir: /opt/llama.cpp
+        chdir: "{{ llamacpp_src_dir }}"
       environment:
         PATH: "{{ llamacpp_cuda_root }}/bin:{{ ansible_env.PATH }}"
       when: llamacpp_rebuild
@@ -234,7 +235,7 @@
         argv: >-
           {{ ['cmake', '--build', 'build', '-j' ~ llamacpp_build_jobs, '--target']
              + llamacpp_build_targets }}
-        chdir: /opt/llama.cpp
+        chdir: "{{ llamacpp_src_dir }}"
       environment:
         PATH: "{{ llamacpp_cuda_root }}/bin:{{ ansible_env.PATH }}"
       when: llamacpp_rebuild
@@ -245,7 +246,7 @@
     - name: Record the build signature
       ansible.builtin.copy:
         content: "{{ llamacpp_signature }}"
-        dest: /opt/llama.cpp/.ansible-build-flags
+        dest: "{{ llamacpp_src_dir }}/.ansible-build-flags"
         mode: "0644"
       when: llamacpp_rebuild
 
@@ -264,6 +265,87 @@
     path: "{{ llamacpp_preset_file | dirname }}"
     state: directory
     mode: "0755"
+
+# The models the agents use live on this container's SSD and are symlinked into
+# the router's directory, which follows the link and restarts when it moves.
+- name: Fast disk for the models the agent serves
+  ansible.builtin.file:
+    path: "{{ llamacpp_fast_models_dir }}"
+    state: directory
+    mode: "0755"
+  when: llamacpp_fast_models | default([]) | length > 0
+
+# mv, not cp: a second copy would eat the pool. When the disk cannot hold it,
+# this says so and goes on, so a later deploy with room moves it.
+- name: Move the agent's models to the fast disk and link them back
+  ansible.builtin.shell: |
+    set -euo pipefail
+    src="{{ llamacpp_models_dir }}/{{ item }}.gguf"
+    dst="{{ llamacpp_fast_models_dir }}/{{ item }}.gguf"
+    if [ -L "$src" ] && [ "$(readlink "$src")" = "$dst" ]; then
+      echo ok
+      exit 0
+    fi
+    if [ -f "$src" ]; then
+      need=$(( $(stat -c%s "$src") / 1024 + 3145728 ))
+      avail=$(df -Pk "{{ llamacpp_fast_models_dir }}" | awk 'NR==2 {print $4}')
+      if [ "$avail" -lt "$need" ]; then
+        echo "no space for {{ item }}: $(( (need - avail) / 1024 )) MiB short"
+        exit 0
+      fi
+      mv "$src" "$dst"
+    fi
+    if [ ! -f "$dst" ]; then
+      echo "neither $src nor $dst exists" >&2
+      exit 1
+    fi
+    ln -sfn "$dst" "$src"
+    echo moved
+  args:
+    executable: /bin/bash
+  register: llamacpp_fast_move
+  changed_when: llamacpp_fast_move.stdout == 'moved'
+  loop: "{{ llamacpp_fast_models }}"
+  loop_control:
+    label: "{{ item }}"
+  notify: restart llama-server
+
+# A model that loses `fast` goes back to the pool: the SSD holds the one the
+# agent serves, not a second copy of the catalogue.
+- name: Send the models that are no longer fast back to the pool
+  ansible.builtin.shell: |
+    set -euo pipefail
+    keep=" {{ llamacpp_fast_models | default([]) | join(' ') }} "
+    for src in {{ llamacpp_models_dir }}/*.gguf; do
+      [ -L "$src" ] || continue
+      dst=$(readlink "$src")
+      case "$dst" in {{ llamacpp_fast_models_dir }}/*) ;; *) continue ;; esac
+      [ -f "$dst" ] || continue
+      name=$(basename "$src" .gguf)
+      case "$keep" in *" $name "*) continue ;; esac
+      avail=$(df -Pk "{{ llamacpp_models_dir }}" | awk 'NR==2 {print $4}')
+      need=$(( $(stat -c%s "$dst") / 1024 + 3145728 ))
+      if [ "$avail" -lt "$need" ]; then
+        echo "no space for $name on the pool: $(( (need - avail) / 1024 )) MiB short"
+        continue
+      fi
+      tmp="{{ llamacpp_models_dir }}/.$name.gguf.moving"
+      mv "$dst" "$tmp"
+      rm -f "$src"
+      mv "$tmp" "$src"
+      echo "moved $name back to the pool"
+    done
+  register: llamacpp_fast_evict
+  changed_when: "'moved ' in llamacpp_fast_evict.stdout"
+  notify: restart llama-server
+
+- name: Report the models that stay on the pool
+  ansible.builtin.debug:
+    msg: "{{ item.item }} stays on {{ llamacpp_models_dir }} ({{ item.stdout }})"
+  loop: "{{ llamacpp_fast_move.results | default([]) | selectattr('stdout', 'search', 'no space for') | list }}"
+  loop_control:
+    label: "{{ item.item }}"
+  when: llamacpp_fast_move is defined
 
 # Per-model options come from host_vars/llm/models.yml.
 - name: Render the router preset

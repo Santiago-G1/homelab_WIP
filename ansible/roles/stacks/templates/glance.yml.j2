@@ -13,7 +13,7 @@
 {% set alt_status_codes = ok_status_codes | join(', ') %}
 
 server:
-  port: 8080
+  port: {{ service_ports.glance }}
   # TLS ends at Caddy: the client address is the X-Forwarded-For one.
   proxied: true
 
@@ -137,8 +137,7 @@ pages:
                   </div>
                   {%- endraw %}
 
-              # Blocky is scraped by Prometheus: the dns-stats widget does not
-              # speak it.
+              # Blocky is scraped by Prometheus, so no dns-stats widget.
               - type: custom-api
                 title: DNS
                 cache: 1m
@@ -180,8 +179,7 @@ pages:
                   </div>
                   {%- endraw %}
 
-              # Same JSON API as the panel's own UI; shows its error message
-              # when the card is unreachable.
+              # Same JSON API as the panel's own UI.
               - &gpu_panel_widget
                 type: custom-api
                 title: GPU & LLM

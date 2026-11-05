@@ -11,8 +11,8 @@
 
 ok_status_codes: [401, 403]   # several services answer 401/403 without a session
 
-# Every LAN port Ansible needs, in one place. The compose files own the real
-# published ports and this map has to match them (playbooks/verify.yml checks).
+# Published ports. The compose files are the source of truth; verify.yml reads
+# them back and compares the two lists.
 service_ports:
   blocky: 4000
   glance: 8080
@@ -38,7 +38,7 @@ service_ports:
   gpu_panel: 8099
   litellm: 4000
   searxng: 8081
-  zeroclaw: 42617
+  hermes: 9119
   comfyui: 8188
 
 homelab_services:
@@ -249,10 +249,7 @@ homelab_services:
       not become a public hostname in the tunnel.
     verify: true
 
-  # On demand: ComfyUI is an image-generation stack that needs the whole P100,
-  # so the GPU panel starts it as its own mode and stops it again when the card
-  # goes back to llama.cpp. That is why it is not in the availability widget or
-  # in verify's route checks (a stopped but healthy service would look DOWN).
+  # On demand: the GPU panel owns its lifetime, so it is not probed.
   - host: comfy
     server: llm
     port: "{{ service_ports.comfyui }}"
@@ -267,11 +264,18 @@ homelab_services:
       frees the GPU and starts it, and the panel stops it again when llama.cpp
       is used or after its idle timer. No auth, so LAN-only.
 
-  - host: agent
+  - host: hermes
     server: llm
-    port: "{{ service_ports.zeroclaw }}"
-    title: ZeroClaw
+    port: "{{ service_ports.hermes }}"
+    title: Hermes
     icon: mdi:robot
     group: AI
-    note: ZeroClaw gateway; pairing (not the proxy) is what authenticates it.
+    note: Two profiles, one dashboard; the sidebar switches between them.
+  - host: agent
+    server: llm
+    port: "{{ service_ports.hermes }}"
+    title: Hermes (old agent link)
+    icon: mdi:robot-outline
+    group: AI
+    note: Same dashboard as `hermes`, kept so the old bookmark keeps working.
     verify: true

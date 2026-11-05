@@ -1,16 +1,22 @@
 ---
-# Shared by the prometheus and grafana stacks: the datasource addresses
-# `prometheus:9090`, which only resolves inside a common network.
 docker_networks:
   - homelab_monitoring
 
+# Ports inside the compose network, which is how the stack's services address each other.
+# The published one, if any, is in service_ports.
+monitoring_ports:
+  prometheus: 9090
+  alertmanager: 9093
+
+# Prometheus scrape and rule-evaluation interval, and the cadence Grafana queries it at.
+monitoring_interval: 30s
+
 prometheus_jobs:
-  - { job: prometheus,    targets: ["localhost:9090"] }
-  - { job: node_exporter, hosts: "{{ node_exporter_hosts }}", port: 9100 }
+  - { job: prometheus,    targets: ["localhost:{{ monitoring_ports.prometheus }}"] }
+  - { job: node_exporter, hosts: "{{ node_exporter_hosts }}", port: "{{ node_exporter_port }}" }
   - { job: blocky,        targets: ["{{ hostvars['blocky'].ansible_host }}:{{ service_ports.blocky }}"] }
-  - { job: alertmanager,  targets: ["alertmanager:9093"] }
-  # No `llama` job: in router mode its metrics live on the loaded model's port,
-  # so :8080/metrics answers 400 while the server is healthy.
+  - { job: alertmanager,  targets: ["alertmanager:{{ monitoring_ports.alertmanager }}"] }
+  # No `llama` job: in router mode its metrics live on the loaded model's port.
 
 glance_admin_user: admin
 
@@ -19,8 +25,7 @@ stacks:
     src: monitoring-services/prometheus
     files:
       - { template: prometheus.yml.j2, dest: prometheus.yml }
-      # Carries the bot token, and the image runs as nobody, so 0600 root is a
-      # permission denied: the file has to belong to 65534.
+      # Carries the bot token and the image runs as nobody: owner 65534.
       - { template: alertmanager.yml.j2, dest: alertmanager.yml, mode: "0600", owner: "65534", group: "65534" }
     dirs:
       # Both images run as nobody and need writable dirs.

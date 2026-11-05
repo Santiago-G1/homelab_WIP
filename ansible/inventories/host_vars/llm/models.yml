@@ -6,12 +6,10 @@
 #   name  the .gguf file name WITHOUT its extension; must exist in
 #         llamacpp_models_dir and is the name clients send.
 #   args  per-model llama-server options (default: llamacpp_global_args).
-#   agent set on exactly one model: the one ZeroClaw talks to.
+#   agent set on exactly one model: the one the agent talks to.
 llm_models:
-  # Bigger ubatch means fewer graph launches. Measured on the P100 @ 512
-  # defaults: 9B pp2048 614 -> 781 t/s at ub 2048; the 12-13 GiB models become
-  # unstable there (VRAM pressure), so they stay at 1024: 35B-A3B pp2048
-  # 486 -> 669 t/s, 27B pp2048 134 -> 153 t/s. Decode is unaffected.
+  # A bigger ubatch means fewer graph launches. Above 1024 the 12-13 GiB
+  # models run out of VRAM.
   - name: Qwen3.5-9B-UD-Q4_K_XL
     args:
       n-gpu-layers: 99
@@ -76,12 +74,13 @@ llm_models:
       cache-reuse: 256
 
   # Coding fine-tune of the same shape (unsloth-dynamic tiers, MTP head at Q3_K).
-  # UD-Q4_K_XL is the card's "start here". Measured on the two P100s with f16 KV:
-  # decode 60-71 t/s (acceptance ~73 %), 278 t/s prefill and 36 t/s decode over a
-  # full 244k-token prompt, 14.3 + 14.7 GiB. Drafting past 3 tokens halves the
-  # acceptance, and ub 2048 buys nothing at 6k while eating the VRAM headroom.
+  # UD-Q4_K_XL is the card's "start here"; drafting past 3 tokens lowers the
+  # acceptance rate.
   - name: Cyber-Tiel-Coder-35B-A3B-MTP-UD-Q4_K_XL
+    agent: true
+    fast: true            # kept on the AI host's SSD (see llamacpp_fast_models)
     args:
+      load-mode: dio       # 22 GB: it can never be cached, so read it direct
       n-gpu-layers: 99
       ctx-size: 262144
       cache-type-k: f16
@@ -93,6 +92,8 @@ llm_models:
       parallel: 1
       batch-size: 2048
       ubatch-size: 1024
+      # Reuse the KV after a divergence instead of re-prefilling the prompt.
+      cache-reuse: 256
       spec-type: draft-mtp
       spec-draft-n-max: 3
       spec-draft-p-min: 0.2
@@ -107,13 +108,14 @@ llm_models:
       top-k: 20
       min-p: 0.0
 
-  # MTP build: it carries the blk.40 draft head (the non-MTP file does not),
-  # so speculative decoding works: decode 56-69 t/s vs 32.4, acceptance 58-69%.
-  # The full 262144 window costs 14.2 + 14.9 GiB of the 2x16 GB, so ub 1024 and
-  # a single slot are the stable point (ub 2048 dies on a long prefill).
+  # MTP build: it carries the blk.40 draft head (the non-MTP file does not), so
+  # speculative decoding works. The full window fills both cards: it needs
+  # ub 1024 and a single slot.
+  # Not the agent's model (`agent: true`): llama.cpp holds one GGUF at a time,
+  # so a second profile unloads the agent's model after every turn.
   - name: Qwen3.6-35B-A3B-MTP-UD-Q4_K_XL
-    agent: true
     args:
+      load-mode: dio       # 22 GB: it can never be cached, so read it direct
       n-gpu-layers: 99
       ctx-size: 262144
       # The spare VRAM pays for f16; q8_0 is the floor.
@@ -126,6 +128,8 @@ llm_models:
       parallel: 1
       batch-size: 2048
       ubatch-size: 1024
+      # Reuse the KV after a divergence instead of re-prefilling the prompt.
+      cache-reuse: 256
       spec-type: draft-mtp
       spec-draft-n-max: 3
       spec-draft-p-min: 0.2
@@ -142,13 +146,9 @@ llm_models:
       presence-penalty: 1.5
       repeat-penalty: 1.0
 
-  # 131k is the model's full window, and it is what fits: the QAD-Q4_0 build is
-  # 13.6 GB, so weights + the main q8_0 KV (only 10 of the 40 layers attend, so
-  # ~10.6 KiB/token) + buffers leave ~1.3 GB free on the 16 GB card.
-  # That is not enough for the DSpark drafter (~1.5 GB: 0.66 GB weights + its
-  # own q8 KV + prefill buffers), so it is downloaded but NOT enabled: with it
-  # the window drops to ~100k and the server still dies on the first long
-  # prefill. See docs/llm-models.md before turning spec decoding back on.
+  # 131k is the model's full window and what fits on one card: weights plus the
+  # q8_0 KV leave no room for the DSpark drafter, so it is downloaded but not
+  # enabled. See docs/llm-models.md before turning spec decoding back on.
   - name: LFM2.5-24B-A2B-QAD-Q4_0
     args:
       n-gpu-layers: 99
@@ -166,9 +166,35 @@ llm_models:
       temp: 0.1
       top-k: 50
       repeat-penalty: 1.05
+  # Hybrid 4.45B: 9 of 36 layers attend fully and the rest slide at 512 tokens,
+  # so f16 KV fits one card at 131072. Card 1, because Immich ML binds only
+  # /dev/nvidia0; q8_0 KV costs a quarter of the decode speed.
+  - name: Spark-X2.6-4B-Q4_K_M
+    args:
+      n-gpu-layers: 99
+      ctx-size: 131072
+      cache-type-k: f16
+      cache-type-v: f16
+      flash-attn: "on"
+      split-mode: none
+      main-gpu: 1
+      fit: "off"
+      parallel: 1
+      batch-size: 2048
+      ubatch-size: 1024
+      jinja: "on"
+      # Model card.
+      temp: 1.0
+      top-p: 0.95
+      top-k: 0
+      min-p: 0.0
+
 # Derived from llm_models; edit the list above instead.
 litellm_models: "{{ llm_models | map(attribute='name') | list }}"
 llamacpp_model_overrides: >-
   {{ llm_models | selectattr('args', 'defined')
      | items2dict(key_name='name', value_name='args') }}
-zeroclaw_model: "{{ (llm_models | selectattr('agent', 'defined') | first).name }}"
+agent_model: "{{ (llm_models | selectattr('agent', 'defined') | first).name }}"
+# `agent: true` picks the model the agents use, under the fixed `litellm.agent`
+# profile in LiteLLM. One profile only: see the note above.
+agent_models: "{{ llm_models | selectattr('agent', 'defined') | map(attribute='name') | list }}"

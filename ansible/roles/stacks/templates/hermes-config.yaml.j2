@@ -1,0 +1,70 @@
+# Rendered from `hermes_agents` (host_vars/llm/main.yml): one profile per file.
+{% set a = hermes_agents[item.agent] %}
+model:
+  provider: litellm
+  default: "{{ agent_model }}"
+  base_url: "{{ hermes_litellm_uri }}"
+
+providers:
+  litellm:
+    api: "{{ hermes_litellm_uri }}"
+    key_env: LITELLM_API_KEY
+    default_model: "{{ agent_model }}"
+
+approvals:
+  mode: "{{ a.approvals_mode }}"
+  # Cron and one-shot runs have nobody to ask.
+  cron_mode: "{{ a.unattended_mode }}"
+  single_query_mode: "{{ a.unattended_mode }}"
+  unattended_mode: "{{ a.unattended_mode }}"
+{% if a.deny is defined %}
+  deny:   # applies even with mode "off"
+{% for pattern in a.deny %}
+    - "{{ pattern }}"
+{% endfor %}
+{% endif %}
+
+auxiliary:
+  background_review:   # a full model call after every turn
+    enabled: {{ 'true' if a.background_review | default(true) else 'false' }}
+
+compression:
+  # Compact at a quarter of the window, or while the card is idle.
+  threshold: 0.25
+  idle_compact_after_seconds: 300
+  tail_mode: lean
+
+# `hermes checkpoints` can undo a turn that broke the working tree.
+checkpoints:
+  enabled: true
+
+# Facts in SQLite, additive to MEMORY.md; no key and no model call.
+memory:
+  provider: "{{ a.memory_provider }}"
+  write_approval: {{ 'true' if a.memory_write_approval else 'false' }}
+
+web:
+  # SearXNG next door; it cannot extract, so extraction stays keyless.
+  search_backend: searxng
+  extract_backend: ""
+
+timezone: "{{ timezone }}"
+
+plugins:
+  enabled:
+{% for plugin in a.plugins %}
+    - {{ plugin }}
+{% endfor %}
+  disabled: []
+
+terminal:
+  backend: "{{ a.terminal_backend }}"
+  cwd: /opt/data/workspace
+  timeout: 300
+{% if a.telegram | default(false) %}
+
+gateway:
+  platforms:
+    telegram:
+      enabled: true
+{% endif %}

@@ -3,14 +3,14 @@ services:
     image: lscr.io/linuxserver/bazarr:v1.6.1-ls365@sha256:762f802274598da27255b2e5778f262b2b71b355a23e3812d9ee1520f8dbe37c
     container_name: bazarr
     environment:
-      - PUID=1000
-      - PGID=1000
+      - PUID=${PUID:?}
+      - PGID=${PGID:?}
       - TZ=${TZ:-Etc/UTC}
     volumes:
-      - /opt/docker/bazarr/data:/config
-      - /mnt/data:/data
+      - ./data:/config
+      - ${DATA_MOUNT:?DATA_MOUNT is required}:/data
     ports:
-      - "6767:6767"
+      - "${PUBLISH_PORT:?}:6767"
     networks:
       - arrsuite-stack
     restart: unless-stopped

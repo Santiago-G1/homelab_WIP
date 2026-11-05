@@ -6,8 +6,8 @@ datasources:
     uid: prometheus
     type: prometheus
     access: proxy
-    url: http://prometheus:9090
+    url: http://prometheus:{{ monitoring_ports.prometheus }}
     isDefault: true
     editable: false
     jsonData:
-      timeInterval: 30s
+      timeInterval: {{ monitoring_interval }}

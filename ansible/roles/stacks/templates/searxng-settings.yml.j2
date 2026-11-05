@@ -15,8 +15,7 @@ general:
   instance_name: "{{ searxng_instance_name }}"
 
 server:
-  # Not public: no bot detection, no limiter (it would also need valkey). The
-  # only client is the agent; revisit if this is ever published outside the LAN.
+  # Not public: no bot detection, no limiter (it would need valkey).
   limiter: false
   public_instance: false
   image_proxy: true
@@ -31,6 +30,6 @@ search:
     - json
 
 outgoing:
-  # ZeroClaw gives up after 15s (web_search.timeout_secs).
+  # The agents give up after 15s.
   request_timeout: 6.0
   max_request_timeout: 12.0

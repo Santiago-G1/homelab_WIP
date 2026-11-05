@@ -21,12 +21,11 @@ receivers:
   - name: telegram
     telegram_configs:
       - bot_token: '{{ vault_alertmanager_telegram_bot_token }}'
-        chat_id: {{ vault_zeroclaw_telegram_user_id }}
+        chat_id: {{ vault_agent_telegram_user_id }}
         api_url: https://api.telegram.org
         parse_mode: HTML
         send_resolved: true
-        # The Go template is left alone by Jinja on purpose: Alertmanager is the
-        # one that fills it in.
+        # Jinja leaves this Go template alone: Alertmanager fills it in.
         message: |-
           {% raw %}{{ if eq .Status "firing" }}<b>FIRING</b>{{ else }}<b>RESUELTO</b>{{ end }} · {{ .Alerts | len }} alerta(s)
           {{ range .Alerts }}

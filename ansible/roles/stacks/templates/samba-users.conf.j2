@@ -1,2 +1,4 @@
-# Managed by Ansible (roles/stacks). Format: user:password
-{{ vault_samba_user }}:{{ vault_samba_password }}
+# Managed by Ansible (roles/stacks). The image parses
+# username:uid:group:gid:password:homedir. A line with fewer fields is skipped
+# (the image logs "Skipping incomplete line") and leaves no SMB account.
+{{ vault_samba_user }}:{{ samba_uid }}:smb:{{ samba_gid }}:{{ vault_samba_password }}:/storage

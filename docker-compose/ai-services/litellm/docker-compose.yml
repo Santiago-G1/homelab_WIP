@@ -1,5 +1,4 @@
 services:
-  # DBLiteLLM
   litellm-db:
     image: postgres:16.15-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea
     container_name: litellm-db
@@ -18,20 +17,19 @@ services:
     networks:
       - ai-stack
 
-  # LiteLLM Proxy
   litellm:
     image: ghcr.io/berriai/litellm:main-latest@sha256:af8050ea45707c42a0572c5cceaa5cebaa89cee4c5cd0585cf879a529804b898
     container_name: litellm-proxy
     restart: unless-stopped
     ports:
-      - "4000:4000"
+      - "${PUBLISH_PORT:?}:${PUBLISH_PORT:?}"
     environment:
       DATABASE_URL: "postgresql://${LITELLM_DB_USER:-litellm}:${LITELLM_DB_PASSWORD:?LITELLM_DB_PASSWORD variable is needed}@litellm-db:5432/${LITELLM_DB_NAME:-litellm}"
       LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-}
       LITELLM_SALT_KEY: ${LITELLM_SALT_KEY:-}
     volumes:
       - ./config.yaml:/app/config.yaml
-    command: [ "--config", "/app/config.yaml", "--port", "4000" ]
+    command: [ "--config", "/app/config.yaml", "--port", "${PUBLISH_PORT:?}" ]
     depends_on:
       litellm-db:
         condition: service_healthy

@@ -1,0 +1,6 @@
+#!/bin/sh
+# Managed by Ansible (roles/pve_tune).
+# Cap every visible Tesla P100 at {{ pve_tune_gpu_power_limit_w }} W each.
+for i in $(nvidia-smi --query-gpu=index --format=csv,noheader 2>/dev/null); do
+    nvidia-smi -i $i -pl {{ pve_tune_gpu_power_limit_w }} >/dev/null 2>&1 &&         echo gpu$i capped at {{ pve_tune_gpu_power_limit_w }} W || echo gpu$i: could not set {{ pve_tune_gpu_power_limit_w }} W
+done

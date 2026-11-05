@@ -6,8 +6,8 @@ services:
       - TZ=${TZ:-Etc/UTC}
     volumes:
       - ./config:/config
-      - /mnt/media/series:/data/tvshows
-      - /mnt/media/movies:/data/movies
+      - ${DATA_MOUNT:?DATA_MOUNT is required}/series:/data/tvshows
+      - ${DATA_MOUNT:?DATA_MOUNT is required}/movies:/data/movies
       # No nvidia-container-runtime inside the LXC: bind-mount the libraries
       # roles/nvidia installs.
       - /usr/lib/x86_64-linux-gnu/libcuda.so.1:/usr/lib/x86_64-linux-gnu/libcuda.so.1:ro
@@ -17,7 +17,7 @@ services:
       # scale_cuda JITs its kernel, so ffmpeg needs the PTX compiler.
       - /usr/lib/x86_64-linux-gnu/libnvidia-ptxjitcompiler.so.1:/usr/lib/x86_64-linux-gnu/libnvidia-ptxjitcompiler.so.1:ro
     ports:
-      - 8096:8096
+      - "${PUBLISH_PORT:?}:8096"
     # P100 (NVENC/NVDEC) from lxc_media.tf plus the iGPU for VAAPI fallback.
     # The nodes are gid 44 (video) and Jellyfin runs as uid 911, hence group_add.
     devices:

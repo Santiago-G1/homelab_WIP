@@ -1,7 +1,6 @@
 # Blocky configuration. Rendered by Ansible; do not edit on the host.
 
-# Quad9 filtered over DoH, and filtered on purpose: its malware list is a second
-# layer on top of the HaGeZi blocklists (dns10.quad9.net is the unfiltered pair).
+# Quad9 filtered over DoH: a second layer on top of the HaGeZi blocklists.
 upstreams:
   groups:
     default:
@@ -19,7 +18,7 @@ bootstrapDns:
 
 ports:
   dns: 53
-  # 80 keeps the old DoH URL working; 4000 is what the proxy and Prometheus use.
+  # Both serve DoH, the API and metrics; 4000 is the one the proxy publishes.
   http:
     - 80
     - 4000
@@ -78,7 +77,8 @@ rateLimit:
   allowlist:
     - 127.0.0.1/32
     - ::1/128
-    - 192.168.0.0/16
+    # The LAN, from group_vars/all: the resolver serves the containers too.
+    - {{ lan_cidr }}
 
 queryLog:
   type: sqlite

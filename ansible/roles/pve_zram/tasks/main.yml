@@ -1,0 +1,56 @@
+---
+# A single swap device sized as a share of RAM.
+
+- name: Install zram-tools
+  ansible.builtin.apt:
+    name: zram-tools
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Size the zram device as a share of RAM
+  ansible.builtin.template:
+    src: zramswap.j2
+    dest: /etc/default/zramswap
+    mode: "0644"
+  notify: Restart zramswap
+
+- name: Bring the zram swap up at boot and now
+  ansible.builtin.systemd:
+    name: zramswap.service
+    enabled: true
+    state: started
+
+# Older revisions of this role added a second device of a fixed size.
+- name: Look for the retired second zram device
+  ansible.builtin.stat:
+    path: /etc/systemd/system/zram-extra.service
+  register: pve_zram_extra
+
+- name: Retire the second zram device
+  when: pve_zram_extra.stat.exists
+  block:
+    - name: Stop and disable the second device
+      ansible.builtin.systemd:
+        name: zram-extra.service
+        enabled: false
+        state: stopped
+
+    - name: Free the second device
+      ansible.builtin.shell: |
+        set -eu
+        swapoff /dev/zram1 2>/dev/null || true
+        [ -e /sys/block/zram1 ] && echo 1 > /sys/class/zram-control/hot_remove || true
+      changed_when: true
+
+    - name: Remove the second device unit and script
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/systemd/system/zram-extra.service
+        - /usr/local/sbin/zram-extra.sh
+
+    - name: Reload systemd
+      ansible.builtin.systemd:
+        daemon_reload: true

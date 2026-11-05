@@ -1,0 +1,39 @@
+# Hermes: one runtime, two profiles. `default` is the root home, `uncensored` is
+# `profiles/uncensored`; both are served by this one gateway (see hermes_agents).
+services:
+  hermes:
+    image: nousresearch/hermes-agent:stable@sha256:9c5561579f3ffdf333401797094ac3a743738d6c25d40f4331c7bf77b694238d
+    container_name: hermes
+    restart: unless-stopped
+    command: gateway run   # s6 supervises the gateway and the dashboard
+
+    environment:
+      - HERMES_DASHBOARD=1
+      - HERMES_DASHBOARD_HOST=0.0.0.0
+      - HERMES_DASHBOARD_PORT=9119
+      # A non-loopback bind requires an auth provider; Caddy sits in front.
+      - HERMES_DASHBOARD_BASIC_AUTH_USERNAME=${HERMES_DASHBOARD_USER:?}
+      - HERMES_DASHBOARD_BASIC_AUTH_PASSWORD=${HERMES_DASHBOARD_PASSWORD:?}
+      - HERMES_DASHBOARD_BASIC_AUTH_SECRET=${HERMES_DASHBOARD_SECRET:?}
+
+    volumes:
+      - ${HERMES_DATA:?}:/opt/data
+      # Ansible renders config.yaml, .env, SOUL.md and AGENTS.md into it: never
+      # mount those files, Hermes replaces its config by rename (EBUSY).
+      - /var/run/docker.sock:/var/run/docker.sock
+
+    ports:
+      - "${PUBLISH_PORT:?}:9119"
+
+    networks:
+      - ai-stack
+
+    deploy:
+      resources:
+        limits:
+          cpus: "4"
+          memory: 6G
+
+networks:
+  ai-stack:
+    external: true

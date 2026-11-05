@@ -73,7 +73,7 @@ resource "proxmox_virtual_environment_container" "multiple_mountpoints" {
 
     ip_config {
       ipv4 {
-        address = "${var.ip_address}/24"
+        address = "${var.ip_address}/${var.ip_prefix_length}"
         gateway = var.gateway
       }
     }

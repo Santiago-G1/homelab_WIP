@@ -1,3 +1,5 @@
+# Rendered by Ansible (roles/stacks): the account comes from the vault, and the
+# shares name it in `valid users`, which a static file cannot follow.
 [global]
     server string = samba
     idmap config * : range = 3000-7999
@@ -35,8 +37,8 @@
     browseable = yes
     writable = yes
     read only = no
-    valid users = admin
-    force user = admin
+    valid users = {{ vault_samba_user }}
+    force user = {{ vault_samba_user }}
     force group = smb
     create mask = 0664
     directory mask = 0775
@@ -47,8 +49,8 @@
     browseable = yes
     writable = yes
     read only = no
-    valid users = llm
-    force user = llm
+    valid users = {{ vault_samba_user }}
+    force user = {{ vault_samba_user }}
     force group = smb
     create mask = 0664
     directory mask = 0775

@@ -7,7 +7,7 @@ services:
       - "53:53/tcp"   # DNS
       - "53:53/udp"
       - "80:80"       # REST API, DoH (/dns-query) and metrics
-      - "4000:4000"   # same, on a second port for the reverse proxy
+      - "${PUBLISH_PORT:?}:4000"   # same, on a second port for the reverse proxy
     volumes:
       - ./config.yml:/app/config.yml:ro
       - ./querylog:/app/querylog

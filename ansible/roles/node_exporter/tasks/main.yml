@@ -6,16 +6,22 @@
   register: node_exporter_installed
   changed_when: false
   failed_when: false
+  # Read-only, and the `when` below is wrong without it: under --check the probe
+  # would be skipped and every host would look like it needs the install.
+  check_mode: false
 
 - name: Install node_exporter
   when: node_exporter_version not in (node_exporter_installed.stdout | default(''))
   block:
+    # Neither task has anything to compare in check mode, and the copy below
+    # needs the file on disk to report the change. Only the copy is dry-run.
     - name: Download the release archive
       ansible.builtin.get_url:
         url: >-
           https://github.com/prometheus/node_exporter/releases/download/v{{ node_exporter_version }}/node_exporter-{{ node_exporter_version }}.linux-amd64.tar.gz
         dest: "/tmp/node_exporter-{{ node_exporter_version }}.tar.gz"
         mode: "0644"
+      check_mode: false
 
     - name: Unpack the archive
       ansible.builtin.unarchive:
@@ -23,6 +29,7 @@
         dest: /tmp
         remote_src: true
         creates: "/tmp/node_exporter-{{ node_exporter_version }}.linux-amd64/node_exporter"
+      check_mode: false
 
     - name: Install the binary
       ansible.builtin.copy:

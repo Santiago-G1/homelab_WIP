@@ -1,25 +1,33 @@
 ---
+# dockurr/samba creates the account with this uid/gid; the templates repeat it.
+samba_uid: 1000
+samba_gid: 1000
+
 stacks:
   - name: filebrowser
     src: app-services/cloud/filebrowser
     dirs:
-      # filebrowser runs as uid 1000 and needs its data dir writable.
+      # filebrowser runs as uid 1000 and does not chown its data dir.
       - { path: config, owner: "1000", group: "1000" }
     files:
-      # Rendered (not committed) because the OnlyOffice URL is the published
-      # name of this service, taken from the catalog.
+      # Rendered: the OnlyOffice URL comes from the catalog.
       - { template: filebrowser-config.yaml.j2, dest: config/config.yaml }
     env:
       CLOUD_MOUNT: "{{ vault_cloud_mount }}"
       FILEBROWSER_ADMIN_PASSWORD: "{{ vault_filebrowser_admin_password }}"
       ONLYOFFICE_JWT_SECRET: "{{ vault_onlyoffice_jwt_secret }}"
+      # The sidecar is not its own stack, so its port is set here.
+      ONLYOFFICE_PUBLISH_PORT: "{{ service_ports.onlyoffice }}"
   - name: samba
     src: app-services/cloud/samba
     env:
       CLOUD_MOUNT: "{{ vault_cloud_mount }}"
       LLM_MOUNT: "{{ vault_llm_mount }}"
+      SAMBA_UID: "{{ samba_uid }}"
+      SAMBA_GID: "{{ samba_gid }}"
     files:
       - { template: samba-users.conf.j2, dest: users.conf, mode: "0600" }
+      - { template: samba-smb.conf.j2, dest: smb.conf }
   - name: syncthing
     src: app-services/cloud/syncthing
     env:

@@ -3,14 +3,14 @@ services:
     image: lscr.io/linuxserver/calibre:v9.15.0-ls422@sha256:8c7b77ada7133cbac1519791035ac7e305e37adae5cd06038270a90f99f4b4d6
     container_name: calibre
     environment:
-      - PUID=1000
-      - PGID=1000
+      - PUID=${PUID:?}
+      - PGID=${PGID:?}
       - TZ=${TZ:-Etc/UTC}
     volumes:
-      - /opt/docker/calibre/data:/config
-      - /mnt/data/comics/calibre:/libros
+      - ./data:/config
+      - ${DATA_MOUNT:?DATA_MOUNT is required}/comics/calibre:/libros
     ports:
-      - "8082:8080"
+      - "${PUBLISH_PORT:?}:8080"
       - "8081:8081"
     networks:
       - arrsuite-stack

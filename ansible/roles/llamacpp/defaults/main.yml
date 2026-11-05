@@ -1,8 +1,9 @@
 ---
-# llama.cpp ref to build. The P100 patch set is tagged with the same name, so this
-# moves both trees (see "Bumping llama.cpp" in docs/llamacpp-build.md).
+# llama.cpp ref to build. The P100 patch set is tagged with the same name, so
+# one bump moves both.
 llamacpp_version: v0.7.0
 llamacpp_port: 8080
+llamacpp_src_dir: /opt/llama.cpp
 llamacpp_models_dir: /mnt/data/models
 llamacpp_models_max: 1
 llamacpp_preset_file: /etc/llama/models.ini
@@ -10,6 +11,8 @@ llamacpp_global_args:
   n-gpu-layers: 99
   c: 8192
   flash-attn: "on"
+  # Host-side prompt cache (MiB). 16 GiB of RAM holds no more than this.
+  cache-ram: 2048
 llamacpp_model_overrides: {}
 
 cuda_toolkit_package: cuda-toolkit-12-8   # needs the glibc 2.41 patch in tasks/main.yml
@@ -20,21 +23,19 @@ llamacpp_cuda_root: /usr/local/cuda-12.8
 llamacpp_cuda_arch: "60-real"          # Tesla P100 = 60
 llamacpp_cuda_force_mmq: "OFF"         # sm_60 has no dp4a
 llamacpp_cpu_flags: "-march=ivybridge -mtune=ivybridge -O3 -fopenmp -pipe -funroll-loops"
-llamacpp_build_jobs: 2                 # the host has reset under 4 parallel LTO jobs
+llamacpp_build_jobs: 2                 # LTO is memory-hungry: keep it low
 llamacpp_build_targets: [llama-server, llama-bench, llama-cli]
 llamacpp_tools_dir: /opt/llama.cpp-tools
 
-# P100 (sm_60) patches, maintained in their own repository and re-cut for every
-# upstream ref. Pin a commit instead of a tag for a reproducible build: upstream
-# moves its tags when it re-cuts one.
+# P100 (sm_60) patch set, kept in its own repository. Pin a commit for a
+# reproducible build: upstream re-cuts its tags.
 llamacpp_p100_patches: true
 llamacpp_p100_patches_repo: https://github.com/sbendhiba/llama-cpp-pascal-patches
 llamacpp_p100_patches_version: "{{ llamacpp_version }}"
 llamacpp_p100_patches_dir: /opt/llama.cpp-patches
 # Patches allowed not to apply. Empty: every one is required.
 llamacpp_p100_patches_optional: []
-# Last resort for an unpatched ref: skip what does not apply and build a
-# partially patched tree instead of failing.
+# Skip what does not apply instead of failing the build.
 llamacpp_p100_patches_ignore_missing: false
 # The sm_60 fp16 carve-out warns instead of failing when upstream moved a gate.
 llamacpp_p100_carveout_strict: false
@@ -70,12 +71,11 @@ llamacpp_cmake_args:
   - -DCMAKE_CUDA_HOST_COMPILER=/usr/bin/g++
   - -DGGML_CCACHE=OFF
 
-# The fork build is not compiled by this role (it is a hand build, see
-# docs/llm-models.md). When the binary is there, the drop-in below is installed
-# and the service runs it; when it is missing, the role's own build is used.
+# Built by hand (docs/llm-models.md). When the binary exists the drop-in below
+# runs it; otherwise the role's own build is used.
 llamacpp_kmic_binary: /opt/llama.cpp-kmic/build-opt/bin/llama-server
 llamacpp_kmic_env:
-  # Peer copies between the two P100s instead of bouncing through host RAM.
+  # No-op here: cross-device copies already stage through host RAM.
   GGML_CUDA_P2P: "1"
   # CUDA graphs for the single-token MTP draft only (1 = full graphs, OOM).
   GGML_CUDA_GRAPHS_PRE_VOLTA: "3"

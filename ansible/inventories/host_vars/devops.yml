@@ -1,3 +1,2 @@
 ---
-# The control node runs Ansible and declares no Compose stacks: the GPU panel
-# lives with the P100 on the AI host.
+# The control node runs Ansible; it declares no Compose stacks.

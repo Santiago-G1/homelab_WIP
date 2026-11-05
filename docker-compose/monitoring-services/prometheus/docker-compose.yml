@@ -13,7 +13,7 @@ services:
     networks:
       - homelab_monitoring
     ports:
-      - "9090:9090"
+      - "${PUBLISH_PORT:?}:9090"
 
   # Turns firing rules into messages. No published port: Prometheus and amtool
   # reach it on the shared network.
