@@ -5,6 +5,9 @@
 
 llm_ctid: 126                # Proxmox container id, read by the panel
 llamacpp_port: 8080          # read by LiteLLM and the panel too
+# Cards in the node: nvidia-smi is the only thing that ever says so, and the
+# panel calls out the difference when one of them does not initialise.
+llm_gpu_count: 2
 
 litellm_api_base: "http://{{ ansible_host }}:{{ llamacpp_port }}/v1"
 litellm_backend_api_key: "{{ vault_litellm_backend_api_key }}"
@@ -187,6 +190,9 @@ stacks:
       COMFY_CONTAINER: comfyui
       # Only these ids are ever shown; anything else stays unnamed.
       LLAMA_PUBLIC_MODELS: "{{ llm_models | map(attribute='name') | join(',') }}"
+      # A card that does not initialise is not an error anywhere else: the
+      # panel compares this with what nvidia-smi answers.
+      GPU_EXPECTED: "{{ llm_gpu_count }}"
 
 health_checks:
   - { name: litellm,   url: "http://127.0.0.1:{{ service_ports.litellm }}/health/liveliness" }
