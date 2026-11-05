@@ -1,0 +1,64 @@
+name: ci
+
+# Nothing here needs the lab: no host is contacted, no secret is used. The vault
+# is read by Ansible only, and `ansible.cfg` points at a password file that this
+# workflow creates as a dummy — lint and `--syntax-check` never decrypt it.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  ansible:
+    name: ansible (lint, syntax)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install ansible
+        run: pip install "ansible-core>=2.19" ansible-lint
+
+      - name: Collections the roles call
+        run: ansible-galaxy collection install -r ansible/requirements.yml
+
+      - name: Give ansible.cfg the file it expects
+        run: echo dummy > ansible/.vault_pass
+
+      - name: Lint
+        working-directory: ansible
+        run: ansible-lint
+
+      - name: Every playbook parses
+        working-directory: ansible
+        run: |
+          for playbook in playbooks/*.yml; do
+            ansible-playbook --syntax-check "$playbook"
+          done
+
+  terraform:
+    name: terraform (format, validate)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.15.7"
+
+      - name: Format
+        run: terraform fmt -check -recursive terraform
+
+      - name: Validate
+        run: |
+          for dir in terraform/modules/* terraform/proxmox; do
+            echo "== $dir"
+            (cd "$dir" && terraform init -backend=false -input=false >/dev/null && terraform validate)
+          done
