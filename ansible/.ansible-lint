@@ -1,0 +1,4 @@
+---
+# The baseline a change to this repository has to hold: syntax and the rules
+# that are not a matter of taste. `ansible-lint` in this directory.
+profile: min
