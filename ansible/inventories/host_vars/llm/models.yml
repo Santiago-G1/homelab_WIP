@@ -23,7 +23,7 @@ llm_models_catalogue:
       batch-size: 2048
       ubatch-size: 1024
       spec-type: draft-mtp
-      spec-draft-n-max: 2       # past 2 the acceptance rate drops on this quant
+      spec-draft-n-max: 3
       spec-draft-p-min: 0.2
       spec-draft-ngl: 99
       spec-draft-n-ubatch: 64
@@ -55,7 +55,7 @@ llm_models_catalogue:
       ubatch-size: 1024
       cache-reuse: 256
       spec-type: draft-mtp
-      spec-draft-n-max: 1
+      spec-draft-n-max: 2
       spec-draft-p-min: 0.2
       spec-draft-ngl: 99
       spec-draft-n-ubatch: 64
@@ -84,7 +84,7 @@ llm_models_catalogue:
       ubatch-size: 512
       cache-reuse: 256
       spec-type: draft-mtp
-      spec-draft-n-max: 1
+      spec-draft-n-max: 2
       spec-draft-p-min: 0.2
       spec-draft-ngl: 99
       spec-draft-n-ubatch: 64
@@ -133,7 +133,7 @@ llm_models_catalogue:
       batch-size: 2048
       ubatch-size: 1024
       spec-type: draft-mtp
-      spec-draft-n-max: 1
+      spec-draft-n-max: 3
       spec-draft-p-min: 0.2
       spec-draft-ngl: 99
       spec-draft-n-ubatch: 64
