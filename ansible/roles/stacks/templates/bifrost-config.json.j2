@@ -14,6 +14,9 @@
   "providers": {
     "local": {
       "custom_provider_config": { "base_provider_type": "openai" },
+      {# A 145k prefill on the P100s is ~9 min; the 5-minute default cut it. #}
+      "default_request_timeout_in_seconds": {{ bifrost_request_timeout_s }},
+      "stream_idle_timeout_in_seconds": {{ bifrost_stream_idle_timeout_s }},
       "network_config": {
         "base_url": "{{ bifrost_api_base }}",
         "allow_private_network": true

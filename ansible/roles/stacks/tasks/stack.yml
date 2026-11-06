@@ -216,6 +216,32 @@
   changed_when: true
   register: hermes_ctx
 
+# Same reason as the windows: the client deadline lives in hermes' own file.
+- name: "{{ stack.name }} | give the agent the same deadline as the gateway"
+  ansible.builtin.command:
+    argv:
+      - docker
+      - exec
+      - -e
+      - "HERMES_HOME={{ hermes_home }}{{ '' if item.item.key == 'default' else '/' ~ hermes_profiles_dir ~ '/' ~ item.item.key }}"
+      - "{{ stack.name }}"
+      - hermes
+      - config
+      - set
+      - "providers.{{ hermes_llm_provider }}.request_timeout_seconds"
+      - "{{ hermes_request_timeout_s }}"
+  loop: "{{ hermes_cfg.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.key }}"
+  when:
+    - stack.name == 'hermes'
+    - >-
+      ((item.content | b64decode | from_yaml).get('providers', {})
+        .get(hermes_llm_provider, {}).get('request_timeout_seconds'))
+      | int | default(0, true) != hermes_request_timeout_s | int
+  changed_when: true
+  register: hermes_timeout
+
 # The gateway reads its config at start: the new key needs a restart.
 - name: "{{ stack.name }} | restart once the windows changed"
   ansible.builtin.command:
@@ -223,5 +249,6 @@
     chdir: "{{ stacks_root }}/{{ stack.name }}"
   when:
     - stack.name == 'hermes'
-    - hermes_ctx.results | default([]) | selectattr('changed') | list | length > 0
+    - (hermes_ctx.results | default([]) | selectattr('changed') | list | length > 0)
+      or (hermes_timeout.results | default([]) | selectattr('changed') | list | length > 0)
   changed_when: true

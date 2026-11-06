@@ -16,6 +16,11 @@ llm_gpu_count: 2
 # allow-lists live. Values must keep Bifrost's `sk-bf-` prefix or it replaces
 # them with one it generated.
 bifrost_api_base: "http://{{ ansible_host }}:{{ llamacpp_port }}"
+# Bifrost's default is 5 min, and a 145k-token prefill on the P100s needs ~9:
+# the turn was abandoned at exactly 300 s (504). 30 min for the request, 20 for
+# a stream that goes silent while the router prefills.
+bifrost_request_timeout_s: 1800
+bifrost_stream_idle_timeout_s: 1200
 # Every model in models.yml is reachable by the agent; the flags there only pick
 # each profile's default (censored ones for `default`, the abliterated for
 # `uncensored`). Restricting the key to two names left hermes unable to switch.
@@ -64,6 +69,8 @@ hermes_home: /opt/data               # where the container mounts it
 hermes_profiles_dir: profiles        # hermes' layout: <home>/profiles/<name>
 hermes_llm_provider: litellm         # hermes' provider id for the gateway
 hermes_llm_key_env: LITELLM_API_KEY  # and the variable it reads the key from
+# Client-side deadline; must not be shorter than Bifrost's (see above).
+hermes_request_timeout_s: 1800
 hermes_uid: "10000"
 hermes_gid: "10000"
 
