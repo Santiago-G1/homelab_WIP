@@ -1,0 +1,112 @@
+---
+# Serve a model you just dropped in, without configuring anything else.
+#
+#   cd ansible
+#   ansible-playbook playbooks/llm-model-add.yml -e model=My-Model-IQ4_XS.gguf
+#   ansible-playbook playbooks/llm-model-add.yml -e model=My-Model.gguf -e ctx=131072
+#   ansible-playbook playbooks/llm-model-add.yml -e model=My-Model.gguf --check
+#
+# `model` is the file name inside llamacpp_models_dir (copy it there first, or
+# give its absolute path on the AI host). The window is read from the .gguf and
+# capped at 65536 — two P100s hold ~150k with f16 KV, and a 262144 window would
+# only swap. The entry goes to models.local.yml, so models.yml stays untouched,
+# and llm-models.yml runs at the end: router preset, gateway allow-list, hermes'
+# per-model context length and the dashboard all follow from it.
+- name: Register a model that is already on the AI host
+  hosts: ai
+  gather_facts: false
+
+  vars:
+    models_local_file: "{{ playbook_dir }}/../inventories/host_vars/llm/models.local.yml"
+    gguf_meta: "{{ playbook_dir }}/../scripts/gguf-meta.py"
+    model_file: "{{ model | basename }}"
+    model_name: "{{ model_file | regex_replace('\\.gguf$', '') }}"
+    model_path: "{{ llamacpp_models_dir }}/{{ model_file }}"
+
+  tasks:
+    - name: Refuse to run without a model
+      ansible.builtin.assert:
+        that: model is defined and model | length > 0
+        fail_msg: "pass it as -e model=<file name in {{ llamacpp_models_dir }}>"
+        quiet: true
+
+    - name: Refuse a model that is already declared
+      ansible.builtin.assert:
+        that: model_name not in (llm_models | map(attribute='name') | list)
+        fail_msg: >-
+          {{ model_name }} is already declared (models.yml or models.local.yml).
+          Change its args there — nothing else needs configuring.
+        quiet: true
+
+    - name: The .gguf has to be in the models directory already
+      ansible.builtin.stat:
+        path: "{{ model_path }}"
+      register: model_stat
+
+    - name: Say where the file goes
+      ansible.builtin.assert:
+        that: model_stat.stat.exists
+        fail_msg: >-
+          {{ model_path }} does not exist. Copy the file into
+          {{ llamacpp_models_dir }} first (a subdirectory would be published as
+          a model of its own, so keep it in the top level).
+        quiet: true
+
+    # Read-only, so keep it running under --check: the tasks that follow need
+    # the metadata even when nothing is written.
+    - name: Read what the file says about itself
+      ansible.builtin.script:
+        cmd: "{{ gguf_meta }} {{ model_path }}"
+        executable: /usr/bin/python3
+      register: model_info_raw
+      changed_when: false
+      check_mode: false
+
+    - name: Keep the metadata
+      ansible.builtin.set_fact:
+        model_info: "{{ model_info_raw.stdout | from_json }}"
+
+    - name: Decide the window
+      ansible.builtin.set_fact:
+        model_ctx: "{{ ctx | default([model_info.context_length | default(ctx_cap | default(65536)), ctx_cap | default(65536)] | min) | int }}"
+
+    - name: Report what was found
+      ansible.builtin.debug:
+        msg:
+          - "{{ model_info.name }} · {{ model_info.size_gib }} GiB · {{ model_info.architecture or 'unknown architecture' }}"
+          - "own window: {{ model_info.context_length or 'not declared' }} → serving {{ model_ctx }}"
+          - "chat template: {{ 'yes' if model_info.chat_template else 'no' }} · MTP head: {{ 'yes' if model_info.mtp_head else 'no' }}"
+          - "vision: {{ 'yes' if model_info.vision else 'no' }} · tensors: {{ model_info.tensor_count }}"
+
+    # models.local.yml ships with an empty list; the first add turns it into a
+    # real list header so the blocks below have somewhere to hang.
+    - name: Make room for entries
+      ansible.builtin.lineinfile:
+        path: "{{ models_local_file }}"
+        regexp: '^llm_models_local:\s*\[\]\s*$'
+        line: "llm_models_local:"
+      when: not ansible_check_mode
+
+    - name: Ask the file for its entry
+      ansible.builtin.script:
+        cmd: "{{ gguf_meta }} --yaml --ctx {{ model_ctx }} {{ model_path }}"
+        executable: /usr/bin/python3
+      register: model_entry
+      changed_when: false
+      check_mode: false
+
+    - name: Write the entry
+      ansible.builtin.blockinfile:
+        path: "{{ models_local_file }}"
+        insertafter: '^llm_models_local:'
+        marker: "# {mark} {{ model_name }}"
+        block: "{{ model_entry.stdout }}"
+      when: not ansible_check_mode
+
+    - name: What changed
+      ansible.builtin.debug:
+        msg:
+          - "{{ 'would write' if ansible_check_mode else 'wrote' }} {{ model_name }} (ctx {{ model_ctx }}) to {{ models_local_file }}"
+          - "{{ 'nothing is touched: --check' if ansible_check_mode else 'rendering the preset, the gateway allow-list and hermes now' }}"
+
+- import_playbook: llm-models.yml

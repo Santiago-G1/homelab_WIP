@@ -53,30 +53,54 @@ and the name then fails to load with an empty path (`failed to load model ''`).
 ## Adding a model
 
 llama.cpp runs in **router mode**: it loads whichever `.gguf` a request names,
-so a new model is data, not a build.
+so a new model is data, not a build. Copy the file to `/mnt/data/models` on the
+AI host (`/tank/cloud/llm` on the PVE host) and pick one of the two paths.
 
-1. Copy the file to `/mnt/data/models` on the AI host (`/tank/cloud/llm` on the
-   PVE host):
+### The one command
 
-   ```sh
-   scp my-model.gguf root@192.168.10.26:/mnt/data/models/
-   ```
+```sh
+cd ansible
+ansible-playbook playbooks/llm-model-add.yml -e model=My-Model-IQ4_XS.gguf
+```
 
-2. Add an entry to `llm_models` in `models.yml` and, only if it needs a
-   non-default preset, its `args`.
+It reads the window, the architecture, whether the file carries an MTP head and
+whether it has a chat template straight from the `.gguf`, caps the window at 64K
+(the two P100s hold ~150K with f16 KV; a 262144 window only swaps), writes the
+entry to `models.local.yml` and then runs `llm-models.yml`. Nothing else is
+configured per service.
 
-3. Deploy without recompiling:
+`-e ctx=131072` overrides the window, `--check` shows what it would do.
 
-   ```sh
-   cd ansible
-   ansible-playbook playbooks/llm-models.yml
-   ```
+### By hand
 
-   This re-renders the router preset, restarts `llama-server` only if it
-   changed, re-deploys Bifrost and both Hermes stacks, and with them the
-   agent key's model allowlist. Models without an `args` entry inherit
-   `llamacpp_global_args` (8K context), which almost always fits; the 64K +
-   `draft-mtp` presets are the VRAM-hungry ones.
+`models.local.yml` (next to `models.yml`) is yours: an entry there is picked up
+exactly like one in the catalogue, and it wins on a name clash.
+
+```yaml
+llm_models_local:
+  - name: My-Model-IQ4_XS        # the .gguf name, without the extension
+    args:
+      ctx-size: 131072
+```
+
+Then the same `ansible-playbook playbooks/llm-models.yml`. A model listed
+nowhere at all still answers through the gateway with the `[*]` preset (8K
+window and the global cache settings); the entry is only needed to give it a
+larger window, a KV type, MTP or a profile.
+
+### What a deploy wires
+
+| Piece | Comes from |
+| --- | --- |
+| Router preset (`/etc/llama/models.ini`) | `args` of every entry; unlisted files get `[*]` |
+| Bifrost allow-list for the agent | `agent: true` + `agent_extra: true` |
+| Hermes' per-model `context_length` | `ctx-size` of every entry, pushed with `hermes config set` |
+| Hermes profile → model | `agent: true` / `profile: <name>` |
+| Dashboard card | the router's own `/v1/models` |
+
+`llm-models.yml` re-renders all of it, restarts `llama-server` only if the
+preset changed, re-deploys Bifrost and both Hermes stacks, and restarts Hermes
+only when the window map changed.
 
 A full `site.yml --limit llm` is only for a new llama.cpp/CUDA version or
 changed build flags — it re-checks `llamacpp_version` (and the patch-set tag
@@ -182,3 +206,12 @@ sidebar and `?profile=uncensored` deep links.
 
 They share the model, so nothing evicts anything — the ~200 s reload only happens
 when the *model* changes, not when the agent does.
+
+Each profile's `config.yaml` is rendered once and then left alone
+(`force: false`): Hermes writes platform state and config migrations back into
+it, so a full re-render would drop the Telegram home channel, the skills list
+and `_config_version`. The pieces that must follow `models.yml` therefore go in
+through `hermes config set`, which touches only that key — the per-model
+`context_length` map is the one that matters, because llama.cpp knows each
+model's window but Bifrost publishes none and Hermes otherwise assumes 128K
+(it would compress history at a quarter of a window that does not exist).

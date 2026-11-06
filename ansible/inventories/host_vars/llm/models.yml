@@ -1,29 +1,22 @@
 ---
 # The single place to add, remove or switch local models. Everything else in
 # this host (the router presets, the gateway's per-key allow-list, the agents'
-# model) is derived from here. See docs/llm-models.md.
+# model, the context length hermes is told, the dashboard) is derived from here.
+# See docs/llm-models.md.
 #
 #   name        the .gguf file name WITHOUT its extension; must exist in
 #               llamacpp_models_dir and is the name clients send.
 #   args        per-model llama-server options (default: llamacpp_global_args).
 #   agent       set on exactly one model: the one the agent talks to.
 #   agent_extra reachable by the agent without being that default.
+#   profile     the Hermes profile that defaults to this model.
 #   fast        keep the file on the AI host's SSD instead of the pool.
-llm_models:
+#
+# A model that is only dropped into the directory and listed in
+# models.local.yml works too: same plumbing, nothing else to configure.
+llm_models_catalogue:
   # A bigger ubatch means fewer graph launches. Above 1024 the 12-13 GiB
   # models run out of VRAM.
-  - name: Qwen3.8-27B-UD-IQ4_XS
-    args:
-      n-gpu-layers: 99
-      ctx-size: 8192
-      flash-attn: "on"
-      batch-size: 2048
-      ubatch-size: 1024
-      spec-type: draft-mtp
-      spec-draft-n-max: 1
-      spec-draft-p-min: 0.2
-      spec-draft-ngl: 99
-      spec-draft-n-ubatch: 64
   # 27B dense. On GP100 the decode cost is the unpack, not the bytes: IQ4_XS
   # beats both Q4_K_M and the IQ3_* tiers.
   - name: Swift-1.5-Qwen3.8-27B-IQ4_XS
@@ -198,7 +191,29 @@ llm_models:
       cache-ram: 2048
       cache-reuse: 256
 
-# Derived from llm_models; edit the list above instead.
+# Context window for a model that does not set its own: the router's `[*]`
+# preset and what hermes gets told for those models. Roles/llamacpp reads it too.
+llm_default_ctx: 8192
+
+# What the operator adds by hand lives in models.local.yml (same directory, so
+# Ansible loads it on its own). It goes first and de-duplicates by name, so a
+# manual entry wins over the catalogue one with the same name.
+llm_models: >-
+  {{ ((llm_models_local | default([])) + llm_models_catalogue)
+     | unique(attribute='name') }}
+
+# `{model: {context_length: N}}`, what hermes is told about each model. The
+# agent's config.yaml belongs to hermes (it writes platform state back into it),
+# so this map is pushed with `hermes config set`, not rendered: see the hermes
+# block in roles/stacks/tasks/stack.yml.
+llm_model_contexts: >-
+  {%- set out = {} -%}
+  {%- for m in llm_models -%}
+  {%- set _ = out.update({m.name: {'context_length': ((m.args | default({})).get('ctx-size', llm_default_ctx)) | int}}) -%}
+  {%- endfor -%}
+  {{ out }}
+
+# Derived from llm_models; edit the lists above instead.
 llamacpp_model_overrides: >-
   {{ llm_models | selectattr('args', 'defined')
      | items2dict(key_name='name', value_name='args') }}

@@ -13,6 +13,15 @@ providers:
     api: "{{ hermes_llm_uri }}"
     key_env: LITELLM_API_KEY
     default_model: "{{ profile_model }}"
+    # One entry per model in models.yml. llama.cpp knows each model's window but
+    # Bifrost publishes no /model/info, and without this hermes assumes 128K: it
+    # would compress history against a window that does not exist and overflow
+    # the ones that are 8K. Nothing to configure per model beyond models.yml.
+    models:
+{% for m in llm_models %}
+      "{{ m.name }}":
+        context_length: {{ ((m.args | default({})).get('ctx-size', llm_default_ctx)) | int }}
+{% endfor %}
 
 approvals:
   mode: "{{ a.approvals_mode }}"

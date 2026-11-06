@@ -1,0 +1,22 @@
+---
+# Models you add by hand. Anything here is picked up exactly like an entry in
+# models.yml: the router preset, the gateway's allow-list, the context length
+# hermes is told and the dashboard all follow. There is nothing else to
+# configure per service.
+#
+# The fast path is the playbook, which fills in the window from the .gguf:
+#
+#   cd ansible
+#   ansible-playbook playbooks/llm-model-add.yml -e model=My-Model-IQ4_XS.gguf
+#
+# To do it by hand, drop the file in llamacpp_models_dir and list it here:
+#
+#   llm_models_local:
+#     - name: My-Model-IQ4_XS        # the .gguf name, without the extension
+#       args:
+#         ctx-size: 131072
+#         n-gpu-layers: 99
+#         flash-attn: "on"
+#
+# Then: ansible-playbook playbooks/llm-models.yml
+llm_models_local: []

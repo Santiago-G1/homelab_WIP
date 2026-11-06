@@ -5,11 +5,14 @@ llamacpp_version: v0.7.0
 llamacpp_port: 8080
 llamacpp_src_dir: /opt/llama.cpp
 llamacpp_models_dir: /mnt/data/models
+llamacpp_user: llama          # the account llama-server runs as
 llamacpp_models_max: 1
 llamacpp_preset_file: /etc/llama/models.ini
+# The window a model gets when it sets none of its own. models.yml owns the
+# value (llm_default_ctx) because hermes has to be told the same number.
 llamacpp_global_args:
   n-gpu-layers: 99
-  c: 8192
+  c: "{{ llm_default_ctx | default(8192) }}"
   flash-attn: "on"
   # Host-side prompt cache (MiB). 16 GiB of RAM holds no more than this.
   cache-ram: 2048
@@ -79,3 +82,7 @@ llamacpp_kmic_env:
   GGML_CUDA_P2P: "1"
   # CUDA graphs for the single-token MTP draft only (1 = full graphs, OOM).
   GGML_CUDA_GRAPHS_PRE_VOLTA: "3"
+  # The draft samples instead of taking its top token and the verify uses the
+  # speculative-sampling rule: same output distribution, more drafts accepted.
+  LLAMA_SPEC_SAMPLE_TEMP: "1.0"
+  LLAMA_SPEC_DRAFT_TOPK: "20"

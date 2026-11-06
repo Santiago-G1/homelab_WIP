@@ -42,6 +42,12 @@ searxng_gid: "977"
 searxng_instance_name: "Homelab search"
 searxng_base_url: "https://search.{{ vault_domainname_hs }}/"
 
+# Declared here as well as in roles/llamacpp/defaults so a playbook that runs
+# without the role (llm-model-add.yml) can use them: they are facts about this
+# host, not role internals.
+llamacpp_models_dir: /mnt/data/models
+llamacpp_user: llama
+
 # Models marked `fast: true` in models.yml are kept on the local SSD.
 llamacpp_fast_models_dir: /var/lib/llama/models
 llamacpp_fast_models: "{{ llm_models | selectattr('fast', 'defined') | map(attribute='name') | list }}"
