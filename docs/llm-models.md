@@ -45,6 +45,11 @@ the top of `models`: `Qwen3.8-27B-Uncensored-IQ4_XS.gguf →
 /mnt/data/models-extra/uncensored/orcarouter_Qwen3.8-27B-Uncensored-IQ4_XS.gguf`.
 The router only ever resolves the name, so it keeps working across a restart.
 
+The directory has to stay traversable: llama.cpp runs as `llama` (uid 997) and
+a `drwxrwx---` parent makes `stat` fail, the scan *skips the model silently*,
+and the name then fails to load with an empty path (`failed to load model ''`).
+`/mnt/data/models` is 777 for the same reason; keep `models-extra` at 775.
+
 ## Adding a model
 
 llama.cpp runs in **router mode**: it loads whichever `.gguf` a request names,
