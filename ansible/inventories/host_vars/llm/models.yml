@@ -1,16 +1,12 @@
 ---
-# The models this host serves: every other service (router preset, gateway
-# allow-list, agent model, dashboard) is derived from here. docs/llm-models.md.
-#
-#   args        llama-server options (default: llamacpp_global_args)
-#   agent       the one model the agent talks to by default
-#   agent_extra the agent may call it too, without being that default
-#   profile     the Hermes profile that defaults to this model
-#   fast        keep the file on the host's SSD instead of the pool
+# The models this host serves; the router preset, the gateway allow-list, the
+# agent's model and the dashboard are derived from it. docs/llm-models.md.
+# Flags: agent (the agent's default), agent_extra, profile (hermes), fast (SSD).
+# load-mode: dio everywhere: no model here fits the 3 GiB ARC.
 llm_models_catalogue:
   - name: Swift-1.5-Qwen3.8-27B-IQ4_XS
     args:
-      load-mode: dio       # 15 GiB: never fits the 3 GiB ARC
+      load-mode: dio
       n-gpu-layers: 99
       # q8_0 KV is what buys the full 262144 window; f16 stops at ~152k.
       ctx-size: 262144
@@ -43,7 +39,7 @@ llm_models_catalogue:
     agent: true
     fast: true
     args:
-      load-mode: dio       # 22 GiB: never fits the 3 GiB ARC
+      load-mode: dio
       n-gpu-layers: 99
       ctx-size: 262144
       cache-type-k: f16
@@ -71,7 +67,7 @@ llm_models_catalogue:
 
   - name: Qwen3.6-35B-A3B-MTP-UD-Q4_K_XL
     args:
-      load-mode: dio       # 22 GiB: never fits the 3 GiB ARC
+      load-mode: dio
       n-gpu-layers: 99
       ctx-size: 262144
       cache-type-k: f16
@@ -123,7 +119,7 @@ llm_models_catalogue:
     agent_extra: true
     profile: uncensored
     args:
-      load-mode: dio       # 15 GiB: never fits the 3 GiB ARC
+      load-mode: dio
       n-gpu-layers: 99
       ctx-size: 262144
       cache-type-k: q8_0
@@ -162,8 +158,7 @@ llm_models: >-
   {{ ((llm_models_local | default([])) + llm_models_catalogue)
      | unique(attribute='name') }}
 
-# `{model: {context_length: N}}`: hermes' config.yaml is its own file, so this is
-# pushed with `hermes config set` (roles/stacks/tasks/stack.yml), not rendered.
+# `{model: {context_length: N}}`, pushed with `hermes config set` (stack.yml).
 llm_model_contexts: >-
   {%- set out = {} -%}
   {%- for m in llm_models -%}
