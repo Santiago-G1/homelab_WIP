@@ -1,0 +1,17 @@
+# Rendered by Ansible (roles/pve_tune). The box dies without a shutdown
+# sequence, so this is the only record of the state just before it.
+[Unit]
+Description=Homelab sampler: RAM, pressure, ARC, temps and GPU every {{ pve_tune_sampler_interval }} s
+After=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/sbin/homelab-sampler {{ pve_tune_sampler_log }} {{ pve_tune_sampler_interval }} {{ pve_tune_sampler_max_bytes }}
+# One small write every interval: it must never compete with the containers.
+Nice=10
+IOSchedulingClass=idle
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

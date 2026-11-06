@@ -28,3 +28,9 @@ pve_tune_fstrim_on_calendar: "Sun *-*-* 03:30:00"
 pve_tune_ssd_read_ahead_kb: 256
 pve_tune_hdd_read_ahead_kb: 8192
 pve_tune_hdd_nr_requests: 256
+
+# The host resets without a shutdown sequence; this keeps the last few seconds
+# on disk (RAM, pressure, ARC, temps, GPU) for the next one.
+pve_tune_sampler_interval: 10
+pve_tune_sampler_log: /var/log/homelab-sampler.csv
+pve_tune_sampler_max_bytes: 8388608   # rotates once: two files, about a week
