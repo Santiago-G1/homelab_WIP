@@ -19,11 +19,13 @@ vault_immich_db_username: postgres
 vault_immich_upload_location: /path/to/immich
 # Exact tag: server and ML images must match, so no floating "release".
 vault_immich_version: v3.2.2
-vault_litellm_db_password: change-me
-vault_litellm_master_key: sk-change-me
-# Ignored by llama.cpp, but it looks like a secret, so it stays out of git.
-vault_litellm_backend_api_key: sk-llamacpp
-vault_litellm_salt_key: change-me
+# Bifrost virtual keys. The `sk-bf-` prefix is mandatory: Bifrost replaces any
+# value without it with one it generated, which would lock every client out.
+#   agent  -> hermes, scoped to the models marked `agent: true` in models.yml
+#   client -> desktop, pi, admin scripts; the whole catalogue
+#   openssl rand -hex 24   (prefixed with sk-bf-)
+vault_bifrost_agent_key: sk-bf-change-me
+vault_bifrost_client_key: sk-bf-change-me
 vault_llm_mount: /path/to/data
 vault_onlyoffice_jwt_secret: CHANGE-ME
 vault_samba_password: CHANGE-ME
@@ -37,9 +39,6 @@ vault_tailscale_auth_key: CHANGE-ME
 # SearXNG server.secret_key; random, and never in the rendered settings.yml.
 #   openssl rand -hex 32
 vault_searxng_secret_key: CHANGE-ME
-
-# Hermes -> LiteLLM virtual key (scoped to the agent's models).
-vault_agent_litellm_api_key: sk-replace-me
 
 # Agent Telegram bot token from @BotFather (<id>:<secret>).
 vault_agent_telegram_bot_token: 123456789:replace-me

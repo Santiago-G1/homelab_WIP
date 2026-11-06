@@ -1,16 +1,32 @@
 ---
-# P100 (sm_60). llama.cpp runs bare metal in router mode; LiteLLM, SearXNG,
-# Hermes and ComfyUI are Compose stacks on the same host. Build defaults live in
-# roles/llamacpp/defaults, the driver version in group_vars/gpu.
+# P100 (sm_60). llama.cpp runs bare metal in router mode; Bifrost (the API
+# gateway), SearXNG, Hermes and ComfyUI are Compose stacks on the same host.
+# Build defaults live in roles/llamacpp/defaults, the driver version in
+# group_vars/gpu.
 
 llm_ctid: 126                # Proxmox container id, read by the panel
-llamacpp_port: 8080          # read by LiteLLM and the panel too
+llamacpp_port: 8080          # read by Bifrost and the panel too
 # Cards in the node: nvidia-smi is the only thing that ever says so, and the
 # panel calls out the difference when one of them does not initialise.
 llm_gpu_count: 2
 
-litellm_api_base: "http://{{ ansible_host }}:{{ llamacpp_port }}/v1"
-litellm_backend_api_key: "{{ vault_litellm_backend_api_key }}"
+# --- API gateway (Bifrost) -----------------------------------------------
+# llama.cpp takes no credential: it only listens on the LAN, and every client
+# goes through the gateway, which is where the keys and the per-key model
+# allow-lists live. Values must keep Bifrost's `sk-bf-` prefix or it replaces
+# them with one it generated.
+bifrost_api_base: "http://{{ ansible_host }}:{{ llamacpp_port }}"
+bifrost_virtual_keys:
+  # The agent: only the models marked `agent: true` in models.yml.
+  - id: vk-agent
+    name: hermes-agent
+    value: "{{ vault_bifrost_agent_key }}"
+    models: "{{ agent_models }}"
+  # The desktop, pi and the admin scripts: the whole catalogue.
+  - id: vk-client
+    name: clients-and-scripts
+    value: "{{ vault_bifrost_client_key }}"
+    models: ["*"]
 
 docker_networks:
   - ai-stack
@@ -28,7 +44,9 @@ llamacpp_fast_models: "{{ llm_models | selectattr('fast', 'defined') | map(attri
 
 # --- Hermes agents -------------------------------------------------------
 # One container per agent; its state lives on the pool.
-hermes_litellm_uri: "http://litellm-proxy:{{ service_ports.litellm }}/v1"
+# The provider id inside hermes is still `litellm` (its own label for an
+# OpenAI-compatible endpoint); the API behind it is Bifrost.
+hermes_llm_uri: "http://bifrost:{{ service_ports.bifrost }}/v1"
 # Container port, not the published one: both stacks share `ai-stack`.
 hermes_searxng_uri: "http://{{ searxng_host }}:{{ searxng_container_port }}"
 hermes_data_root: /mnt/data/hermes   # one home; the profiles live inside
@@ -95,26 +113,13 @@ stacks_on_demand:
   - comfyui
 
 stacks:
-  - name: litellm
-    src: ai-services/litellm
+  - name: bifrost
+    src: ai-services/bifrost
+    dirs:
+      # The container runs as uid 1000 and keeps its SQLite store here.
+      - { path: data, owner: "1000", group: "0", mode: "0775" }
     files:
-      - { template: litellm-config.yaml.j2, dest: config.yaml }
-    env:
-      LITELLM_DB_PASSWORD: "{{ vault_litellm_db_password }}"
-      # Read back from the rendered .env by the postgres reconcile.
-      LITELLM_DB_USER: litellm
-      LITELLM_DB_NAME: litellm
-      LITELLM_MASTER_KEY: "{{ vault_litellm_master_key }}"
-      LITELLM_SALT_KEY: "{{ vault_litellm_salt_key }}"
-    postgres:
-      service: litellm-db
-      container: litellm-db
-      user_env: LITELLM_DB_USER
-      password_env: LITELLM_DB_PASSWORD
-      database_env: LITELLM_DB_NAME
-    agent_keys:
-      - value: "{{ vault_agent_litellm_api_key }}"
-        models: "{{ agent_models }}"
+      - { template: bifrost-config.json.j2, dest: data/config.json, owner: "1000", group: "0", mode: "0640" }
 
   - name: searxng
     src: ai-services/searxng
@@ -195,6 +200,6 @@ stacks:
       GPU_EXPECTED: "{{ llm_gpu_count }}"
 
 health_checks:
-  - { name: litellm,   url: "http://127.0.0.1:{{ service_ports.litellm }}/health/liveliness" }
+  - { name: bifrost,   url: "http://127.0.0.1:{{ service_ports.bifrost }}/health" }
   - { name: searxng,   url: "http://127.0.0.1:{{ service_ports.searxng }}/healthz" }
   - { name: gpu-panel, url: "http://127.0.0.1:{{ service_ports.gpu_panel }}/api/session" }

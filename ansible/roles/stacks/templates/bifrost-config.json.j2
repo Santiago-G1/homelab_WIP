@@ -1,0 +1,52 @@
+{
+  "$schema": "https://www.getbifrost.ai/schema",
+  "config_store": {
+    "enabled": true,
+    "type": "sqlite",
+    "config": { "path": "/app/data/config.db" }
+  },
+  "client": {
+    "enforce_auth_on_inference": true,
+    "disable_content_logging": true,
+    "extra_fields_placement": "headers",
+    "allowed_origins": ["*"]
+  },
+  "providers": {
+    "local": {
+      "custom_provider_config": { "base_provider_type": "openai" },
+      "network_config": {
+        "base_url": "{{ bifrost_api_base }}",
+        "allow_private_network": true
+      },
+      "keys": [
+        {
+          "name": "local",
+          "value": "sk-local-noauth",
+          "models": ["*"],
+          "weight": 1.0
+        }
+      ]
+    }
+  },
+  "governance": {
+    "virtual_keys": [
+{% for key in bifrost_virtual_keys %}
+      {
+        "id": "{{ key.id }}",
+        "name": "{{ key.name }}",
+        "value": "{{ key.value }}",
+        "is_active": true,
+        "allow_all_providers": {{ 'true' if key.models == ['*'] else 'false' }},
+        "provider_configs": [
+          {
+            "provider": "local",
+            "allowed_models": {{ key.models | to_json }},
+            "key_ids": ["*"],
+            "weight": 1
+          }
+        ]
+      }{{ ',' if not loop.last else '' }}
+{% endfor %}
+    ]
+  }
+}

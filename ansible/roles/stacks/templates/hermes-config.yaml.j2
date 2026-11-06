@@ -3,11 +3,11 @@
 model:
   provider: litellm
   default: "{{ agent_model }}"
-  base_url: "{{ hermes_litellm_uri }}"
+  base_url: "{{ hermes_llm_uri }}"
 
 providers:
   litellm:
-    api: "{{ hermes_litellm_uri }}"
+    api: "{{ hermes_llm_uri }}"
     key_env: LITELLM_API_KEY
     default_model: "{{ agent_model }}"
 

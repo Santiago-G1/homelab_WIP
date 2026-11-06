@@ -1,0 +1,29 @@
+services:
+  bifrost:
+    # Pinned by digest: a moving tag would redeploy whatever upstream pushed.
+    image: maximhq/bifrost@sha256:a1c90607dcfd13c1fb2f9476ceb3bb24407a50ade7fdf3e61a59fb42b09e5c57
+    container_name: bifrost
+    restart: unless-stopped
+    ports:
+      - "${PUBLISH_PORT:?}:${PUBLISH_PORT:?}"
+    environment:
+      APP_PORT: "${PUBLISH_PORT:?}"
+      # The Go heap holds the config store, the model catalog and the request
+      # bodies; with one user a small ceiling keeps the container near 130 MiB
+      # instead of letting the GC balloon it. LiteLLM sat at 750 MiB.
+      GOMEMLIMIT: 96MiB
+      GOGC: "50"
+    volumes:
+      # APP_DIR=/app/data: config.json (rendered), config.db (SQLite store) and
+      # the request logs all live here, so they survive a container recreate.
+      - ./data:/app/data
+    networks:
+      ai-stack:
+        aliases:
+          # Hermes' seeded config still names the old LiteLLM container; the
+          # alias keeps it working without editing (and restarting) the agent.
+          - litellm-proxy
+
+networks:
+  ai-stack:
+    external: true

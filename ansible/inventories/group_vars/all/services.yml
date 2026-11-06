@@ -36,7 +36,7 @@ service_ports:
   onlyoffice: 8080
   syncthing: 8384
   gpu_panel: 8099
-  litellm: 4000
+  bifrost: 4000
   searxng: 8081
   hermes: 9119
   comfyui: 8188
@@ -226,14 +226,15 @@ homelab_services:
       widget reads the same API.
     verify: true
 
-  - host: litellm
+  - host: bifrost
     server: llm
-    port: "{{ service_ports.litellm }}"
-    title: LiteLLM
-    icon: sh:litellm
+    port: "{{ service_ports.bifrost }}"
+    title: Bifrost
+    icon: sh:bifrost
     group: AI
-    path: /health/liveliness
-    release: BerriAI/litellm
+    # Unauthenticated by design: it is the gateway that holds the keys.
+    path: /health
+    release: maximhq/bifrost
     verify: true
 
   - host: search
