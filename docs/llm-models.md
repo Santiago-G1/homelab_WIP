@@ -23,12 +23,27 @@ Everything else is derived from that list:
 | `llamacpp_model_overrides` | `models.ini.j2` → the router's per-model preset |
 | `agent_model` | `hermes-config.yaml.j2` → the model both agents call |
 | `agent_models` | the agent's Bifrost virtual key allowlist (`bifrost_virtual_keys`) |
+| `agent_extra_models` | models marked `agent_extra: true`, added to the same allowlist |
 | `llamacpp_fast_models` | the models marked `fast: true` (kept on the AI host's SSD) |
 
 `name` is the `.gguf` file name **without** its extension: that is what the
-router advertises and what clients send. Only the top level of
-`llamacpp_models_dir` is addressable — a `.gguf` in a subdirectory is published
-as a directory entry, not a model.
+router advertises and what clients send. Only the **top level** of
+`llamacpp_models_dir` is a model: llama.cpp turns **every subdirectory** into a
+model named after the directory (it loads the first `.gguf` inside), so a
+directory of spare files shows up in `/v1/models` as a model that cannot be
+tuned and confuses every client.
+
+Keep anything that is not a served model outside the directory:
+
+```
+/mnt/data/models         served models, one .gguf each (or a symlink)
+/mnt/data/models-extra   spare files, drafters   ← storage, never advertised
+```
+
+A file that lives in one of those directories and *is* served gets a symlink at
+the top of `models`: `Qwen3.8-27B-Uncensored-IQ4_XS.gguf →
+/mnt/data/models-extra/uncensored/orcarouter_Qwen3.8-27B-Uncensored-IQ4_XS.gguf`.
+The router only ever resolves the name, so it keeps working across a restart.
 
 ## Adding a model
 
@@ -87,6 +102,26 @@ Two things to keep in mind:
 
 Set `agent: true` on the wanted entry and run the same playbook. Hermes'
 `config.yaml` and the model name are both re-rendered.
+
+`agent_extra: true` is the other flag: that model is added to the agent's
+allow-list without becoming the default. It is how a profile reaches its own
+`.gguf` while `default` stays on the coding model, and it keeps the name in
+`models.yml` instead of hard-coded in `host_vars/llm/main.yml`.
+
+## Which profile gets which model
+
+The two Hermes profiles are split by the kind of model they run, and the split
+lives in `models.yml` (never in the rendered config):
+
+| Flag in `models.yml` | Hermes profile | Model |
+| --- | --- | --- |
+| `agent: true` | `default` | the workhorse |
+| `profile: uncensored` | `uncensored` | the abliterated build |
+
+`profile_models` maps the flag to the profile, `hermes-config.yaml.j2` reads it
+when it renders each profile's `config.yaml`, and `agent_models` +
+`agent_extra_models` form the gateway allow-list that lets both through. A
+profile with no model of its own falls back to the `agent: true` one.
 
 The allowlist lives in `bifrost_virtual_keys` (`host_vars/llm/main.yml`), and
 `bifrost-config.json.j2` renders it into the gateway's `config.json`, which the

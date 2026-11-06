@@ -17,6 +17,9 @@
 		# {{ service.note }}
 {% endif %}
 		{{ service.host }}.{$DOMAINNAME_HS} {{ hostvars[service.server].ansible_host }}:{{ service.port }}
+{% for alias in service.aliases | default([]) %}
+		{{ alias }}.{$DOMAINNAME_HS} {{ hostvars[service.server].ansible_host }}:{{ service.port }}
+{% endfor %}
 {% endfor %}
 	}
 	reverse_proxy {backend}

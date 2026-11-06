@@ -240,10 +240,11 @@ pages:
           - type: split-column
             max-columns: 2
             widgets:
-              # Which model is resident.
+              # Every model the router advertises, with its resident state (the
+              # card title opens the gateway, which is where the keys live).
               - type: custom-api
-                title: llama.cpp
-                title-url: https://litellm.{{ domain }}/
+                title: Models
+                title-url: https://bifrost.{{ domain }}/
                 cache: 15s
                 url: {{ llama_url }}/v1/models
                 template: |

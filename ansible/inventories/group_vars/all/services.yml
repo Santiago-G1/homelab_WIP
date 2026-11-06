@@ -4,6 +4,8 @@
 #
 #   host, server, port, title, icon, group   identity and placement
 #   path, ok       availability probe (path relative to the published name)
+#   aliases        extra names for the same backend (`litellm` for `bifrost`),
+#                  kept for clients whose URL is already configured
 #   check: false   keep it out of the availability widget
 #   verify: true   also probe it end to end in playbooks/verify.yml
 #   release        GitHub repo for the "updates" widget
@@ -235,6 +237,9 @@ homelab_services:
     # Unauthenticated by design: it is the gateway that holds the keys.
     path: /health
     release: maximhq/bifrost
+    # The old name still answers: the desktop, pi and the scripts point their
+    # OpenAI client at litellm.<domain>, and it is the same container and port.
+    aliases: [litellm]
     verify: true
 
   - host: search

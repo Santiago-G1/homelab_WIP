@@ -1,29 +1,17 @@
 ---
 # The single place to add, remove or switch local models. Everything else in
-# this host (LiteLLM's model list, the router presets, the agent's model) is
-# derived from here. See docs/llm-models.md.
+# this host (the router presets, the gateway's per-key allow-list, the agents'
+# model) is derived from here. See docs/llm-models.md.
 #
-#   name  the .gguf file name WITHOUT its extension; must exist in
-#         llamacpp_models_dir and is the name clients send.
-#   args  per-model llama-server options (default: llamacpp_global_args).
-#   agent set on exactly one model: the one the agent talks to.
+#   name        the .gguf file name WITHOUT its extension; must exist in
+#               llamacpp_models_dir and is the name clients send.
+#   args        per-model llama-server options (default: llamacpp_global_args).
+#   agent       set on exactly one model: the one the agent talks to.
+#   agent_extra reachable by the agent without being that default.
+#   fast        keep the file on the AI host's SSD instead of the pool.
 llm_models:
   # A bigger ubatch means fewer graph launches. Above 1024 the 12-13 GiB
   # models run out of VRAM.
-  - name: Qwen3.5-9B-UD-Q4_K_XL
-    args:
-      n-gpu-layers: 99
-      ctx-size: 8192
-      flash-attn: "on"
-      batch-size: 4096
-      ubatch-size: 2048
-  - name: Qwen3.6-35B-A3B-UD-IQ3_S
-    args:
-      n-gpu-layers: 99
-      ctx-size: 8192
-      flash-attn: "on"
-      batch-size: 2048
-      ubatch-size: 1024
   - name: Qwen3.8-27B-UD-IQ4_XS
     args:
       n-gpu-layers: 99
@@ -31,36 +19,40 @@ llm_models:
       flash-attn: "on"
       batch-size: 2048
       ubatch-size: 1024
-  - name: Qwen3.8-27B-GSQ-RCO-IQ3_S-mtp
+      spec-type: draft-mtp
+      spec-draft-n-max: 1
+      spec-draft-p-min: 0.2
+      spec-draft-ngl: 99
+      spec-draft-n-ubatch: 64
+  # 27B dense. On GP100 the decode cost is the unpack, not the bytes: IQ4_XS
+  # beats both Q4_K_M and the IQ3_* tiers.
+  - name: Swift-1.5-Qwen3.8-27B-IQ4_XS
     args:
+      load-mode: dio       # 15 GB: it never fits the 3 GiB ARC, so read it direct
       n-gpu-layers: 99
-      ctx-size: 65536
+      # f16 KV stops at 152k; q8_0 buys the whole 262144 window for about a
+      # quarter of the decode. The live preset runs the full window because the
+      # agent's turns routinely pass 190k tokens. Measured.
+      ctx-size: 262144
       cache-type-k: q8_0
       cache-type-v: q8_0
       flash-attn: "on"
+      split-mode: tensor
+      # GPU1 also carries the output layer and the MTP draft, so it runs out first.
+      tensor-split: "1,1"
       fit: "off"
-      parallel: 1
+      # One KV cache shared by every slot: a common prefix is stored once and
+      # the three slots decode in the same pass, which is where this card pays.
+      parallel: 3
+      kv-unified: "on"
       batch-size: 2048
-      ubatch-size: 512
+      ubatch-size: 1024
+      # Drafting past 2 tokens lowers the acceptance rate on this quant.
       spec-type: draft-mtp
-      spec-draft-n-max: 3
+      spec-draft-n-max: 2
+      spec-draft-p-min: 0.2
       spec-draft-ngl: 99
-      spec-draft-type-k: q8_0
-      spec-draft-type-v: q8_0
-  - name: Swift-1.5-Qwen3.8-27B-GSQ-RCO-IQ3_S-mtp
-    args:
-      n-gpu-layers: 99
-      ctx-size: 62536
-      cache-type-k: q8_0
-      cache-type-v: q8_0
-      flash-attn: "on"
-      fit: "off"
-      parallel: 1
-      batch-size: 2048
-      ubatch-size: 512
-      spec-type: draft-mtp
-      spec-draft-n-max: 3
-      spec-draft-ngl: 99
+      spec-draft-n-ubatch: 64
       spec-draft-type-k: f16
       spec-draft-type-v: f16
       jinja: "on"
@@ -68,14 +60,12 @@ llm_models:
       top-p: 0.95
       top-k: 20
       min-p: 0.0
-      presence-penalty: 0.0
-      repeat-penalty: 1.0
       cache-ram: 2048
       cache-reuse: 256
 
   # Coding fine-tune of the same shape (unsloth-dynamic tiers, MTP head at Q3_K).
-  # UD-Q4_K_XL is the card's "start here"; drafting past 3 tokens lowers the
-  # acceptance rate.
+  # UD-Q4_K_XL is the card's "start here"; drafting past a token lowers the
+  # acceptance rate on this build.
   - name: Cyber-Tiel-Coder-35B-A3B-MTP-UD-Q4_K_XL
     agent: true
     fast: true            # kept on the AI host's SSD (see llamacpp_fast_models)
@@ -95,7 +85,7 @@ llm_models:
       # Reuse the KV after a divergence instead of re-prefilling the prompt.
       cache-reuse: 256
       spec-type: draft-mtp
-      spec-draft-n-max: 3
+      spec-draft-n-max: 1
       spec-draft-p-min: 0.2
       spec-draft-ngl: 99
       spec-draft-n-ubatch: 64
@@ -109,8 +99,8 @@ llm_models:
       min-p: 0.0
 
   # MTP build: it carries the blk.40 draft head (the non-MTP file does not), so
-  # speculative decoding works. The full window fills both cards: it needs
-  # ub 1024 and a single slot.
+  # speculative decoding works. Three slots share one KV so a common prefix is
+  # stored and prefilled once; ub 512 is what the full window leaves.
   # Not the agent's model (`agent: true`): llama.cpp holds one GGUF at a time,
   # so a second profile unloads the agent's model after every turn.
   - name: Qwen3.6-35B-A3B-MTP-UD-Q4_K_XL
@@ -125,13 +115,14 @@ llm_models:
       split-mode: layer
       tensor-split: "1,1"
       fit: "off"
-      parallel: 1
+      parallel: 3
+      kv-unified: "on"
       batch-size: 2048
-      ubatch-size: 1024
+      ubatch-size: 512
       # Reuse the KV after a divergence instead of re-prefilling the prompt.
       cache-reuse: 256
       spec-type: draft-mtp
-      spec-draft-n-max: 3
+      spec-draft-n-max: 1
       spec-draft-p-min: 0.2
       spec-draft-ngl: 99
       spec-draft-n-ubatch: 64
@@ -146,26 +137,6 @@ llm_models:
       presence-penalty: 1.5
       repeat-penalty: 1.0
 
-  # 131k is the model's full window and what fits on one card: weights plus the
-  # q8_0 KV leave no room for the DSpark drafter, so it is downloaded but not
-  # enabled. See docs/llm-models.md before turning spec decoding back on.
-  - name: LFM2.5-24B-A2B-QAD-Q4_0
-    args:
-      n-gpu-layers: 99
-      ctx-size: 196608
-      cache-type-k: q8_0
-      cache-type-v: q8_0
-      flash-attn: "on"
-      fit: "off"
-      parallel: 2
-      kv-unified: "on"
-      batch-size: 2048
-      ubatch-size: 512
-      jinja: "on"
-      # The sampling defaults the model card and the GGUF metadata both carry.
-      temp: 0.1
-      top-k: 50
-      repeat-penalty: 1.05
   # Hybrid 4.45B: 9 of 36 layers attend fully and the rest slide at 512 tokens,
   # so f16 KV fits one card at 131072. Card 1, because Immich ML binds only
   # /dev/nvidia0; q8_0 KV costs a quarter of the decode speed.
@@ -189,12 +160,56 @@ llm_models:
       top-k: 0
       min-p: 0.0
 
+  # The uncensored Hermes profile talks to this one: Qwen3.8-27B abliterated by
+  # orcarouter (single refusal direction at layer 38) and quantized to IQ4_XS.
+  # Same 27B shape and preset as Swift. The file lives outside the models
+  # directory (`/mnt/data/models-extra/uncensored`) and a symlink at the top of
+  # it carries the name: llama.cpp publishes every subdirectory as a model of
+  # its own, so `uncensored/` itself would show up in /v1/models.
+  - name: Qwen3.8-27B-Uncensored-IQ4_XS
+    agent_extra: true     # reaches the agent, but is not the model it defaults to
+    profile: uncensored   # the Hermes profile that defaults to it (see main.yml)
+    args:
+      load-mode: dio       # 15 GB: it never fits the 3 GiB ARC, so read it direct
+      n-gpu-layers: 99
+      ctx-size: 262144
+      cache-type-k: q8_0
+      cache-type-v: q8_0
+      flash-attn: "on"
+      split-mode: tensor
+      tensor-split: "1,1"
+      fit: "off"
+      parallel: 3
+      kv-unified: "on"
+      batch-size: 2048
+      ubatch-size: 1024
+      spec-type: draft-mtp
+      spec-draft-n-max: 1
+      spec-draft-p-min: 0.2
+      spec-draft-ngl: 99
+      spec-draft-n-ubatch: 64
+      spec-draft-type-k: f16
+      spec-draft-type-v: f16
+      jinja: "on"
+      temp: 1.0
+      top-p: 0.95
+      top-k: 20
+      min-p: 0.0
+      cache-ram: 2048
+      cache-reuse: 256
+
 # Derived from llm_models; edit the list above instead.
-litellm_models: "{{ llm_models | map(attribute='name') | list }}"
 llamacpp_model_overrides: >-
   {{ llm_models | selectattr('args', 'defined')
      | items2dict(key_name='name', value_name='args') }}
 agent_model: "{{ (llm_models | selectattr('agent', 'defined') | first).name }}"
-# `agent: true` picks the model the agents use, under the fixed `litellm.agent`
-# profile in LiteLLM. One profile only: see the note above.
+# `agent: true` picks the model the agents use by default. One only: llama.cpp
+# holds a single GGUF at a time, so a second default would evict the first.
 agent_models: "{{ llm_models | selectattr('agent', 'defined') | map(attribute='name') | list }}"
+# Models the agent may call without being its default (`agent_extra: true`):
+# they widen the gateway's allow-list, nothing else.
+agent_extra_models: "{{ llm_models | selectattr('agent_extra', 'defined') | map(attribute='name') | list }}"
+# One model per non-default Hermes profile: `profile: <name>` on the entry.
+profile_models: >-
+  {{ llm_models | selectattr('profile', 'defined')
+     | items2dict(key_name='profile', value_name='name') }}

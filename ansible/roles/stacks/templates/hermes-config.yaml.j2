@@ -1,15 +1,18 @@
 # Rendered from `hermes_agents` (host_vars/llm/main.yml): one profile per file.
 {% set a = hermes_agents[item.agent] %}
+{#- One model per profile: the normal one for `default`, the uncensored one
+    for `uncensored`. `profile_models` comes from models.yml. -#}
+{% set profile_model = profile_models[a.model_profile | default('default')] | default(agent_model) %}
 model:
   provider: litellm
-  default: "{{ agent_model }}"
+  default: "{{ profile_model }}"
   base_url: "{{ hermes_llm_uri }}"
 
 providers:
   litellm:
     api: "{{ hermes_llm_uri }}"
     key_env: LITELLM_API_KEY
-    default_model: "{{ agent_model }}"
+    default_model: "{{ profile_model }}"
 
 approvals:
   mode: "{{ a.approvals_mode }}"

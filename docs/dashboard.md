@@ -24,13 +24,14 @@ for everything published through Caddy. A new service is one entry:
     path: /health              # availability probe (default /)
     verify: true               # check the route in playbooks/verify.yml
     release: owner/myapp       # GitHub repo for the "updates" widget
+    aliases: [old-name]        # extra names for the same backend, e.g. a rename
 ```
 
 From that entry Ansible renders:
 
 | Rendered from the catalog | File |
 | --- | --- |
-| `map {host} {backend}` route table | `roles/stacks/templates/caddy-Caddyfile.j2` → `/opt/docker/caddy/Caddyfile` |
+| `map {host} {backend}` route table (plus one line per `aliases:` entry) | `roles/stacks/templates/caddy-Caddyfile.j2` → `/opt/docker/caddy/Caddyfile` |
 | Availability list, bookmarks, updates widget | `roles/stacks/templates/glance.yml.j2` → `/opt/docker/glance/config/glance.yml` |
 | Route checks | `proxy_checks` in `host_vars/caddy.yml`, consumed by `playbooks/verify.yml` |
 
@@ -65,7 +66,7 @@ simply embedded.
 | GPU & LLM | the GPU control panel API (see above) |
 | Updates | GitHub releases of every catalog entry with a `release:` |
 | Applications | bookmarks, grouped by the catalog's `group` |
-| llama.cpp | `GET /v1/models` on the AI container (router mode: per-model status) |
+| Models | `GET /v1/models` on the AI container (router mode: one row per served `.gguf` with its resident state); the card title opens the gateway, Bifrost |
 | LocalLLaMA / LocalLLM | Reddit — see the note below |
 | Clock / search | head widgets; the search box has `!yt`, `!gh` and `!lab` bangs |
 

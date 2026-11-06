@@ -16,10 +16,10 @@ llm_gpu_count: 2
 # allow-lists live. Values must keep Bifrost's `sk-bf-` prefix or it replaces
 # them with one it generated.
 bifrost_api_base: "http://{{ ansible_host }}:{{ llamacpp_port }}"
-# Every model an agent may call. `agent_models` covers the models marked
-# `agent: true` in models.yml; the `uncensored` Hermes profile was switched to a
-# .gguf that models.yml does not track, so it is listed here as well.
-bifrost_agent_models: "{{ agent_models + ['Qwen3.8-27B-Uncensored-IQ4_XS'] }}"
+# Every model an agent may call: the one marked `agent: true` plus the ones
+# marked `agent_extra: true` (the `uncensored` profile's model). Both flags live
+# in models.yml, so a model rename never has to be chased into this file.
+bifrost_agent_models: "{{ agent_models + agent_extra_models }}"
 bifrost_virtual_keys:
   # The agent: the models its own profiles use.
   - id: vk-agent
@@ -60,6 +60,8 @@ hermes_gid: "10000"
 hermes_agents:
   # Asks before acting; finds another way when nobody answers.
   default:
+    # The model marked `agent: true`: the workhorse, not an abliterated one.
+    model_profile: default
     approvals_mode: "smart"
     unattended_mode: "deny"
     terminal_backend: local
@@ -86,6 +88,8 @@ hermes_agents:
 
   # No approvals: this is the one that does the work.
   uncensored:
+    # The model marked `profile: uncensored` in models.yml (the abliterated one).
+    model_profile: uncensored
     approvals_mode: "off"
     unattended_mode: "approve"
     terminal_backend: local
