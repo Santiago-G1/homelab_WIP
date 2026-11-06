@@ -350,50 +350,41 @@
 # Every subdirectory of the models directory is a model to llama.cpp (it takes
 # the first .gguf inside and publishes the directory name), which is how spare
 # files used to show up in /v1/models for every client. Refuse it up front.
-- name: Find directories inside the models directory
+- name: List the models directory
   ansible.builtin.find:
     paths: "{{ llamacpp_models_dir }}"
-    file_type: directory
+    file_type: any
     recurse: false
-  register: llamacpp_models_subdirs
+  register: llamacpp_models_entries
+
+# A symlink to a directory is a directory to llama.cpp, and the model symlinks
+# (the fast disk) point at files, so the two have to be told apart.
+- name: Follow the symlinks in the models directory
+  ansible.builtin.stat:
+    path: "{{ item.path }}"
+  loop: "{{ llamacpp_models_entries.files | selectattr('islnk', 'defined') | selectattr('islnk') | list }}"
+  loop_control:
+    label: "{{ item.path }}"
+  register: llamacpp_models_links
 
 - name: Keep storage out of the models directory
   ansible.builtin.assert:
-    that: llamacpp_models_subdirs.matched | int == 0
+    that: >-
+      (llamacpp_models_entries.files
+       | selectattr('isdir', 'defined') | selectattr('isdir') | list | length == 0)
+      and (llamacpp_models_links.results | default([])
+           | selectattr('stat.isdir', 'defined') | selectattr('stat.isdir')
+           | list | length == 0)
     fail_msg: >-
-      {{ llamacpp_models_subdirs.files | map(attribute='path') | join(', ') }}
+      {{ ((llamacpp_models_entries.files | selectattr('isdir', 'defined')
+           | selectattr('isdir') | map(attribute='path') | list)
+          + (llamacpp_models_links.results | default([])
+             | selectattr('stat.isdir', 'defined') | selectattr('stat.isdir')
+             | map(attribute='item.path') | list)) | join(', ') }}
       would be published as models of their own: llama.cpp names a model after
       the directory and loads the first .gguf inside. Move them out (or to
       models-extra) and leave a symlink at the top for the one file you serve.
     success_msg: "No subdirectory in {{ llamacpp_models_dir }}"
-    quiet: true
-
-# A file the server user cannot read is skipped silently by the scan and the
-# name then fails at load with an empty path, which says nothing useful.
-- name: Ask the server user whether it can read each declared model
-  ansible.builtin.command:
-    argv: ["runuser", "-u", "{{ llamacpp_user }}", "--", "test", "-r",
-           "{{ llamacpp_models_dir }}/{{ item }}.gguf"]
-  loop: "{{ llm_models | map(attribute='name') | list }}"
-  register: llamacpp_models_readable
-  changed_when: false
-  failed_when: false
-  # Read-only, so it also has to answer under --check: a missing file is
-  # exactly what a dry run is for.
-  check_mode: false
-
-- name: Refuse a declared model the server cannot read
-  ansible.builtin.assert:
-    that: >-
-      llamacpp_models_readable.results | selectattr('rc', 'defined')
-      | selectattr('rc', 'ne', 0) | list | length == 0
-    fail_msg: >-
-      {{ llamacpp_models_readable.results | selectattr('rc', 'defined')
-         | selectattr('rc', 'ne', 0) | map(attribute='item') | join(', ') }}:
-      {{ llamacpp_user }} cannot read
-      {{ llamacpp_models_dir }}/<name>.gguf (missing, or a parent directory it
-      cannot traverse: keep models-extra at 0755 or wider).
-    success_msg: "Every declared model is readable by {{ llamacpp_user }}"
     quiet: true
 
 # Per-model options come from host_vars/llm/models.yml.

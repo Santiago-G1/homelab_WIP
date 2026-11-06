@@ -80,6 +80,8 @@ def read_gguf(path):
         if r.take(4) != MAGIC:
             raise ValueError(f"{path} is not a GGUF file")
         version = r.scalar("<I")
+        if version < 2:
+            raise ValueError(f"GGUF v{version}: only the v2+ layout is read")
         tensor_count = r.scalar("<Q")
         kv_count = r.scalar("<Q")
 
@@ -130,7 +132,8 @@ def read_gguf(path):
 
 def yaml_entry(info, ctx):
     lines = [
-        f"  - name: {info['name']}",
+        # A quoted scalar: a model name may carry ':', ' #' or a leading '-'.
+        f"  - name: {json.dumps(info['name'])}",
         "    args:",
         f"      ctx-size: {ctx}",
         "      n-gpu-layers: 99",

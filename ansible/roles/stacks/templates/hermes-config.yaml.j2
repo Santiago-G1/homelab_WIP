@@ -18,9 +18,9 @@ providers:
     # would compress history against a window that does not exist and overflow
     # the ones that are 8K. Nothing to configure per model beyond models.yml.
     models:
-{% for m in llm_models %}
-      "{{ m.name }}":
-        context_length: {{ ((m.args | default({})).get('ctx-size', llm_default_ctx)) | int }}
+{% for name, cfg in llm_model_contexts.items() %}
+      {{ name | to_json }}:
+        context_length: {{ cfg.context_length }}
 {% endfor %}
 
 approvals:

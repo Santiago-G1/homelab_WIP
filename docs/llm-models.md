@@ -66,8 +66,9 @@ ansible-playbook playbooks/llm-model-add.yml -e model=My-Model-IQ4_XS.gguf
 It reads the window, the architecture, whether the file carries an MTP head and
 whether it has a chat template straight from the `.gguf`, caps the window at 64K
 (the two P100s hold ~150K with f16 KV; a 262144 window only swaps), writes the
-entry to `models.local.yml` and then runs `llm-models.yml`. Nothing else is
-configured per service.
+entry to `models.local.yml` — on the control node, where the repository lives —
+and then runs `llm-models.yml`, which re-reads that file so the deploy in the
+same run already includes the model. Nothing else is configured per service.
 
 `-e ctx=131072` overrides the window, `--check` shows what it would do.
 

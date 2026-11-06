@@ -10,4 +10,6 @@ ExecStart={{ llamacpp_kmic_binary }} \
   --models-preset {{ llamacpp_preset_file }} \
   --models-max {{ llamacpp_models_max }} \
   --host 0.0.0.0 --port {{ llamacpp_port }} \
+  --cors-origins {{ llamacpp_cors_origins }} \
+  --no-cors-credentials \
   --metrics

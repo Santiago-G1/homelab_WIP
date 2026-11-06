@@ -68,7 +68,7 @@
 
     - name: Decide the window
       ansible.builtin.set_fact:
-        model_ctx: "{{ ctx | default([model_info.context_length | default(ctx_cap | default(65536)), ctx_cap | default(65536)] | min) | int }}"
+        model_ctx: "{{ ctx | default([model_info.context_length | default(ctx_cap | default(65536), true), ctx_cap | default(65536)] | min) | int }}"
 
     - name: Report what was found
       ansible.builtin.debug:
@@ -80,11 +80,15 @@
 
     # models.local.yml ships with an empty list; the first add turns it into a
     # real list header so the blocks below have somewhere to hang.
+    # The list is a file in this repository, which lives on the control node:
+    # this play targets the AI host, so the edit has to be delegated home.
     - name: Make room for entries
       ansible.builtin.lineinfile:
         path: "{{ models_local_file }}"
-        regexp: '^llm_models_local:\s*\[\]\s*$'
+        regexp: '^llm_models_local:\s*(\[[^\]]*\])?\s*(#.*)?$'
         line: "llm_models_local:"
+      delegate_to: localhost
+      run_once: true
       when: not ansible_check_mode
 
     - name: Ask the file for its entry
@@ -101,6 +105,21 @@
         insertafter: '^llm_models_local:'
         marker: "# {mark} {{ model_name }}"
         block: "{{ model_entry.stdout }}"
+      delegate_to: localhost
+      run_once: true
+      when: not ansible_check_mode
+
+    - name: Refuse to leave a list that no longer parses
+      ansible.builtin.assert:
+        that: >-
+          (lookup('file', models_local_file) | from_yaml).llm_models_local
+          | selectattr('name', 'equalto', model_name) | list | length == 1
+        fail_msg: >-
+          {{ models_local_file }} is not valid after the insert; restore it from
+          git (the entry is in the message above) and add it by hand.
+        quiet: true
+      delegate_to: localhost
+      run_once: true
       when: not ansible_check_mode
 
     - name: What changed

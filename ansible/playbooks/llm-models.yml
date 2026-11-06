@@ -10,6 +10,15 @@
     stacks_only:
       - bifrost
       - hermes
+  pre_tasks:
+    # The operator's own list is a file he edits (and llm-model-add.yml writes),
+    # so read it here instead of trusting the copy the inventory parsed at
+    # startup: a run that adds a model would otherwise deploy without it.
+    - name: Read the models added by hand
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../inventories/host_vars/llm/models.local.yml"
+      # Missing is fine: the file ships empty and llm_models defaults to [].
+      failed_when: false
   roles:
     - llamacpp
     - stacks

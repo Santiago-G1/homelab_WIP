@@ -209,7 +209,7 @@ llm_models: >-
 llm_model_contexts: >-
   {%- set out = {} -%}
   {%- for m in llm_models -%}
-  {%- set _ = out.update({m.name: {'context_length': ((m.args | default({})).get('ctx-size', llm_default_ctx)) | int}}) -%}
+  {%- set _ = out.update({m.name: {'context_length': ((m.args | default({})).get('ctx-size', (m.args | default({})).get('c', llm_default_ctx))) | int}}) -%}
   {%- endfor -%}
   {{ out }}
 
