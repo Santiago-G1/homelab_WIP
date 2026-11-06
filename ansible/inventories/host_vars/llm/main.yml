@@ -16,12 +16,16 @@ llm_gpu_count: 2
 # allow-lists live. Values must keep Bifrost's `sk-bf-` prefix or it replaces
 # them with one it generated.
 bifrost_api_base: "http://{{ ansible_host }}:{{ llamacpp_port }}"
+# Every model an agent may call. `agent_models` covers the models marked
+# `agent: true` in models.yml; the `uncensored` Hermes profile was switched to a
+# .gguf that models.yml does not track, so it is listed here as well.
+bifrost_agent_models: "{{ agent_models + ['Qwen3.8-27B-Uncensored-IQ4_XS'] }}"
 bifrost_virtual_keys:
-  # The agent: only the models marked `agent: true` in models.yml.
+  # The agent: the models its own profiles use.
   - id: vk-agent
     name: hermes-agent
     value: "{{ vault_bifrost_agent_key }}"
-    models: "{{ agent_models }}"
+    models: "{{ bifrost_agent_models }}"
   # The desktop, pi and the admin scripts: the whole catalogue.
   - id: vk-client
     name: clients-and-scripts
