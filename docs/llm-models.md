@@ -64,18 +64,21 @@ ansible-playbook playbooks/llm-model-add.yml -e model=My-Model-IQ4_XS.gguf
 ```
 
 It reads the window, the architecture, whether the file carries an MTP head and
-whether it has a chat template straight from the `.gguf`, caps the window at 64K
-(the two P100s hold ~150K with f16 KV; a 262144 window only swaps), writes the
-entry to `models.local.yml` — on the control node, where the repository lives —
-and then runs `llm-models.yml`, which re-reads that file so the deploy in the
-same run already includes the model. Nothing else is configured per service.
+whether it has a chat template straight from the `.gguf`, caps the window at
+`llm_max_ctx` (`models.yml`; the two P100s hold ~150K with f16 KV, so a 262144
+window only swaps), writes the entry to `models.local.yml` — on the control node,
+where the repository lives — and then runs `llm-models.yml`, which re-reads that
+file so the deploy in the same run already includes the model. Nothing else is
+configured per service.
 
 `-e ctx=131072` overrides the window, `--check` shows what it would do.
 
 ### By hand
 
 `models.local.yml` (next to `models.yml`) is yours: an entry there is picked up
-exactly like one in the catalogue, and it wins on a name clash.
+exactly like one in the catalogue, and it wins on a name clash. It is tracked in
+git on purpose — the homelab has to be reproducible, so a hand-added model is
+part of what gets restored, not scratch state.
 
 ```yaml
 llm_models_local:
