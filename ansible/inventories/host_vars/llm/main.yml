@@ -59,8 +59,12 @@ llamacpp_fast_models: "{{ llm_models | selectattr('fast', 'defined') | map(attri
 hermes_llm_uri: "http://bifrost:{{ service_ports.bifrost }}/v1"
 # Container port, not the published one: both stacks share `ai-stack`.
 hermes_searxng_uri: "http://{{ searxng_host }}:{{ searxng_container_port }}"
-hermes_data_root: /mnt/data/hermes   # one home; the profiles live inside
-hermes_uid: "10000"                  # the hermes user inside the container
+hermes_data_root: /mnt/data/hermes   # host side of the mount
+hermes_home: /opt/data               # where the container mounts it
+hermes_profiles_dir: profiles        # hermes' layout: <home>/profiles/<name>
+hermes_llm_provider: litellm         # hermes' provider id for the gateway
+hermes_llm_key_env: LITELLM_API_KEY  # and the variable it reads the key from
+hermes_uid: "10000"
 hermes_gid: "10000"
 
 hermes_agents:
@@ -169,10 +173,7 @@ stacks:
       # Cron runs the plugin's gate scripts from here, as the hermes user.
       - { path: "{{ hermes_data_root }}/scripts", owner: "{{ hermes_uid }}", group: "{{ hermes_gid }}", mode: "0755" }
     files:
-      # `agent:` picks the entry in hermes_agents each file is rendered from.
-      # config.yaml and .env are seeded only (force: false): Hermes writes to both
-      # at runtime (config version, multiplexed profiles, the Telegram home
-      # channel, its own API key) and a re-render would throw that away.
+      # config.yaml and .env are seeded once (force: false): hermes writes state.
       - { template: hermes-config.yaml.j2, dest: "{{ hermes_data_root }}/config.yaml", agent: default, owner: "{{ hermes_uid }}", group: "{{ hermes_gid }}", mode: "0600", force: false }
       - { template: hermes-agent.env.j2, dest: "{{ hermes_data_root }}/.env", agent: default, owner: "{{ hermes_uid }}", group: "{{ hermes_gid }}", mode: "0600", force: false }
       - { template: hermes-soul.md.j2, dest: "{{ hermes_data_root }}/SOUL.md", agent: default, owner: "{{ hermes_uid }}", group: "{{ hermes_gid }}", mode: "0644" }
@@ -183,6 +184,7 @@ stacks:
       - { template: hermes-dreaming.json.j2, dest: "{{ hermes_data_root }}/dreaming.json", agent: default, owner: "{{ hermes_uid }}", group: "{{ hermes_gid }}", mode: "0600" }
     env:
       HERMES_DATA: "{{ hermes_data_root }}"
+      HERMES_HOME: "{{ hermes_home }}"
       HERMES_DASHBOARD_USER: admin
       HERMES_DASHBOARD_PASSWORD: "{{ vault_hermes_dashboard_password }}"
       HERMES_DASHBOARD_SECRET: "{{ vault_hermes_dashboard_secret }}"

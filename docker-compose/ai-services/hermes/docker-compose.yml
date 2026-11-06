@@ -17,7 +17,7 @@ services:
       - HERMES_DASHBOARD_BASIC_AUTH_SECRET=${HERMES_DASHBOARD_SECRET:?}
 
     volumes:
-      - ${HERMES_DATA:?}:/opt/data
+      - ${HERMES_DATA:?}:${HERMES_HOME:?}
       # Ansible renders config.yaml, .env, SOUL.md and AGENTS.md into it: never
       # mount those files, Hermes replaces its config by rename (EBUSY).
       - /var/run/docker.sock:/var/run/docker.sock

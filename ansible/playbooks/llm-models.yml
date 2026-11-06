@@ -1,7 +1,5 @@
 ---
-# Model changes without recompiling llama.cpp: skips the build in roles/llamacpp
-# and re-deploys only the gateway (which carries the per-key model allow-list)
-# and the Hermes stack.
+# Model changes without recompiling: gateway (per-key allow-list) and hermes only.
 # Models: host_vars/llm/models.yml.
 - name: Local model changes on the AI host (no rebuild)
   hosts: ai
@@ -11,9 +9,7 @@
       - bifrost
       - hermes
   pre_tasks:
-    # The operator's own list is a file he edits (and llm-model-add.yml writes),
-    # so read it here instead of trusting the copy the inventory parsed at
-    # startup: a run that adds a model would otherwise deploy without it.
+    # Re-read: the inventory parsed this before llm-model-add could write it.
     - name: Read the models added by hand
       ansible.builtin.include_vars:
         file: "{{ playbook_dir }}/../inventories/host_vars/llm/models.local.yml"

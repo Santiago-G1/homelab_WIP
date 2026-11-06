@@ -347,9 +347,7 @@
     label: "{{ item.item }}"
   when: llamacpp_fast_move is defined
 
-# Every subdirectory of the models directory is a model to llama.cpp (it takes
-# the first .gguf inside and publishes the directory name), which is how spare
-# files used to show up in /v1/models for every client. Refuse it up front.
+# A subdirectory here is a model to llama.cpp: it publishes the directory name.
 - name: List the models directory
   ansible.builtin.find:
     paths: "{{ llamacpp_models_dir }}"
@@ -357,8 +355,7 @@
     recurse: false
   register: llamacpp_models_entries
 
-# A symlink to a directory is a directory to llama.cpp, and the model symlinks
-# (the fast disk) point at files, so the two have to be told apart.
+# The model symlinks point at files; a symlink to a directory is a model too.
 - name: Follow the symlinks in the models directory
   ansible.builtin.stat:
     path: "{{ item.path }}"

@@ -1,22 +1,17 @@
-# Rendered from `hermes_agents` (host_vars/llm/main.yml): one profile per file.
+{# Seeded once from hermes_agents; hermes writes state back, hence force: false. #}
 {% set a = hermes_agents[item.agent] %}
-{#- One model per profile: the normal one for `default`, the uncensored one
-    for `uncensored`. `profile_models` comes from models.yml. -#}
 {% set profile_model = profile_models[a.model_profile | default('default')] | default(agent_model) %}
 model:
-  provider: litellm
+  provider: {{ hermes_llm_provider }}
   default: "{{ profile_model }}"
   base_url: "{{ hermes_llm_uri }}"
 
 providers:
-  litellm:
+  {{ hermes_llm_provider }}:
     api: "{{ hermes_llm_uri }}"
-    key_env: LITELLM_API_KEY
+    key_env: {{ hermes_llm_key_env }}
     default_model: "{{ profile_model }}"
-    # One entry per model in models.yml. llama.cpp knows each model's window but
-    # Bifrost publishes no /model/info, and without this hermes assumes 128K: it
-    # would compress history against a window that does not exist and overflow
-    # the ones that are 8K. Nothing to configure per model beyond models.yml.
+    # Streaming to a fresh file has no probe: the windows come from models.yml.
     models:
 {% for name, cfg in llm_model_contexts.items() %}
       {{ name | to_json }}:
@@ -71,7 +66,7 @@ plugins:
 
 terminal:
   backend: "{{ a.terminal_backend }}"
-  cwd: /opt/data/workspace
+  cwd: {{ hermes_home }}/workspace
   timeout: 300
 {% if a.telegram | default(false) %}
 

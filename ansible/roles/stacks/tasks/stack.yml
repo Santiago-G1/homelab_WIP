@@ -180,14 +180,12 @@
     and stack.name not in (stacks_on_demand | default([]))
   changed_when: true
 
-# Hermes owns its config.yaml: it writes platform state and migrations back
-# into it, so the file is rendered once and never overwritten (force: false).
-# The per-model windows still have to reach it — a llama.cpp model knows its
-# window, Bifrost publishes none, and without it hermes assumes 128K — so they
-# go in through hermes' own CLI, which touches only that key and keeps the file.
+# Hermes owns config.yaml (it writes platform state back), so the windows go in
+# through its own CLI: a render would drop that state, and Bifrost publishes no
+# window, so without this every model is assumed to be 128K.
 - name: "{{ stack.name }} | read each profile's configuration"
   ansible.builtin.slurp:
-    src: "{{ hermes_data_root }}/{{ ('' if item.key == 'default' else 'profiles/' ~ item.key ~ '/') ~ 'config.yaml' }}"
+    src: "{{ hermes_data_root }}/{{ ('' if item.key == 'default' else hermes_profiles_dir ~ '/' ~ item.key ~ '/') ~ 'config.yaml' }}"
   loop: "{{ hermes_agents | default({}) | dict2items }}"
   loop_control:
     label: "{{ item.key }}"
@@ -200,28 +198,25 @@
       - docker
       - exec
       - -e
-      - "HERMES_HOME=/opt/data{{ '' if item.item.key == 'default' else '/profiles/' ~ item.item.key }}"
+      - "HERMES_HOME={{ hermes_home }}{{ '' if item.item.key == 'default' else '/' ~ hermes_profiles_dir ~ '/' ~ item.item.key }}"
       - "{{ stack.name }}"
       - hermes
       - config
       - set
-      - providers.litellm.models
+      - "providers.{{ hermes_llm_provider }}.models"
       - "{{ llm_model_contexts | to_json }}"
   loop: "{{ hermes_cfg.results | default([]) }}"
   loop_control:
     label: "{{ item.item.key }}"
-  # The value hermes already resolves has to differ; otherwise this rewrites the
-  # file on every run and the play never reports "changed=0".
   when:
     - stack.name == 'hermes'
     - >-
       ((item.content | b64decode | from_yaml).get('providers', {})
-        .get('litellm', {}).get('models', {})) != (llm_model_contexts | default({}))
+        .get(hermes_llm_provider, {}).get('models', {})) != (llm_model_contexts | default({}))
   changed_when: true
   register: hermes_ctx
 
-# The gateway reads its configuration at start, so the key it now holds is only
-# read after a restart. This one is its own: the templates did not change.
+# The gateway reads its config at start: the new key needs a restart.
 - name: "{{ stack.name }} | restart once the windows changed"
   ansible.builtin.command:
     cmd: docker compose restart

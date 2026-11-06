@@ -1,17 +1,11 @@
 ---
-# Serve a model you just dropped in, without configuring anything else.
+# Serve a .gguf that is already in llamacpp_models_dir, in one command:
 #
-#   cd ansible
-#   ansible-playbook playbooks/llm-model-add.yml -e model=My-Model-IQ4_XS.gguf
-#   ansible-playbook playbooks/llm-model-add.yml -e model=My-Model.gguf -e ctx=131072
-#   ansible-playbook playbooks/llm-model-add.yml -e model=My-Model.gguf --check
+#   ansible-playbook playbooks/llm-model-add.yml -e model=Model-IQ4_XS.gguf [-e ctx=131072]
 #
-# `model` is the file name inside llamacpp_models_dir (copy it there first, or
-# give its absolute path on the AI host). The window is read from the .gguf and
-# capped at 65536 — two P100s hold ~150k with f16 KV, and a 262144 window would
-# only swap. The entry goes to models.local.yml, so models.yml stays untouched,
-# and llm-models.yml runs at the end: router preset, gateway allow-list, hermes'
-# per-model context length and the dashboard all follow from it.
+# The window is read from the file and capped at llm_max_ctx. The entry goes to
+# models.local.yml and llm-models.yml runs at the end, so the preset, the
+# gateway allow-list, hermes and the dashboard all follow.
 - name: Register a model that is already on the AI host
   hosts: ai
   gather_facts: false
@@ -52,12 +46,10 @@
           a model of its own, so keep it in the top level).
         quiet: true
 
-    # Read-only, so keep it running under --check: the tasks that follow need
-    # the metadata even when nothing is written.
+    # Read-only: --check still needs the metadata for the tasks below.
     - name: Read what the file says about itself
       ansible.builtin.script:
         cmd: "{{ gguf_meta }} {{ model_path }}"
-        executable: /usr/bin/python3
       register: model_info_raw
       changed_when: false
       check_mode: false
@@ -68,7 +60,7 @@
 
     - name: Decide the window
       ansible.builtin.set_fact:
-        model_ctx: "{{ ctx | default([model_info.context_length | default(ctx_cap | default(65536), true), ctx_cap | default(65536)] | min) | int }}"
+        model_ctx: "{{ ctx | default([model_info.context_length | default(llm_max_ctx, true), llm_max_ctx] | min) | int }}"
 
     - name: Report what was found
       ansible.builtin.debug:
@@ -80,8 +72,7 @@
 
     # models.local.yml ships with an empty list; the first add turns it into a
     # real list header so the blocks below have somewhere to hang.
-    # The list is a file in this repository, which lives on the control node:
-    # this play targets the AI host, so the edit has to be delegated home.
+    # The repository is on the control node; this play targets the AI host.
     - name: Make room for entries
       ansible.builtin.lineinfile:
         path: "{{ models_local_file }}"
@@ -94,7 +85,6 @@
     - name: Ask the file for its entry
       ansible.builtin.script:
         cmd: "{{ gguf_meta }} --yaml --ctx {{ model_ctx }} {{ model_path }}"
-        executable: /usr/bin/python3
       register: model_entry
       changed_when: false
       check_mode: false

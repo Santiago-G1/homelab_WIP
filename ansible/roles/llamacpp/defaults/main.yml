@@ -7,13 +7,10 @@ llamacpp_src_dir: /opt/llama.cpp
 llamacpp_models_dir: /mnt/data/models
 llamacpp_user: llama          # the account llama-server runs as
 llamacpp_models_max: 1
-# A browser is not a client of the router: the gateway, the dashboard, the agents
-# and pi all speak to it server-side, so CORS only has to admit the gateway's own
-# origin (and no credentials: llama.cpp has no notion of a session).
+# Only the gateway is a browser client of the router.
 llamacpp_cors_origins: "https://bifrost.{{ vault_domainname_hs | default('localhost') }}"
 llamacpp_preset_file: /etc/llama/models.ini
-# The window a model gets when it sets none of its own. models.yml owns the
-# value (llm_default_ctx) because hermes has to be told the same number.
+# models.yml owns the window (llm_default_ctx): hermes is told the same number.
 llamacpp_global_args:
   n-gpu-layers: 99
   c: "{{ llm_default_ctx | default(8192) }}"
