@@ -1,7 +1,8 @@
 ---
 # The models this host serves; the router preset, the gateway allow-list, the
 # agent's model and the dashboard are derived from it. docs/llm-models.md.
-# Flags: agent (the agent's default), agent_extra, profile (hermes), fast (SSD).
+# Flags: agent (the agent's default model), profile (that hermes profile's
+# default), fast (SSD). Every model here is reachable by the agent.
 # load-mode: dio everywhere: no model here fits the 3 GiB ARC.
 llm_models_catalogue:
   - name: Swift-1.5-Qwen3.8-27B-IQ4_XS
@@ -16,8 +17,9 @@ llm_models_catalogue:
       split-mode: tensor
       tensor-split: "1,1"
       fit: "off"
-      parallel: 3
-      kv-unified: "on"
+      # One slot: a dense model splits one pass across slots, so more of them
+      # only makes each answer slower. Only one model is resident anyway.
+      parallel: 1
       batch-size: 2048
       ubatch-size: 1024
       spec-type: draft-mtp
@@ -116,7 +118,6 @@ llm_models_catalogue:
       min-p: 0.0
 
   - name: Qwen3.8-27B-Uncensored-IQ4_XS
-    agent_extra: true
     profile: uncensored
     args:
       load-mode: dio
@@ -128,8 +129,7 @@ llm_models_catalogue:
       split-mode: tensor
       tensor-split: "1,1"
       fit: "off"
-      parallel: 3
-      kv-unified: "on"
+      parallel: 1          # dense: see Swift above
       batch-size: 2048
       ubatch-size: 1024
       spec-type: draft-mtp
@@ -171,8 +171,6 @@ llamacpp_model_overrides: >-
   {{ llm_models | selectattr('args', 'defined')
      | items2dict(key_name='name', value_name='args') }}
 agent_model: "{{ (llm_models | selectattr('agent', 'defined') | first).name }}"
-agent_models: "{{ llm_models | selectattr('agent', 'defined') | map(attribute='name') | list }}"
-agent_extra_models: "{{ llm_models | selectattr('agent_extra', 'defined') | map(attribute='name') | list }}"
 profile_models: >-
   {{ llm_models | selectattr('profile', 'defined')
      | items2dict(key_name='profile', value_name='name') }}

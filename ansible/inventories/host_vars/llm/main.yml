@@ -16,10 +16,10 @@ llm_gpu_count: 2
 # allow-lists live. Values must keep Bifrost's `sk-bf-` prefix or it replaces
 # them with one it generated.
 bifrost_api_base: "http://{{ ansible_host }}:{{ llamacpp_port }}"
-# Every model an agent may call: the one marked `agent: true` plus the ones
-# marked `agent_extra: true` (the `uncensored` profile's model). Both flags live
-# in models.yml, so a model rename never has to be chased into this file.
-bifrost_agent_models: "{{ agent_models + agent_extra_models }}"
+# Every model in models.yml is reachable by the agent; the flags there only pick
+# each profile's default (censored ones for `default`, the abliterated for
+# `uncensored`). Restricting the key to two names left hermes unable to switch.
+bifrost_agent_models: "{{ llm_models | map(attribute='name') | list }}"
 bifrost_virtual_keys:
   # The agent: the models its own profiles use.
   - id: vk-agent
