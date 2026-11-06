@@ -1,6 +1,51 @@
 ---
 # A single swap device sized as a share of RAM.
 
+# --- disk swap ------------------------------------------------------------
+# The file has to exist before fstab can activate it at boot, and it must be
+# hole-free: swapon refuses a file with holes.
+- name: Check for the swap file
+  ansible.builtin.stat:
+    path: "{{ pve_swap_file }}"
+  register: pve_swap_stat
+
+- name: Create the swap file
+  ansible.builtin.command:
+    cmd: fallocate -l {{ pve_swap_file_size_mb }}M {{ pve_swap_file }}
+    creates: "{{ pve_swap_file }}"
+
+- name: Restrict the swap file
+  ansible.builtin.file:
+    path: "{{ pve_swap_file }}"
+    owner: root
+    group: root
+    mode: "0600"
+
+- name: Format the swap file
+  ansible.builtin.command:
+    cmd: mkswap {{ pve_swap_file }}
+  when: not pve_swap_stat.stat.exists
+
+- name: Activate the swap file at boot
+  ansible.posix.mount:
+    path: none
+    src: "{{ pve_swap_file }}"
+    fstype: swap
+    opts: "sw,pri={{ pve_swap_file_priority }}"
+    state: present
+
+- name: Read the active swap devices
+  ansible.builtin.command:
+    cmd: swapon --show=NAME --noheadings
+  register: pve_swap_active
+  changed_when: false
+
+- name: Activate the swap file now
+  ansible.builtin.command:
+    cmd: swapon {{ pve_swap_file }} --priority {{ pve_swap_file_priority }}
+  when: pve_swap_file not in pve_swap_active.stdout
+
+# --- zram -----------------------------------------------------------------
 - name: Install zram-tools
   ansible.builtin.apt:
     name: zram-tools

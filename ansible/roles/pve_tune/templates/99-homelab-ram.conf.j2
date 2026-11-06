@@ -1,0 +1,11 @@
+# Managed by Ansible (roles/pve_tune).
+# Swap lives on zram (priority 100) with /swapfile as the overflow (priority
+# 10), so a swap-in from zram must not read ahead.
+vm.page-cluster = 0
+# Root is a SATA SSD and the 20 GiB swap file sits on it: a large dirty burst
+# would stall the device for seconds.
+vm.dirty_ratio = 10
+vm.dirty_background_ratio = 5
+vm.dirty_expire_centisecs = 1500
+# One socket, no NUMA: the balancer only costs scans.
+kernel.numa_balancing = 0

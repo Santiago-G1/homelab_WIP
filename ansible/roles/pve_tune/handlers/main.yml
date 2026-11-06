@@ -1,4 +1,8 @@
 ---
+- name: Reload sysctl
+  ansible.builtin.command:
+    cmd: sysctl --system
+
 - name: Reload systemd
   ansible.builtin.systemd:
     daemon_reload: true

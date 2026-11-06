@@ -29,6 +29,14 @@
     state: started
 
 # ksmtuned only counts qemu memory, and this host runs containers.
+# Memory tunables that go with roles/pve_zram: zram first, SSD swap second.
+- name: Write the memory tunables
+  ansible.builtin.template:
+    src: 99-homelab-ram.conf.j2
+    dest: /etc/sysctl.d/99-homelab-ram.conf
+    mode: "0644"
+  notify: Reload sysctl
+
 - name: Retire ksmtuned (it only tracks qemu, and there are no VMs here)
   ansible.builtin.systemd:
     name: ksmtuned.service

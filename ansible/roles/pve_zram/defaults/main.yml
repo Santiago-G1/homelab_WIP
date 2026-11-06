@@ -1,6 +1,15 @@
 ---
 # One zram device, a share of RAM. A second device buys nothing: every zram
-# page costs host memory either way.
-pve_zram_percent: 75
+# page costs host memory either way. 25 % is a cache for compressible pages:
+# at 75 % it filled with llama.cpp's quantised buffers (1.7:1) and held ~7 GiB
+# of the host's 15.8 GiB hostage.
+pve_zram_percent: 25
 pve_zram_algorithm: zstd
 pve_zram_priority: 100
+
+# Disk swap under the compressed device. Without it the kernel has nowhere to
+# go once zram fills, and zram must never be the only swap on a small host.
+# Priority 10 < 100: new swap-outs go to zram first, the overflow lands here.
+pve_swap_file: /swapfile
+pve_swap_file_size_mb: 20480
+pve_swap_file_priority: 10
