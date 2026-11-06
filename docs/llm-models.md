@@ -1,4 +1,4 @@
-# Local models (llama.cpp + LiteLLM + Hermes)
+# Local models (llama.cpp + Bifrost + Hermes)
 
 How to add, remove or switch the models served on the AI host (`llm`,
 `192.168.10.26`), and how the agent picks one.
@@ -20,10 +20,9 @@ Everything else is derived from that list:
 
 | Derived | Used by |
 | --- | --- |
-| `litellm_models` | `litellm-config.yaml.j2` → LiteLLM `/v1/models` |
 | `llamacpp_model_overrides` | `models.ini.j2` → the router's per-model preset |
 | `agent_model` | `hermes-config.yaml.j2` → the model both agents call |
-| `agent_models` | the LiteLLM virtual key's allowlist |
+| `agent_models` | the agent's Bifrost virtual key allowlist (`bifrost_virtual_keys`) |
 | `llamacpp_fast_models` | the models marked `fast: true` (kept on the AI host's SSD) |
 
 `name` is the `.gguf` file name **without** its extension: that is what the
@@ -54,8 +53,8 @@ so a new model is data, not a build.
    ```
 
    This re-renders the router preset, restarts `llama-server` only if it
-   changed, re-deploys LiteLLM and both Hermes stacks and reconciles the
-   agent's virtual-key access. Models without an `args` entry inherit
+   changed, re-deploys Bifrost and both Hermes stacks, and with them the
+   agent key's model allowlist. Models without an `args` entry inherit
    `llamacpp_global_args` (8K context), which almost always fits; the 64K +
    `draft-mtp` presets are the VRAM-hungry ones.
 
@@ -89,10 +88,13 @@ Two things to keep in mind:
 Set `agent: true` on the wanted entry and run the same playbook. Hermes'
 `config.yaml` and the model name are both re-rendered.
 
-LiteLLM keeps a virtual key's model allowlist in its **database**, not in
-`config.yaml`, so the `stacks` role reassigns it through the admin API on every
-deploy (the `agent_keys` entry under the `litellm` stack in
-`host_vars/llm/main.yml`). No dashboard surgery is needed.
+The allowlist lives in `bifrost_virtual_keys` (`host_vars/llm/main.yml`), and
+`bifrost-config.json.j2` renders it into the gateway's `config.json`, which the
+gateway reconciles into its SQLite store on every start. No dashboard surgery is
+needed, and a key only ever sees the models it is allowed to use:
+`/v1/models` is filtered per key and anything else answers 400 before the
+request reaches the router, so an agent cannot make the router load another
+model by guessing its name.
 
 ## Prefill is the wait, and the prefix is what makes it short
 
