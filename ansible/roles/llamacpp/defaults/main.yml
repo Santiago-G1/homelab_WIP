@@ -87,3 +87,10 @@ llamacpp_kmic_env:
   # speculative-sampling rule: same output distribution, more drafts accepted.
   LLAMA_SPEC_SAMPLE_TEMP: "1.0"
   LLAMA_SPEC_DRAFT_TOPK: "20"
+  # The FA/GEMM fold surface as it was measured on 3-nov, back in the unit:
+  # with f16 KV the compiled default (FA_FOLD=1) does not take the fold path, and
+  # 7-nov on the 35B at 16k that is 578.7 vs 591.5 t/s prefill. Decode unchanged.
+  GGML_CUDA_FA_FOLD: "2"
+  GGML_CUDA_FA_FOLD_SPLIT: "4"
+  GGML_CUDA_GEMM_FOLD_MINROWS: "512"
+  GGML_CUDA_FA_GEMM_MINKV: "1024"
