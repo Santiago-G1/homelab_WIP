@@ -3,6 +3,10 @@
 [Unit]
 Description=Homelab sampler: RAM, pressure, ARC, temps and GPU every {{ pve_tune_sampler_interval }} s
 After=multi-user.target
+# Never give up: 7-nov the unit died after a boot where nvidia-smi was not
+# ready and five restarts in 10 s hit the default start limit, so the only
+# witness of the next reset was not running.
+StartLimitIntervalSec=0
 
 [Service]
 Type=simple
