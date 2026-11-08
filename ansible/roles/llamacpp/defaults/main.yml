@@ -94,6 +94,10 @@ llamacpp_kmic_env:
   GGML_CUDA_FA_FOLD_SPLIT: "4"
   GGML_CUDA_GEMM_FOLD_MINROWS: "512"
   GGML_CUDA_FA_GEMM_MINKV: "1024"
+  # fp16 expert GEMM for prefill (p60-moe-gemm.cu, opt-in since OPTLOG 328). 8-nov on the Cyber-Tiel
+  # 35B, ub 512: pp512 d0 851.6 -> 1093.2 t/s (+28.4 %), at 16k depth 716.0 -> 885.0 (+23.5 %); decode
+  # unchanged and PPL 4.9516 -> 4.9341, i.e. the fp16 chains are closer to exact than MMQ.
+  GGML_CUDA_P60_MOE_GEMM: "1"
   # Draft nucleus: the target samples with top-p 0.95, so draft mass outside that nucleus
   # can never be accepted. Truncating the draft q to it is lossless (the truncated q is what
   # gets recorded in dp.dists) and measured 7-nov on the 27B, fixed seed, 512 tok, prod env:
