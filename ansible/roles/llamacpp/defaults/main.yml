@@ -102,4 +102,8 @@ llamacpp_kmic_env:
   # 2k, together they are positive at both depths. topp95 alone is stronger at 2k (+17 %)
   # but -2.5 % at 40k; a depth-gated topp is the follow-up (see PLAN-NOCHE).
   LLAMA_SPEC_DRAFT_TOPP: "0.95"
-  LLAMA_MTP_DRAFT_VOCAB: "65536"
+  # Only below this KV depth: measured 8-nov, topp 0.95 is +16.5 % at 2k (decode 41.4 -> 48.3 t/s,
+  # acceptance 0.674 -> 0.849) and exactly neutral at 40k (same acceptance as base) once gated.
+  # Ungated it loses 2.5 % at 40k. The vocab cut (MTP_DRAFT_VOCAB=65536) was +3.4 % at 40k and
+  # -14 % at 2k, so it is NOT deployed; retest it with real traffic before enabling.
+  LLAMA_SPEC_DRAFT_TOPP_DEPTH: "16384"
