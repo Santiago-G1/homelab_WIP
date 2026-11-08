@@ -21,7 +21,7 @@ llm_models_catalogue:
       # only makes each answer slower. Only one model is resident anyway.
       parallel: 1
       batch-size: 2048
-      ubatch-size: 1024
+      ubatch-size: 2048   # prefill +5,7 % d0 / +5,4 % a 16k, decode intacto (OPTLOG 334)
       spec-type: draft-mtp
       spec-draft-n-max: 3
       spec-draft-p-min: 0.2
