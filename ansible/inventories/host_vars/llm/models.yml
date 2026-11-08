@@ -81,7 +81,7 @@ llm_models_catalogue:
       parallel: 3          # three slots share one KV; ub 512 is what fits
       kv-unified: "on"
       batch-size: 2048
-      ubatch-size: 512
+      ubatch-size: 1024   # prefill +6,4 % (1807 -> 1924 t/s a pp4096), decode intacto (OPTLOG 337)
       cache-reuse: 256
       spec-type: draft-mtp
       spec-draft-n-max: 2
