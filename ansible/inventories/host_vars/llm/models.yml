@@ -146,6 +146,12 @@ llm_models_catalogue:
       min-p: 0.0
       cache-ram: 2048
       cache-reuse: 256
+      # Vision: the projector is what turns pixels into tokens. It is not part
+      # of the model file, so a quant of a VL model is blind without it.
+      mmproj: /mnt/data/models/mmproj-Qwen3.8-27B-Uncensored-f16.gguf
+      # The 27B does not fit in one card, but the projector goes on the one
+      # with the fast link (0000:01:00.0 = Gen3 x16; the other is Gen2 x4).
+      mmproj-device: CUDA0
 
 # Window for a model that sets none: the router's `[*]` preset, and what hermes
 # is told for it.
