@@ -131,7 +131,7 @@ llm_models_catalogue:
       fit: "off"
       parallel: 1          # dense: see Swift above
       batch-size: 2048
-      ubatch-size: 1024
+      ubatch-size: 2048   # prefill +5,5 % d0 y +5,3 % a 16k, decode intacto (OPTLOG 334)
       spec-type: draft-mtp
       spec-draft-n-max: 3
       spec-draft-p-min: 0.2
