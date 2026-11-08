@@ -94,3 +94,12 @@ llamacpp_kmic_env:
   GGML_CUDA_FA_FOLD_SPLIT: "4"
   GGML_CUDA_GEMM_FOLD_MINROWS: "512"
   GGML_CUDA_FA_GEMM_MINKV: "1024"
+  # Draft nucleus: the target samples with top-p 0.95, so draft mass outside that nucleus
+  # can never be accepted. Truncating the draft q to it is lossless (the truncated q is what
+  # gets recorded in dp.dists) and measured 7-nov on the 27B, fixed seed, 512 tok, prod env:
+  # 2k 41.5 -> 44.0 t/s (acceptance 0.674 -> 0.729), 40k 35.0 -> 36.4 (0.602 -> 0.629).
+  # Combo = this + LLAMA_MTP_DRAFT_VOCAB=65536: the vocab cut alone gains at 40k and loses at
+  # 2k, together they are positive at both depths. topp95 alone is stronger at 2k (+17 %)
+  # but -2.5 % at 40k; a depth-gated topp is the follow-up (see PLAN-NOCHE).
+  LLAMA_SPEC_DRAFT_TOPP: "0.95"
+  LLAMA_MTP_DRAFT_VOCAB: "65536"
