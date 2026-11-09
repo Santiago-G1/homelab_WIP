@@ -192,6 +192,27 @@
   register: hermes_cfg
   when: stack.name == 'hermes'
 
+# The routes live in a file hermes owns (seeded once, never re-rendered), so
+# nothing else would notice them disappearing.
+- name: "{{ stack.name }} | the routes the host declares are in the gateway config"
+  ansible.builtin.assert:
+    that: >-
+      ((item.content | b64decode | from_yaml).get('profile_routes')
+       or (item.content | b64decode | from_yaml).get('gateway', {}).get('profile_routes')
+       or []) | length >= (hermes_profile_routes | default([])) | length
+    fail_msg: >-
+      {{ item.item.key }}: profile_routes is missing from its config.yaml. Hermes
+      owns that file (force: false), so seed it by hand:
+      {{ hermes_profile_routes | default([]) | to_json }}
+    quiet: true
+  loop: "{{ hermes_cfg.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.key }}"
+  when:
+    - stack.name == 'hermes'
+    - item.item.key == 'default'
+    - hermes_profile_routes | default([]) | length > 0
+
 - name: "{{ stack.name }} | teach the agent each model's window"
   ansible.builtin.command:
     argv:

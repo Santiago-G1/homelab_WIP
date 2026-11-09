@@ -119,6 +119,12 @@ hermes_agents:
     approvals_mode: "off"
     unattended_mode: "approve"
     terminal_backend: local
+    # Approvals are off, so these are the only net left (they block before any
+    # mode is consulted). Same three as `default`, on purpose.
+    deny:
+      - "rm -rf /*"
+      - "mkfs*"
+      - "dd *of=/dev/*"
     # A review fork after each turn would be a second 35B call.
     background_review: false
     memory_provider: holographic
