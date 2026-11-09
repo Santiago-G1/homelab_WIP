@@ -8,7 +8,9 @@ services:
     command: gateway run   # s6 supervises the gateway and the dashboard
 
     environment:
-      - HERMES_DASHBOARD=1
+      # The web UI is an s6 service inside this container, not a stack: it can be
+      # stopped (`s6-svc -d`) and the playbook puts it back on the next deploy.
+      - HERMES_DASHBOARD=${HERMES_WEBUI:-1}
       - HERMES_DASHBOARD_HOST=0.0.0.0
       - HERMES_DASHBOARD_PORT=9119
       # A non-loopback bind requires an auth provider; Caddy sits in front.
