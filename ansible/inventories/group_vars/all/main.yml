@@ -3,7 +3,6 @@
 timezone: America/Bogota
 lan_cidr: 192.168.10.0/24    # advertised by the Tailscale subnet router
 homelab_repo: Santiago-G1/homelab_WIP
-# Checkout on the control node: hermes' AGENTS.md sends the agent there.
 devops_repo_path: /root/nooblab
 
 # Merged into every stack's .env; a host adds to it with `stack_env_host`.

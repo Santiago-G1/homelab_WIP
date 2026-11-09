@@ -52,7 +52,7 @@ searxng_base_url: "https://search.{{ vault_domainname_hs }}/"
 # host, not role internals.
 llamacpp_models_dir: /mnt/data/models
 llamacpp_user: llama
-llamacpp_service: llama-server   # the unit; verify.yml runs without the role
+llamacpp_service: llama-server   # verify.yml runs without the role defaults
 
 # Models marked `fast: true` in models.yml are kept on the local SSD.
 llamacpp_fast_models_dir: /var/lib/llama/models
@@ -65,7 +65,6 @@ llamacpp_fast_models: "{{ llm_models | selectattr('fast', 'defined') | map(attri
 hermes_llm_uri: "http://bifrost:{{ service_ports.bifrost }}/v1"
 # Container port, not the published one: both stacks share `ai-stack`.
 hermes_searxng_uri: "http://{{ searxng_host }}:{{ searxng_container_port }}"
-# signal-cli daemon (stack `signal`): JSON-RPC + SSE on the ai-stack network.
 hermes_signal_uri: "http://signal-cli:{{ signal_cli_container_port }}"
 hermes_data_root: /mnt/data/hermes   # host side of the mount
 hermes_home: /opt/data               # where the container mounts it
@@ -85,7 +84,7 @@ hermes_agents:
     approvals_mode: "smart"
     unattended_mode: "deny"
     terminal_backend: local
-    # The only one with messaging channels (Telegram, and Signal through signal-cli).
+    # The only one with messaging channels.
     telegram: true
     signal: true
     memory_provider: holographic
@@ -126,9 +125,9 @@ hermes_agents:
 
       You have the whole host: shell, Docker and the pool. Do the work, do not
       ask, and report what you changed.
-# signal-cli daemon for the agent's Signal channel. 0.14.x is Java 25 bytecode.
+# 0.14.x is Java 25 bytecode (see the stack's Dockerfile).
 signal_cli_version: "0.14.10"
-signal_cli_container_port: 8080       # its JSON-RPC port inside ai-stack
+signal_cli_container_port: 8080
 # On demand: ComfyUI needs the whole card, so the GPU panel starts it in Image mode.
 comfyui_version: v0.42.5
 comfyui_gguf_nodes_version: 6ea2651e7df66d7585f6ffee804b20e92fb38b8a
@@ -168,7 +167,6 @@ stacks:
     src: ai-services/signal
     build: true
     dirs:
-      # The linked account's keys: the only state this stack has.
       - { path: data, mode: "0700" }
     env:
       SIGNAL_CLI_VERSION: "{{ signal_cli_version }}"

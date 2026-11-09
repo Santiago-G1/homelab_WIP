@@ -75,7 +75,6 @@ llamacpp_cmake_args:
   - -DCMAKE_CUDA_HOST_COMPILER=/usr/bin/g++
   - -DGGML_CCACHE=OFF
 
-# What this role builds, and the unit it installs.
 llamacpp_binary: "{{ llamacpp_src_dir }}/build/bin/llama-server"
 llamacpp_service: llama-server
 

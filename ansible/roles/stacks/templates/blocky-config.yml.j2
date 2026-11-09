@@ -18,8 +18,6 @@ bootstrapDns:
 
 ports:
   dns: 53
-  # Both serve DoH, the API and metrics: 80 for the LAN, the second one is what
-  # `${PUBLISH_PORT}` maps to, where Caddy arrives.
   http:
     - 80
     - {{ blocky_container_port }}

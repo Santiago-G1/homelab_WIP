@@ -26,8 +26,6 @@ vault_immich_version: v3.2.2
 #   openssl rand -hex 24   (prefixed with sk-bf-)
 vault_bifrost_agent_key: sk-bf-change-me
 vault_bifrost_client_key: sk-bf-change-me
-# GPU panel (stack `gpu-panel` on the AI host): its dashboard login and the
-# bearer token the panel's API and the Glance widget read.
 vault_gpu_panel_password: CHANGE-ME
 vault_gpu_panel_token: CHANGE-ME
 vault_llm_mount: /path/to/data
