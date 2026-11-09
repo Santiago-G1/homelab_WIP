@@ -191,6 +191,9 @@ pages:
                 template: |
                   {%- raw %}
                   {{ if eq .Response.StatusCode 200 }}
+                  {{ if gt (.JSON.Int "inventory.missing") 0 }}
+                  <p class="color-negative margin-bottom-10">{{ .JSON.Int "inventory.missing" }} of {{ .JSON.Int "inventory.expected" }} cards missing</p>
+                  {{ end }}
                   <div class="flex justify-between text-center">
                     <div>
                       <div class="color-highlight size-h3">{{ .JSON.String "gpu.temp" }}°</div>
@@ -206,11 +209,26 @@ pages:
                     </div>
                   </div>
                   <ul class="list list-gap-10 margin-top-15">
-                    <li>VRAM {{ .JSON.String "gpu.mem_used" }} / {{ .JSON.String "gpu.mem_total" }} MiB</li>
-                    <li>llama.cpp: {{ .JSON.Int "llama_counts.loaded" }} loaded of {{ .JSON.Int "llama_counts.total" }}</li>
-                    <li>Immich ML: {{ .JSON.String "immich_ml" }}</li>
-                    <li>Jellyfin: {{ .JSON.String "jellyfin_accel" }}</li>
-                    <li>Auto: {{ if .JSON.Bool "auto.enabled" }}on{{ else }}off{{ end }}, idle {{ div (.JSON.Int "auto.idle_seconds" | toFloat) 60 | toInt }} min</li>
+                    {{ range .JSON.Array "gpus" }}
+                    <li>
+                      <span class="color-primary-if-not-visited">GPU {{ .String "index" }}</span>
+                      <ul class="list-horizontal-text">
+                        <li>{{ .String "mem_used" }}/{{ .String "mem_total" }} MiB</li>
+                        <li>{{ .String "temp" }}°</li>
+                        <li>{{ .String "power_draw" }}/{{ .String "power_limit" }} W</li>
+                      </ul>
+                    </li>
+                    {{ else }}
+                    <li class="color-subdue">No card answered.</li>
+                    {{ end }}
+                    {{ range .JSON.Array "disk_models" }}
+                    {{ if .Bool "loaded" }}
+                    <li>● {{ .String "id" }}</li>
+                    {{ end }}
+                    {{ end }}
+                    <li>Models: {{ .JSON.Int "llama_counts.loaded" }} loaded · {{ .JSON.Int "llama_counts.total" }} served · {{ len (.JSON.Array "disk_models") }} on disk</li>
+                    <li>Immich ML: {{ .JSON.String "immich_ml" }} · ComfyUI: {{ .JSON.String "comfyui.state" }} · Jellyfin: {{ .JSON.String "jellyfin_accel" }}</li>
+                    <li>Auto: {{ if .JSON.Bool "auto.enabled" }}on{{ else }}off{{ end }}, idle {{ div (.JSON.Int "auto.idle_seconds" | toFloat) 60 | toInt }} min · {{ .JSON.String "auto.last_action" }}</li>
                   </ul>
                   {{ else }}
                   <p class="color-negative">{{ .Response.Status }}</p>
