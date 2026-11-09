@@ -72,3 +72,21 @@ gateway:
     telegram:
       enabled: true
 {% endif %}
+{% if hermes_profile_routes | default([]) and (a.telegram | default(false) or a.signal | default(false)) %}
+
+# Top level on purpose: `gateway.profile_routes` is only a fallback for when this
+# key is absent, and a top-level value would silently win over it.
+# One bot per channel; these decide which profile answers where.
+profile_routes:
+{% for route in hermes_profile_routes %}
+  - name: {{ route.name }}
+    platform: {{ route.platform }}
+    profile: {{ route.profile }}
+{% if route.user_id is defined %}
+    user_id: "{{ route.user_id }}"
+{% endif %}
+{% if route.chat_id is defined %}
+    chat_id: "{{ route.chat_id }}"
+{% endif %}
+{% endfor %}
+{% endif %}

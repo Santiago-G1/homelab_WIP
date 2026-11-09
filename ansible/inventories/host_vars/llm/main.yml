@@ -76,6 +76,12 @@ hermes_request_timeout_s: 1800
 hermes_uid: "10000"
 hermes_gid: "10000"
 
+# Which profile answers where. The bot of every channel lives in `default`; a
+# route hands the conversation to another served profile. Signal goes to the one
+# that does the work (approvals off), Telegram stays on the cautious one.
+hermes_profile_routes:
+  - { name: signal-uncensored, platform: signal, profile: uncensored, user_id: "{{ vault_signal_account }}" }
+
 hermes_agents:
   # Asks before acting; finds another way when nobody answers.
   default:
