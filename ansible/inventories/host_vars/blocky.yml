@@ -1,4 +1,9 @@
 ---
+# blocky's own listener, i.e. the right side of `${PUBLISH_PORT:?}:4000` in its
+# compose. `service_ports.blocky` is the published one: today both are 4000, and
+# conflating them would make a republish change the port blocky listens on.
+blocky_container_port: 4000
+
 stacks:
   - name: blocky
     src: network-services/blocky

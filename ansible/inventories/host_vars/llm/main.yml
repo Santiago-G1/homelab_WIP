@@ -52,6 +52,7 @@ searxng_base_url: "https://search.{{ vault_domainname_hs }}/"
 # host, not role internals.
 llamacpp_models_dir: /mnt/data/models
 llamacpp_user: llama
+llamacpp_service: llama-server   # the unit; verify.yml runs without the role
 
 # Models marked `fast: true` in models.yml are kept on the local SSD.
 llamacpp_fast_models_dir: /var/lib/llama/models
@@ -65,7 +66,7 @@ hermes_llm_uri: "http://bifrost:{{ service_ports.bifrost }}/v1"
 # Container port, not the published one: both stacks share `ai-stack`.
 hermes_searxng_uri: "http://{{ searxng_host }}:{{ searxng_container_port }}"
 # signal-cli daemon (stack `signal`): JSON-RPC + SSE on the ai-stack network.
-hermes_signal_uri: "http://signal-cli:8080"
+hermes_signal_uri: "http://signal-cli:{{ signal_cli_container_port }}"
 hermes_data_root: /mnt/data/hermes   # host side of the mount
 hermes_home: /opt/data               # where the container mounts it
 hermes_profiles_dir: profiles        # hermes' layout: <home>/profiles/<name>
@@ -127,6 +128,7 @@ hermes_agents:
       ask, and report what you changed.
 # signal-cli daemon for the agent's Signal channel. 0.14.x is Java 25 bytecode.
 signal_cli_version: "0.14.10"
+signal_cli_container_port: 8080       # its JSON-RPC port inside ai-stack
 # On demand: ComfyUI needs the whole card, so the GPU panel starts it in Image mode.
 comfyui_version: v0.42.5
 comfyui_gguf_nodes_version: 6ea2651e7df66d7585f6ffee804b20e92fb38b8a

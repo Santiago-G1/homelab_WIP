@@ -5,12 +5,12 @@ After=network-online.target
 Wants=network-online.target
 
 [Service]
-User=llama
-Group=llama
+User={{ llamacpp_user }}
+Group={{ llamacpp_user }}
 SupplementaryGroups=video
-CacheDirectory=llama
-Environment=LLAMA_CACHE=/var/cache/llama
-ExecStart={{ llamacpp_src_dir }}/build/bin/llama-server \
+CacheDirectory={{ llamacpp_user }}
+Environment=LLAMA_CACHE=/var/cache/{{ llamacpp_user }}
+ExecStart={{ llamacpp_binary }} \
   --models-dir {{ llamacpp_models_dir }} \
   --models-preset {{ llamacpp_preset_file }} \
   --models-max {{ llamacpp_models_max }} \

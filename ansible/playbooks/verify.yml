@@ -112,7 +112,7 @@
   gather_facts: false
   tasks:
     - name: llama-server service is active
-      ansible.builtin.command: systemctl is-active llama-server
+      ansible.builtin.command: systemctl is-active {{ llamacpp_service }}
       changed_when: false
 
     - name: GPU is visible
@@ -145,7 +145,7 @@
   gather_facts: false
   vars:
     # Syncthing publishes nothing: it runs with network_mode: host.
-    host_network_ports: [8384]
+    host_network_ports: ["{{ service_ports.syncthing }}"]
     all_published_ports: >-
       {{ groups['docker_hosts'] | map('extract', hostvars, 'published_ports')
          | select('defined') | flatten | unique | sort }}

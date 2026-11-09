@@ -75,6 +75,10 @@ llamacpp_cmake_args:
   - -DCMAKE_CUDA_HOST_COMPILER=/usr/bin/g++
   - -DGGML_CCACHE=OFF
 
+# What this role builds, and the unit it installs.
+llamacpp_binary: "{{ llamacpp_src_dir }}/build/bin/llama-server"
+llamacpp_service: llama-server
+
 # Built by hand (docs/llm-models.md). When the binary exists the drop-in below
 # runs it; otherwise the role's own build is used.
 llamacpp_kmic_binary: /opt/llama.cpp-kmic/build-opt/bin/llama-server
