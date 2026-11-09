@@ -1,0 +1,45 @@
+# signal-cli: the daemon behind Hermes' Signal channel. Link the phone number once with
+#   docker exec -it signal-cli signal-cli link -n hermes
+# and never publish this port: the HTTP API authenticates nobody.
+services:
+  signal-cli:
+    build:
+      context: .
+      args:
+        SIGNAL_CLI_VERSION: ${SIGNAL_CLI_VERSION:?SIGNAL_CLI_VERSION is required}
+    image: signal-cli:local
+    container_name: signal-cli
+    restart: unless-stopped
+
+    # No `--account`: with a single linked account the daemon serves it by default.
+    # `on-start` keeps receiving while Hermes reconnects its SSE stream.
+    command: ["daemon", "--http", "0.0.0.0:8080", "--no-receive-stdout"]
+
+    environment:
+      # The account store lives under $XDG_DATA_HOME/signal-cli, i.e. in the volume below.
+      - XDG_DATA_HOME=/var/lib/signal-cli
+      - JAVA_TOOL_OPTIONS=-Xmx384m -XX:MaxMetaspaceSize=192m -XX:+ExitOnOutOfMemoryError
+
+    volumes:
+      # The account's keys: losing this directory means linking again by QR.
+      - ./data:/var/lib/signal-cli
+
+    networks:
+      - ai-stack
+
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1G
+
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/api/v1/check"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+networks:
+  ai-stack:
+    external: true

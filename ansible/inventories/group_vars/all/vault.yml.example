@@ -46,6 +46,10 @@ vault_agent_telegram_bot_token: 123456789:replace-me
 # Telegram account allowed to talk to the agent; numeric ID only.
 vault_agent_telegram_user_id: 123456789
 
+# Signal: the linked account (E.164) and who may DM the agent.
+vault_signal_account: "+15551234567"
+vault_signal_allowed_users: "+15551234567"
+
 # Bot the Prometheus alertmanager posts to; it can be the same bot.
 vault_alertmanager_telegram_bot_token: 123456789:replace-me
 
