@@ -190,10 +190,12 @@ pages:
                   x-api-token: "${GPU_PANEL_TOKEN}"
                 template: |
                   {%- raw %}
+                  {{ $disk := .JSON.Array "disk_models" }}
                   {{ if eq .Response.StatusCode 200 }}
-                  {{ if gt (.JSON.Int "inventory.missing") 0 }}
+                  {{ if gt (.JSON.Int "inventory.missing") 0 }}{{ if gt (.JSON.Int "inventory.expected") 0 }}
                   <p class="color-negative margin-bottom-10">{{ .JSON.Int "inventory.missing" }} of {{ .JSON.Int "inventory.expected" }} cards missing</p>
-                  {{ end }}
+                  {{ end }}{{ end }}
+                  <div class="k size-h6">GPU {{ .JSON.String "gpu.index" }}</div>
                   <div class="flex justify-between text-center">
                     <div>
                       <div class="color-highlight size-h3">{{ .JSON.String "gpu.temp" }}°</div>
@@ -221,14 +223,14 @@ pages:
                     {{ else }}
                     <li class="color-subdue">No card answered.</li>
                     {{ end }}
-                    {{ range .JSON.Array "disk_models" }}
+                    {{ range $disk }}
                     {{ if .Bool "loaded" }}
                     <li>● {{ .String "id" }}</li>
                     {{ end }}
                     {{ end }}
-                    <li>Models: {{ .JSON.Int "llama_counts.loaded" }} loaded · {{ .JSON.Int "llama_counts.total" }} served · {{ len (.JSON.Array "disk_models") }} on disk</li>
-                    <li>Immich ML: {{ .JSON.String "immich_ml" }} · ComfyUI: {{ .JSON.String "comfyui.state" }} · Jellyfin: {{ .JSON.String "jellyfin_accel" }}</li>
-                    <li>Auto: {{ if .JSON.Bool "auto.enabled" }}on{{ else }}off{{ end }}, idle {{ div (.JSON.Int "auto.idle_seconds" | toFloat) 60 | toInt }} min · {{ .JSON.String "auto.last_action" }}</li>
+                    <li>Models: {{ .JSON.Int "llama_counts.loaded" }} loaded · {{ .JSON.Int "llama_counts.total" }} served{{ if .JSON.Exists "disk_models.error" }} · models folder unreadable{{ else if $disk }} · {{ len $disk }} on disk{{ end }}</li>
+                    <li>Immich ML: {{ if .JSON.Exists "immich_ml.error" }}error{{ else }}{{ .JSON.String "immich_ml" }}{{ end }} · ComfyUI: {{ .JSON.String "comfyui.state" }} · Jellyfin: {{ .JSON.String "jellyfin_accel" }}</li>
+                    <li>Auto: {{ if .JSON.Bool "auto.enabled" }}on{{ else }}off{{ end }}, idle {{ div (.JSON.Int "auto.idle_seconds" | toFloat) 60 | toInt }} min{{ if .JSON.String "auto.last_action" }} · {{ .JSON.String "auto.last_action" }} at {{ .JSON.String "auto.last_action_at" }}{{ end }}</li>
                   </ul>
                   {{ else }}
                   <p class="color-negative">{{ .Response.Status }}</p>
