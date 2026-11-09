@@ -232,6 +232,9 @@ stacks:
       COMFY_CONTAINER: comfyui
       # Only these ids are ever shown; anything else stays unnamed.
       LLAMA_PUBLIC_MODELS: "{{ llm_models | map(attribute='name') | join(',') }}"
+      # The folder the panel lists: same path the router serves from, as seen
+      # inside this CT (the panel reads it over SSH, through AI_CTID).
+      LLAMA_MODELS_DIR: "{{ llamacpp_models_dir }}"
       # A card that does not initialise is not an error anywhere else: the
       # panel compares this with what nvidia-smi answers.
       GPU_EXPECTED: "{{ llm_gpu_count }}"
