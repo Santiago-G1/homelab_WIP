@@ -247,6 +247,11 @@ stacks:
       COMFY_URL: "http://{{ ansible_host }}:{{ service_ports.comfyui }}"
       COMFY_UI_URL: "https://comfy.{{ vault_domainname_hs }}/"
       COMFY_CONTAINER: comfyui
+      # The agent's web UI: the panel moves the s6 service inside this container,
+      # so the same switch the playbook reconciles is also on the dashboard.
+      HERMES_WEBUI_CONTAINER: hermes
+      HERMES_WEBUI_SERVICE: dashboard
+      HERMES_WEBUI_UI_URL: "https://hermes.{{ vault_domainname_hs }}/"
       # Only these ids are ever shown; anything else stays unnamed.
       LLAMA_PUBLIC_MODELS: "{{ llm_models | map(attribute='name') | join(',') }}"
       # The folder the panel lists: same path the router serves from, as seen
