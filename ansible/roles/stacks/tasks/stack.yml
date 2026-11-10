@@ -180,28 +180,6 @@
     and stack.name not in (stacks_on_demand | default([]))
   changed_when: true
 
-# The web UI is not a stack that can be left "created": it is an s6 service next
-# to the gateway. `hermes_webui` says what it should be, and this is the only
-# thing that puts it back after the operator stops it by hand.
-- name: "{{ stack.name }} | is the web UI up"
-  ansible.builtin.command:
-    cmd: docker exec {{ stack.name }} /command/s6-svstat /run/service/dashboard
-  register: hermes_webui_state
-  changed_when: false
-  failed_when: false
-  when: stack.name == 'hermes'
-
-- name: "{{ stack.name }} | the web UI matches hermes_webui"
-  ansible.builtin.command:
-    cmd: >-
-      docker exec {{ stack.name }} /command/s6-svc
-      {{ '-u' if (hermes_webui | default(true) | bool) else '-d' }}
-      /run/service/dashboard
-  when:
-    - stack.name == 'hermes'
-    - (hermes_webui | default(true) | bool) != ('up (' in (hermes_webui_state.stdout | default('')))
-  changed_when: true
-
 # Hermes owns config.yaml (it writes platform state back), so the windows go in
 # through its own CLI: a render would drop that state, and Bifrost publishes no
 # window, so without this every model is assumed to be 128K.
