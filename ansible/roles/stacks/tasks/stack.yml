@@ -180,6 +180,28 @@
     and stack.name not in (stacks_on_demand | default([]))
   changed_when: true
 
+# The web UI is not a stack that can be left "created": it is an s6 service next
+# to the gateway. `hermes_webui` says what it should be, and this is the only
+# thing that puts it back after the operator stops it by hand.
+- name: "{{ stack.name }} | is the web UI up"
+  ansible.builtin.command:
+    cmd: docker exec {{ stack.name }} /command/s6-svstat /run/service/dashboard
+  register: hermes_webui_state
+  changed_when: false
+  failed_when: false
+  when: stack.name == 'hermes'
+
+- name: "{{ stack.name }} | the web UI matches hermes_webui"
+  ansible.builtin.command:
+    cmd: >-
+      docker exec {{ stack.name }} /command/s6-svc
+      {{ '-u' if (hermes_webui | default(true) | bool) else '-d' }}
+      /run/service/dashboard
+  when:
+    - stack.name == 'hermes'
+    - (hermes_webui | default(true) | bool) != ('up (' in (hermes_webui_state.stdout | default('')))
+  changed_when: true
+
 # Hermes owns config.yaml (it writes platform state back), so the windows go in
 # through its own CLI: a render would drop that state, and Bifrost publishes no
 # window, so without this every model is assumed to be 128K.
@@ -272,40 +294,4 @@
     - stack.name == 'hermes'
     - (hermes_ctx.results | default([]) | selectattr('changed') | list | length > 0)
       or (hermes_timeout.results | default([]) | selectattr('changed') | list | length > 0)
-  changed_when: true
-
-# The web UI is an s6 service next to the gateway, not a stack that can be left
-# "created": the env gate (`HERMES_DASHBOARD`) decides, and this makes the slot
-# follow it after the operator stopped the dashboard by hand. Last on purpose:
-# the restart above would start the slot again.
-- name: "{{ stack.name }} | is the web UI up"
-  ansible.builtin.command:
-    cmd: docker exec {{ stack.name }} /command/s6-svstat -o up /run/service/dashboard
-  register: hermes_webui_state
-  changed_when: false
-  failed_when: false
-  # A recreated container needs a moment before /run/service exists.
-  until: (hermes_webui_state.rc | default(1)) == 0
-  retries: 15
-  delay: 2
-  when: stack.name == 'hermes'
-
-- name: "{{ stack.name }} | the dashboard probe answers"
-  ansible.builtin.assert:
-    that: (hermes_webui_state.rc | default(1)) == 0
-    fail_msg: >-
-      s6-svstat failed in {{ stack.name }} (rc {{ hermes_webui_state.rc | default('?') }}):
-      {{ hermes_webui_state.stderr | default('') | trim }}
-    quiet: true
-  when: stack.name == 'hermes'
-
-- name: "{{ stack.name }} | the web UI matches hermes_webui"
-  ansible.builtin.command:
-    cmd: >-
-      docker exec {{ stack.name }} /command/s6-svc
-      {{ '-u' if (hermes_webui | default(true) | bool) else '-d' }}
-      /run/service/dashboard
-  when:
-    - stack.name == 'hermes'
-    - (hermes_webui | default(true) | bool) != ((hermes_webui_state.stdout | default('') | trim) == 'true')
   changed_when: true
