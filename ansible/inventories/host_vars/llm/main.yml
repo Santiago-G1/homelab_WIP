@@ -74,8 +74,9 @@ hermes_llm_key_env: LITELLM_API_KEY  # and the variable it reads the key from
 # Client-side deadline; must not be shorter than Bifrost's (see above).
 hermes_request_timeout_s: 1800
 # The agent's web UI (the dashboard on 9119) is an s6 service inside the
-# container: `false` leaves it down, and the dashboard slot is what the playbook
-# reconciles. Stopping it by hand lasts until the next deploy, by design.
+# container, next to the gateway: `false` leaves it down and the playbook
+# reconciles the slot. No env, no recreate: changing it costs nothing.
+# A container started by hand brings the dashboard up until the next deploy.
 hermes_webui: true
 hermes_uid: "10000"
 hermes_gid: "10000"
@@ -225,9 +226,6 @@ stacks:
       HERMES_DASHBOARD_USER: admin
       HERMES_DASHBOARD_PASSWORD: "{{ vault_hermes_dashboard_password }}"
       HERMES_DASHBOARD_SECRET: "{{ vault_hermes_dashboard_secret }}"
-      # Read when the container is recreated: the playbook also reconciles the
-      # s6 slot, so stopping it by hand survives until the next deploy.
-      HERMES_WEBUI: "{{ 1 if (hermes_webui | default(true) | bool) else 0 }}"
 
   - name: gpu-panel
     # The panel has its own repository: its code is not in this one.

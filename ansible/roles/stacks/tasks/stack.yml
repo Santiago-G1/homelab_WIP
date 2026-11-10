@@ -299,13 +299,40 @@
     quiet: true
   when: stack.name == 'hermes'
 
-- name: "{{ stack.name }} | the web UI matches hermes_webui"
-  ansible.builtin.command:
-    cmd: >-
-      docker exec {{ stack.name }} /command/s6-svc
-      {{ '-u' if (hermes_webui | default(true) | bool) else '-d' }}
-      /run/service/dashboard
+# `HERMES_DASHBOARD=1` is fixed in the compose, so s6-rc brings the slot up when
+# the container boots: stopping it before that is undone a moment later. Wait for
+# it, then stop it.
+- name: "{{ stack.name }} | let the web UI settle"
+  ansible.builtin.pause:
+    seconds: 8
   when:
     - stack.name == 'hermes'
-    - (hermes_webui | default(true) | bool) != ((hermes_webui_state.stdout | default('') | trim) == 'true')
+    - not (hermes_webui | default(true) | bool)
+
+- name: "{{ stack.name }} | is the web UI up now"
+  ansible.builtin.command:
+    cmd: docker exec {{ stack.name }} /command/s6-svstat -o up /run/service/dashboard
+  register: hermes_webui_settled
+  changed_when: false
+  failed_when: false
+  when:
+    - stack.name == 'hermes'
+    - not (hermes_webui | default(true) | bool)
+
+- name: "{{ stack.name }} | the web UI is off"
+  ansible.builtin.command:
+    cmd: docker exec {{ stack.name }} /command/s6-svc -d /run/service/dashboard
+  when:
+    - stack.name == 'hermes'
+    - not (hermes_webui | default(true) | bool)
+    - (hermes_webui_settled.stdout | default('') | trim) == 'true'
+  changed_when: true
+
+- name: "{{ stack.name }} | the web UI is on"
+  ansible.builtin.command:
+    cmd: docker exec {{ stack.name }} /command/s6-svc -u /run/service/dashboard
+  when:
+    - stack.name == 'hermes'
+    - (hermes_webui | default(true) | bool)
+    - (hermes_webui_state.stdout | default('') | trim) != 'true'
   changed_when: true
