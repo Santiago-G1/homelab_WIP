@@ -276,6 +276,9 @@ homelab_services:
     title: Hermes
     icon: mdi:robot
     group: AI
+    # The dashboard is a service inside the agent's container: it can be off
+    # (`hermes_webui: false`) and that is a valid state, not an outage.
+    check: false
     note: Two profiles, one dashboard; the sidebar switches between them.
   - host: agent
     server: llm
@@ -283,5 +286,5 @@ homelab_services:
     title: Hermes (old agent link)
     icon: mdi:robot-outline
     group: AI
+    check: false
     note: Same dashboard as `hermes`, kept so the old bookmark keeps working.
-    verify: true

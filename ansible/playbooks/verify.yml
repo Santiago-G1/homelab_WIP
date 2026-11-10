@@ -137,6 +137,13 @@
         status_code: 200
       when: comfy_state.stdout | default('') == 'running'
 
+    # Same idea: the dashboard is off by choice when `hermes_webui` is false.
+    - name: Hermes web UI answers while it is on
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ service_ports.hermes }}/api/status"
+        status_code: 200
+      when: hermes_webui | default(true) | bool
+
 # The port map and the compose files declare the same ports twice; this keeps
 # them from drifting. It needs every container, so a stopped one has to be
 # reported as stopped, not as a publish that went missing.
