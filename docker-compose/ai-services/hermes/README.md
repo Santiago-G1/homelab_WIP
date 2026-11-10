@@ -54,6 +54,8 @@ docker exec hermes /command/s6-svstat /run/service/dashboard   # what it is
 `s6-svc` and `s6-svstat` live in `/command`, not in `$PATH`. Stopping the
 service does not touch the gateway: `platforms` and the models keep running.
 
-With the dashboard off, Caddy answers `502` on `hermes.` and `agent.`, which is
-why both entries in the service catalogue carry `check: false` (the same call as
+Two things worth knowing: `HERMES_DASHBOARD` is read when the container is
+**recreated**, so `hermes_webui: false` costs a restart of the agent; and with
+the dashboard off, Caddy answers `502` on `hermes.` and `agent.`, which is why
+both entries in the service catalogue carry `check: false` (the same call as
 ComfyUI when the panel has it stopped).
