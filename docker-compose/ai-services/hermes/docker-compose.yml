@@ -2,7 +2,7 @@
 # `profiles/uncensored`; both are served by this one gateway (see hermes_agents).
 services:
   hermes:
-    image: nousresearch/hermes-agent:stable@sha256:9c5561579f3ffdf333401797094ac3a743738d6c25d40f4331c7bf77b694238d
+    image: nousresearch/hermes-agent:v0.23.1@sha256:276d44685c65c0cb2a25f190b63c65c8906f9dc76486fb1c05ae71b5826bda08
     container_name: hermes
     restart: unless-stopped
     command: gateway run   # s6 supervises the gateway and the dashboard
