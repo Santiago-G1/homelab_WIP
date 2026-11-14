@@ -9,6 +9,30 @@
       changed_when: false
 
     # Empty lists up front: a collect task that never matches leaves them undefined.
+    # service_ports mirrors what the compose files publish; the last play
+    # compares both lists.
+    - name: Read the ports every stack publishes
+      ansible.builtin.command:
+        cmd: docker compose config --format json
+        chdir: "{{ stacks_root }}/{{ stack.name }}"
+      loop: "{{ stacks | default([]) }}"
+      loop_control:
+        loop_var: stack
+        label: "{{ stack.name }}"
+      register: stack_configs
+      changed_when: false
+
+    - name: Collect the published host ports
+      ansible.builtin.set_fact:
+        published_ports: >-
+          {{ (published_ports | default([]))
+             + (stack_configs.results | map(attribute='stdout') | map('from_json')
+                | map(attribute='services') | map('dict2items') | flatten
+                | map(attribute='value') | selectattr('ports', 'defined')
+                | map(attribute='ports') | flatten
+                | selectattr('published', 'defined')
+                | map(attribute='published') | map('int') | list) }}
+
     - name: Start the failure lists empty
       ansible.builtin.set_fact:
         stacks_down: []
@@ -70,30 +94,6 @@
           start it. `docker compose create` (what the role runs) builds the image first
           if it is missing.
         success_msg: "{{ ondemand_ps.results | length }} on-demand stacks created."
-
-    # service_ports mirrors what the compose files publish; the last play
-    # compares both lists.
-    - name: Read the ports every stack publishes
-      ansible.builtin.command:
-        cmd: docker compose config --format json
-        chdir: "{{ stacks_root }}/{{ stack.name }}"
-      loop: "{{ stacks | default([]) }}"
-      loop_control:
-        loop_var: stack
-        label: "{{ stack.name }}"
-      register: stack_configs
-      changed_when: false
-
-    - name: Collect the published host ports
-      ansible.builtin.set_fact:
-        published_ports: >-
-          {{ (published_ports | default([]))
-             + (stack_configs.results | map(attribute='stdout') | map('from_json')
-                | map(attribute='services') | map('dict2items') | flatten
-                | map(attribute='value') | selectattr('ports', 'defined')
-                | map(attribute='ports') | flatten
-                | selectattr('published', 'defined')
-                | map(attribute='published') | map('int') | list) }}
 
     # 0, 137 and 143 are deliberate stops (that is what the GPU panel sends);
     # anything else is a crash.
