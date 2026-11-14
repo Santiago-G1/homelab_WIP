@@ -12,8 +12,8 @@ directory per profile. `config.yaml`, `.env`, `SOUL.md` and `workspace/AGENTS.md
 are rendered into it by Ansible; the container mounts the home and the Docker
 socket, nothing else.
 
-Both profiles call the same `agent: true` model through LiteLLM, so nothing
-evicts the resident GGUF. One dashboard on 9119 serves both: the sidebar switches
+One profile calls the `agent: true` model, the other an abliterated one; both
+go through Bifrost. One dashboard on 9119 serves both: the sidebar switches
 profile, and any page takes `?profile=uncensored`.
 
 ## Plugins

@@ -1,4 +1,4 @@
-# AI stack (ComfyUI / LiteLLM) -> the "llm" container. The GPU is passed
+# AI stack (ComfyUI / Bifrost) -> the "llm" container. The GPU is passed
 # through; the NVIDIA driver lives inside the container.
 module "ai" {
   source     = "../modules/lxc"

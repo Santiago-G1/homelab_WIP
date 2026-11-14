@@ -1,7 +1,7 @@
 # SearXNG
 
 Metasearch instance on the AI host (`llm`), deployed as a Compose
-stack on the same `ai-stack` network as LiteLLM and the agents. It exists because
+stack on the same `ai-stack` network as Bifrost and the agents. It exists because
 the agent's `web_search` tool defaults to DuckDuckGo, whose HTML endpoint starts
 throttling the daemon after a handful of queries; a local metasearch has no
 per-client quota and no API key to rotate.
