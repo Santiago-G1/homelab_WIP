@@ -1,8 +1,6 @@
 ---
-# One zram device, a share of RAM. A second device buys nothing: every zram
-# page costs host memory either way. 25 % is a cache for compressible pages:
-# at 75 % it filled with llama.cpp's quantised buffers (1.7:1) and held ~7 GiB
-# of the host's 15.8 GiB hostage.
+# 25 %: at 75 % zram filled with llama.cpp's quantised buffers and held ~7 GiB.
+# One device only, a second one costs host memory for the same pages.
 pve_zram_percent: 25
 pve_zram_algorithm: zstd
 pve_zram_priority: 100

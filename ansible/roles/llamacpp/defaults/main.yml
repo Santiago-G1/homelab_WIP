@@ -90,27 +90,16 @@ llamacpp_kmic_env:
   # speculative-sampling rule: same output distribution, more drafts accepted.
   LLAMA_SPEC_SAMPLE_TEMP: "1.0"
   LLAMA_SPEC_DRAFT_TOPK: "20"
-  # The FA/GEMM fold surface as it was measured on 3-nov, back in the unit:
-  # with f16 KV the compiled default (FA_FOLD=1) does not take the fold path, and
-  # 7-nov on the 35B at 16k that is 578.7 vs 591.5 t/s prefill. Decode unchanged.
+  # 2 skips the fold the f16-KV default takes: +2 % prefill at 16k, decode unchanged.
   GGML_CUDA_FA_FOLD: "2"
   GGML_CUDA_FA_FOLD_SPLIT: "4"
   GGML_CUDA_GEMM_FOLD_MINROWS: "512"
   GGML_CUDA_FA_GEMM_MINKV: "1024"
-  # fp16 expert GEMM for prefill (p60-moe-gemm.cu, opt-in since OPTLOG 328). 8-nov on the Cyber-Tiel
-  # 35B, ub 512: pp512 d0 851.6 -> 1093.2 t/s (+28.4 %), at 16k depth 716.0 -> 885.0 (+23.5 %); decode
-  # unchanged and PPL 4.9516 -> 4.9341, i.e. the fp16 chains are closer to exact than MMQ.
+  # fp16 expert GEMM (p60-moe-gemm.cu): +28 % prefill at 0 depth, +23 % at 16k (OPTLOG 328).
   GGML_CUDA_P60_MOE_GEMM: "1"
-  # Draft nucleus: the target samples with top-p 0.95, so draft mass outside that nucleus
-  # can never be accepted. Truncating the draft q to it is lossless (the truncated q is what
-  # gets recorded in dp.dists) and measured 7-nov on the 27B, fixed seed, 512 tok, prod env:
-  # 2k 41.5 -> 44.0 t/s (acceptance 0.674 -> 0.729), 40k 35.0 -> 36.4 (0.602 -> 0.629).
-  # Combo = this + LLAMA_MTP_DRAFT_VOCAB=65536: the vocab cut alone gains at 40k and loses at
-  # 2k, together they are positive at both depths. topp95 alone is stronger at 2k (+17 %)
-  # but -2.5 % at 40k; a depth-gated topp is the follow-up (see PLAN-NOCHE).
+  # Lossless: draft mass outside the target's nucleus is never accepted.
+  # +6 % decode at 2k and +4 % at 40k once gated; pairs with LLAMA_MTP_DRAFT_VOCAB.
   LLAMA_SPEC_DRAFT_TOPP: "0.95"
-  # Only below this KV depth: measured 8-nov, topp 0.95 is +16.5 % at 2k (decode 41.4 -> 48.3 t/s,
-  # acceptance 0.674 -> 0.849) and exactly neutral at 40k (same acceptance as base) once gated.
-  # Ungated it loses 2.5 % at 40k. The vocab cut (MTP_DRAFT_VOCAB=65536) was +3.4 % at 40k and
-  # -14 % at 2k, so it is NOT deployed; retest it with real traffic before enabling.
+  # Above this depth the nucleus gains nothing and ungated it loses 2.5 %.
+  # The vocab cut is not deployed: wins at 40k, loses at 2k.
   LLAMA_SPEC_DRAFT_TOPP_DEPTH: "16384"

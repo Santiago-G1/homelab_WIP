@@ -16,11 +16,8 @@ pve_tune_zfs_params:
   zfs_arc_max: "{{ pve_tune_arc_max_bytes }}"
   zfs_txg_timeout: "{{ pve_tune_zfs_txg_timeout }}"
 
-# Lowest cap that holds the 1328 MHz application clock on its own.
-# 175 W, not 200: measured 7-nov on the 35B-A3B and the 27B, prefill and
-# decode are within 0.3 % of 200 W (pp512 849.8 vs 852.0, pp4096 1317.3 vs
-# 1317.7, tg 77.8 both) while the sustained draw drops 12.5 %. At 150 W the
-# 35B prefill loses 3.7 % and at 125 W 10.7 %, so 175 is the free step.
+# 175 W: within 0.3 % of 200 W on prefill and decode, 12.5 % less draw.
+# Below it prefill starts paying: -3.7 % at 150 W, -10.7 % at 125 W.
 pve_tune_gpu_power_limit_w: 175
 pve_tune_gpu_clock_mem_mhz: 715    # HBM2 stock; never raise
 pve_tune_gpu_clock_sm_mhz: 1328    # GP100 max boost
