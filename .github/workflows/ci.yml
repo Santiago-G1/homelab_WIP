@@ -29,6 +29,9 @@ jobs:
       - name: Collections the roles call
         run: ansible-galaxy collection install -r ansible/requirements.yml
 
+      - name: Catalogue and terraform/inventory agree
+        run: python3 ansible/scripts/check-inventory.py
+
       - name: Give ansible.cfg the file it expects
         run: echo dummy > ansible/.vault_pass
 

@@ -13,6 +13,8 @@
     model_name: "{{ model_file | regex_replace('\\.gguf$', '') }}"
     model_path: "{{ llamacpp_models_dir }}/{{ model_file }}"
 
+  pre_tasks:
+    - import_tasks: tasks/preflight.yml
   tasks:
     - name: Refuse to run without a model
       ansible.builtin.assert:

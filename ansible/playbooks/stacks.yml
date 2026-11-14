@@ -5,5 +5,7 @@
 #   ansible-playbook playbooks/stacks.yml --limit ai -e '{"stacks_only":["gpu-panel"]}'
 - name: Compose stacks
   hosts: docker_hosts
+  pre_tasks:
+    - import_tasks: tasks/preflight.yml
   roles:
     - stacks

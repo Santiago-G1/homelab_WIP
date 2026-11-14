@@ -9,6 +9,7 @@
       - bifrost
       - hermes
   pre_tasks:
+    - import_tasks: tasks/preflight.yml
     # Re-read: the inventory parsed this before llm-model-add could write it.
     - name: Read the models added by hand
       ansible.builtin.include_vars:

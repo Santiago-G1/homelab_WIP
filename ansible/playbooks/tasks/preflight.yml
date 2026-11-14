@@ -1,0 +1,7 @@
+# Control node only: catches catalogue and identity mistakes before touching a host.
+- name: Inventory invariants
+  ansible.builtin.command: python3 {{ playbook_dir }}/../scripts/check-inventory.py
+  delegate_to: localhost
+  run_once: true
+  check_mode: false
+  changed_when: false

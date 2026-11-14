@@ -2,6 +2,8 @@
 # Base configuration for every container.
 - name: Base configuration
   hosts: lxc
+  pre_tasks:
+    - import_tasks: tasks/preflight.yml
   roles:
     - common
     - node_exporter

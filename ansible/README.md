@@ -20,6 +20,8 @@ Docker Compose projects from `docker-compose/` are deployed to `/opt/docker/<sta
 | `playbooks/site.yml` | Base configuration, Docker and every declared stack. |
 | `playbooks/llm-models.yml` | Local llama.cpp model changes, without recompiling. |
 | `playbooks/verify.yml` | End-to-end check: running containers and HTTP endpoints. |
+| `scripts/check-inventory.py` | Catalogue and terraform/inventory invariants; runs before every play and in CI. |
+| `scripts/drift.sh` | Read-only: lists what a deploy would change on the live hosts. |
 
 ## Prerequisites
 
@@ -85,9 +87,25 @@ ansible-playbook playbooks/verify.yml      # end-to-end verification
 
 Limit a run with `--limit <host>` and preview with `--check --diff`.
 
+## Before a deploy, and drift
+
+`scripts/check-inventory.py` fails on the mistakes Ansible resolves silently: a
+second `agent: true` model, two models claiming the same profile, an agent whose
+`model_profile` does not exist, or a container whose IP differs between
+`terraform/proxmox` and `hosts.ini`. Every play imports it, and CI runs it.
+
+The live hosts drift when a file is edited by hand instead of through the role.
+`scripts/drift.sh` runs `stacks.yml --check` and prints the tasks that would
+change; no `--diff`, because the rendered `.env` files carry vault values. It
+exits 1 on drift, so a timer can report it:
+
+```bash
+scripts/drift.sh && echo clean
+```
+
 ## Adding a local model
 
-Models are declared once in `inventories/host_vars/llm/models.yml`; LiteLLM's
+Models are declared once in `inventories/host_vars/llm/models.yml`; Bifrost's
 model list, the router presets and the agents' model are all derived from it. Add
 the `.gguf` to the AI host's models directory, add its name to that file, then:
 
