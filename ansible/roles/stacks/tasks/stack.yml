@@ -69,9 +69,8 @@
   register: stack_entries
   when: stack.repo is defined
 
-# git only writes into an empty directory, so a project copied there by the old
-# rsync path has to be moved out of the way once. The rendered .env does not
-# need saving: the task below rewrites it from the vault on this same run.
+# git writes only into an empty directory: move any rsync-era copy aside.
+# The rendered .env needs no saving, it is rewritten below on this same run.
 - name: "{{ stack.name }} | assert the directory can hold the checkout"
   ansible.builtin.assert:
     that: stack_entries.matched == 0 or stack_checkout.stat.exists
@@ -180,9 +179,8 @@
     and stack.name not in (stacks_on_demand | default([]))
   changed_when: true
 
-# Hermes owns config.yaml (it writes platform state back), so the windows go in
-# through its own CLI: a render would drop that state, and Bifrost publishes no
-# window, so without this every model is assumed to be 128K.
+# Hermes writes state back into config.yaml, so windows go in through its CLI.
+# Bifrost publishes none, and without them every model is assumed to be 128K.
 - name: "{{ stack.name }} | read each profile's configuration"
   ansible.builtin.slurp:
     src: "{{ hermes_data_root }}/{{ ('' if item.key == 'default' else hermes_profiles_dir ~ '/' ~ item.key ~ '/') ~ 'config.yaml' }}"

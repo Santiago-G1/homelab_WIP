@@ -74,8 +74,7 @@ gateway:
 {% endif %}
 {% if hermes_profile_routes | default([]) and (a.telegram | default(false) or a.signal | default(false)) %}
 
-# Top level on purpose: the loader builds the gateway config flat and only bridges
-# the nested `gateway.profile_routes` form while this key is absent.
+# Top level on purpose: the loader only bridges the nested form while it is absent.
 # One bot per channel; these decide which profile answers where.
 profile_routes:
 {% for route in hermes_profile_routes %}
