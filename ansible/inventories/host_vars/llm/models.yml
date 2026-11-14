@@ -6,6 +6,8 @@
 # load-mode: dio everywhere: no model here fits the 3 GiB ARC.
 llm_models_catalogue:
   - name: Swift-1.5-Qwen3.8-27B-IQ4_XS
+    agent: true
+    fast: true
     args:
       load-mode: dio
       n-gpu-layers: 99
@@ -38,7 +40,6 @@ llm_models_catalogue:
       cache-reuse: 256
 
   - name: Cyber-Tiel-Coder-35B-A3B-MTP-UD-Q4_K_XL
-    agent: true
     fast: true
     args:
       load-mode: dio
