@@ -41,8 +41,8 @@ Keep anything that is not a served model outside the directory:
 ```
 
 A file that lives in one of those directories and *is* served gets a symlink at
-the top of `models`: `Qwen3.8-27B-Uncensored-IQ4_XS.gguf →
-/mnt/data/models-extra/uncensored/orcarouter_Qwen3.8-27B-Uncensored-IQ4_XS.gguf`.
+the top of `models`: `Swift-1.5-Qwen3.8-27B-Uncensored-UD-IQ4_XS.gguf →
+/mnt/data/models-extra/uncensored/orcarouter_Swift-1.5-Qwen3.8-27B-Uncensored-UD-IQ4_XS.gguf`.
 The router only ever resolves the name, so it keeps working across a restart.
 
 The directory has to stay traversable: llama.cpp runs as `llama` (uid 997) and
