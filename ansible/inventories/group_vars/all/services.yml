@@ -4,6 +4,7 @@
 #
 #   host, server, port, title, icon, group   identity and placement
 #   path, ok       availability probe (path relative to the published name)
+#   aliases        extra names for the same backend (alternative hostnames)
 #   check: false   keep it out of the availability widget
 #   verify: true   also probe it end to end in playbooks/verify.yml
 #   release        GitHub repo for the "updates" widget

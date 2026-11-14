@@ -9,8 +9,7 @@ services:
     environment:
       APP_PORT: "${PUBLISH_PORT:?}"
       # The Go heap holds the config store, the model catalog and the request
-      # bodies; with one user a small ceiling keeps the container near 130 MiB
-      # instead of letting the GC balloon it. LiteLLM sat at 750 MiB.
+      # bodies; with one user a small ceiling keeps the container near 130 MiB.
       GOMEMLIMIT: 96MiB
       GOGC: "50"
     volumes:
