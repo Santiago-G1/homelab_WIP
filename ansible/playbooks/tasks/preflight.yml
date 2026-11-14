@@ -5,3 +5,14 @@
   run_once: true
   check_mode: false
   changed_when: false
+  register: invariants
+  failed_when: false
+
+# assert, not the command's rc: the rule that failed is the message.
+- name: The inventory agrees with itself
+  ansible.builtin.assert:
+    that: invariants.rc == 0
+    fail_msg: "{{ invariants.stderr | trim }}"
+    quiet: true
+  delegate_to: localhost
+  run_once: true
