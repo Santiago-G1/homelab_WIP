@@ -19,10 +19,6 @@ services:
       - ./data:/app/data
     networks:
       ai-stack:
-        aliases:
-          # Hermes' seeded config still names the old LiteLLM container; the
-          # alias keeps it working without editing (and restarting) the agent.
-          - litellm-proxy
 
 networks:
   ai-stack:
