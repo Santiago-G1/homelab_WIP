@@ -60,8 +60,7 @@ llamacpp_fast_models: "{{ llm_models | selectattr('fast', 'defined') | map(attri
 
 # --- Hermes agents -------------------------------------------------------
 # One container per agent; its state lives on the pool.
-# The provider id inside hermes is still `litellm` (its own label for an
-# OpenAI-compatible endpoint); the API behind it is Bifrost.
+# Hermes speaks OpenAI-compatible HTTP; the gateway is Bifrost.
 hermes_llm_uri: "http://bifrost:{{ service_ports.bifrost }}/v1"
 # Container port, not the published one: both stacks share `ai-stack`.
 hermes_searxng_uri: "http://{{ searxng_host }}:{{ searxng_container_port }}"
@@ -69,8 +68,8 @@ hermes_signal_uri: "http://signal-cli:{{ signal_cli_container_port }}"
 hermes_data_root: /mnt/data/hermes   # host side of the mount
 hermes_home: /opt/data               # where the container mounts it
 hermes_profiles_dir: profiles        # hermes' layout: <home>/profiles/<name>
-hermes_llm_provider: litellm         # hermes' provider id for the gateway
-hermes_llm_key_env: LITELLM_API_KEY  # and the variable it reads the key from
+hermes_llm_provider: bifrost         # hermes' provider id for the gateway
+hermes_llm_key_env: BIFROST_API_KEY  # and the variable it reads the key from
 # Client-side deadline; must not be shorter than Bifrost's (see above).
 hermes_request_timeout_s: 1800
 hermes_uid: "10000"
