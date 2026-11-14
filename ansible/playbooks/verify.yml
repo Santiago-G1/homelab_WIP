@@ -8,6 +8,13 @@
       ansible.builtin.command: docker info --format '{{ "{{.ServerVersion}}" }}'
       changed_when: false
 
+    # Empty lists up front: a collect task that never matches leaves them undefined.
+    - name: Start the failure lists empty
+      ansible.builtin.set_fact:
+        stacks_down: []
+        ondemand_missing: []
+        routes_down: []
+
     - name: Every declared stack has running containers
       ansible.builtin.command:
         cmd: docker compose ps -q
@@ -19,7 +26,21 @@
         label: "{{ stack.name }}"
       register: stack_ps
       changed_when: false
-      failed_when: stack_ps.stdout | length == 0
+      failed_when: false
+
+    - name: Collect the stacks that are down
+      ansible.builtin.set_fact:
+        stacks_down: "{{ (stacks_down | default([])) + [item.stack.name] }}"
+      loop: "{{ stack_ps.results }}"
+      when: (item.stdout | default('') | trim) == ''
+
+    - name: Every declared stack is up
+      ansible.builtin.assert:
+        that: stacks_down | default([]) | length == 0
+        fail_msg: >-
+          {{ stacks_down | default([]) | join(', ') }} is declared and not on demand, but has no
+          running container. Look at `docker compose logs` in {{ stacks_root }}/<name>.
+        success_msg: "{{ stack_ps.results | length }} stacks running."
 
     # On-demand stacks may be stopped, but their container must exist.
     - name: On-demand stacks have a container, running or not
@@ -33,7 +54,22 @@
         label: "{{ stack.name }}"
       register: ondemand_ps
       changed_when: false
-      failed_when: ondemand_ps.stdout | length == 0
+      failed_when: false
+
+    - name: Collect the on-demand stacks with no container
+      ansible.builtin.set_fact:
+        ondemand_missing: "{{ (ondemand_missing | default([])) + [item.stack.name] }}"
+      loop: "{{ ondemand_ps.results }}"
+      when: (item.stdout | default('') | trim) == ''
+
+    - name: Every on-demand stack has a container to start
+      ansible.builtin.assert:
+        that: ondemand_missing | default([]) | length == 0
+        fail_msg: >-
+          {{ ondemand_missing | default([]) | join(', ') }} has no container, so the panel cannot
+          start it. `docker compose create` (what the role runs) builds the image first
+          if it is missing.
+        success_msg: "{{ ondemand_ps.results | length }} on-demand stacks created."
 
     # service_ports mirrors what the compose files publish; the last play
     # compares both lists.
@@ -81,9 +117,24 @@
         label: "{{ item.host }}.{{ vault_domainname_hs }}"
       register: proxy_result
       changed_when: false
-      failed_when: >-
-        proxy_result.rc != 0 or (proxy_result.stdout | trim) not in
+      failed_when: false
+
+    - name: Collect the routes that did not answer
+      ansible.builtin.set_fact:
+        routes_down: >-
+          {{ (routes_down | default([])) + [item.item.host ~ ' -> ' ~ (item.stdout | default('', true) | trim or 'no answer')] }}
+      loop: "{{ proxy_result.results }}"
+      when: >-
+        item.rc != 0 or (item.stdout | default('', true) | trim) not in
         ['200', '301', '302', '303', '307', '308', '401', '403']
+
+    - name: Every route answers
+      ansible.builtin.assert:
+        that: routes_down | default([]) | length == 0
+        fail_msg: >-
+          {{ routes_down | default([]) | join('; ') }}. 502 or no answer means the backend is not
+          running: a stopped host leaves its route pointing at nothing.
+        success_msg: "{{ proxy_result.results | length }} routes answered."
 
     - name: HTTP endpoints answer
       ansible.builtin.uri:
