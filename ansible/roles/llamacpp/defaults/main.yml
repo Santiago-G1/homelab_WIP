@@ -15,8 +15,9 @@ llamacpp_global_args:
   n-gpu-layers: 99
   c: "{{ llm_default_ctx | default(8192) }}"
   flash-attn: "on"
-  # Host-side prompt cache (MiB). 16 GiB of RAM holds no more than this.
-  cache-ram: 2048
+  # Host-side prompt cache (MiB). Long prompt states measure 3.4-4.3 GB and were
+  # being discarded at 2048, so every repeat re-prefilled (OPTLOG 367).
+  cache-ram: 8192
 llamacpp_model_overrides: {}
 
 cuda_toolkit_package: cuda-toolkit-12-8   # needs the glibc 2.41 patch in tasks/main.yml
@@ -85,7 +86,8 @@ llamacpp_kmic_env:
   # No-op here: cross-device copies already stage through host RAM.
   GGML_CUDA_P2P: "1"
   # CUDA graphs for the single-token MTP draft only (1 = full graphs, OOM).
-  GGML_CUDA_GRAPHS_PRE_VOLTA: "3"
+  # 4 = verify padded inside the graph: +0.57 % at 5k, identical text.
+  GGML_CUDA_GRAPHS_PRE_VOLTA: "4"
   # The draft samples instead of taking its top token and the verify uses the
   # speculative-sampling rule: same output distribution, more drafts accepted.
   LLAMA_SPEC_SAMPLE_TEMP: "1.0"

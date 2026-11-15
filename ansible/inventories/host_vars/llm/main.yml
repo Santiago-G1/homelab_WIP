@@ -24,7 +24,7 @@ bifrost_stream_idle_timeout_s: 1200
 # Every model in models.yml is reachable by the agent; the flags there only pick
 # each profile's default (censored ones for `default`, the abliterated for
 # `uncensored`). Restricting the key to two names left hermes unable to switch.
-bifrost_agent_models: "{{ llm_models | map(attribute='name') | list }}"
+bifrost_agent_models: "{{ llm_models | map(attribute='name') | select('search', '^[^:]+$') | list }}"
 bifrost_virtual_keys:
   # The agent: the models its own profiles use.
   - id: vk-agent
@@ -242,7 +242,7 @@ stacks:
       COMFY_UI_URL: "https://comfy.{{ vault_domainname_hs }}/"
       COMFY_CONTAINER: comfyui
       # Only these ids are ever shown; anything else stays unnamed.
-      LLAMA_PUBLIC_MODELS: "{{ llm_models | map(attribute='name') | join(',') }}"
+      LLAMA_PUBLIC_MODELS: "{{ llm_models | map(attribute='name') | select('search', '^[^:]+$') | join(',') }}"
       # The folder the panel lists: same path the router serves from, as seen
       # inside this CT (the panel reads it over SSH, through AI_CTID).
       LLAMA_MODELS_DIR: "{{ llamacpp_models_dir }}"

@@ -36,8 +36,42 @@ llm_models_catalogue:
       top-p: 0.95
       top-k: 20
       min-p: 0.0
-      cache-ram: 2048
-      cache-reuse: 256
+      # long-context prompt states are 3.4-4.3 GB: without this every repeat re-prefills.
+      cache-ram: 8192
+  - name: Swift-1.5-Qwen3.8-27B-IQ4_XS:deep
+    args:
+      comment: |
+        # same weights as the preset above, shallower MTP draft for long context (OPTLOG 345).
+        # a tagged section does not inherit the untagged one and the tag cannot resolve the gguf,
+        # so the model path has to be explicit here.
+      model: /mnt/data/models/Swift-1.5-Qwen3.8-27B-IQ4_XS.gguf
+      load-mode: dio
+      n-gpu-layers: 99
+      ctx-size: 262144
+      cache-type-k: q8_0
+      cache-type-v: q8_0
+      flash-attn: "on"
+      split-mode: tensor
+      tensor-split: 1,1
+      fit: "off"
+      parallel: 1
+      batch-size: 2048
+      ubatch-size: 2048
+      spec-type: draft-mtp
+      spec-draft-n-max: 2
+      spec-draft-p-min: 0.2
+      spec-draft-ngl: 99
+      spec-draft-n-ubatch: 64
+      spec-draft-type-k: f16
+      spec-draft-type-v: f16
+      jinja: "on"
+      temp: 1.0
+      top-p: 0.95
+      top-k: 20
+      min-p: 0.0
+      # long-context prompt states are 3.4-4.3 GB: without this every repeat re-prefills.
+      cache-ram: 8192
+
 
 
 
@@ -59,6 +93,7 @@ llm_models_catalogue:
       top-p: 0.95
       top-k: 0
       min-p: 0.0
+      # long-context prompt states are 3.4-4.3 GB: without this every repeat re-prefills.
 
   - name: Swift-1.5-Qwen3.8-27B-Uncensored-UD-IQ4_XS
     profile: uncensored
@@ -88,8 +123,8 @@ llm_models_catalogue:
       top-p: 0.95
       top-k: 20
       min-p: 0.0
-      cache-ram: 2048
-      cache-reuse: 256
+      # long-context prompt states are 3.4-4.3 GB: without this every repeat re-prefills.
+      cache-ram: 8192
       # Vision: the projector is what turns pixels into tokens. It is not part
       # of the model file, so a quant of a VL model is blind without it.
       mmproj: "{{ llamacpp_models_dir }}/mmproj-BF16-ajgazin.gguf"
@@ -100,6 +135,39 @@ llm_models_catalogue:
       # tokens. Costs ~2.4 s more prefill on a new image (2.7 -> 5.1 s at
       # 512-640 px), nothing on a repeated one: the prompt cache covers it.
       image-min-tokens: 1024
+  - name: Swift-1.5-Qwen3.8-27B-Uncensored-UD-IQ4_XS:deep
+    args:
+      model: /mnt/data/models/Swift-1.5-Qwen3.8-27B-Uncensored-UD-IQ4_XS.gguf
+      load-mode: dio
+      n-gpu-layers: 99
+      ctx-size: 262144
+      cache-type-k: q8_0
+      cache-type-v: q8_0
+      flash-attn: "on"
+      split-mode: tensor
+      tensor-split: 1,1
+      fit: "off"
+      parallel: 1
+      batch-size: 2048
+      ubatch-size: 2048
+      spec-type: draft-mtp
+      spec-draft-n-max: 2
+      spec-draft-p-min: 0.2
+      spec-draft-ngl: 99
+      spec-draft-n-ubatch: 64
+      spec-draft-type-k: f16
+      spec-draft-type-v: f16
+      jinja: "on"
+      temp: 1.0
+      top-p: 0.95
+      top-k: 20
+      min-p: 0.0
+      # long-context prompt states are 3.4-4.3 GB: without this every repeat re-prefills.
+      cache-ram: 8192
+      mmproj: /mnt/data/models/mmproj-BF16-ajgazin.gguf
+      mmproj-device: CUDA0
+      image-min-tokens: 1024
+
 
 # Window for a model that sets none: the router's `[*]` preset, and what hermes
 # is told for it.
@@ -115,7 +183,7 @@ llm_models: >-
 # `{model: {context_length: N}}`, pushed with `hermes config set` (stack.yml).
 llm_model_contexts: >-
   {%- set out = {} -%}
-  {%- for m in llm_models -%}
+  {%- for m in llm_models if ':' not in m.name -%}
   {%- set _ = out.update({m.name: {'context_length': ((m.args | default({})).get('ctx-size', (m.args | default({})).get('c', llm_default_ctx))) | int}}) -%}
   {%- endfor -%}
   {{ out }}
