@@ -39,9 +39,16 @@ the revision this homelab was last built and verified against:
 
 | what | value |
 |---|---|
-| fork revision | `83a7f0839` (branch `p100-optimizations`, 2026-11-04) |
-| binary the drop-in runs | `build-opt/bin/llama-server` |
-| previous binary kept for rollback | `build-opt.prev-bin` |
+| tree revision | `354256b8d` (merge of upstream `a956a852c`, 2026-11-14, into the fork) |
+| binary the drop-in runs | `build-opt/bin/llama-server` — `1.0.0-dev` build 12480 |
+| previous binary kept for rollback | `build-opt.prev-12281` (0.9.0-dev, build 12281, upstream `b5cb8f6f4`) |
+
+The 11-14 merge (106 upstream commits) keeps the fork's CUDA dispatch untouched;
+it drops upstream's typed-norm refactor, so bf16 RMS-norm outputs stay on the CPU
+fallback, and it disables the two speculative types it does not implement
+(`DFLASH2`, `LILICORR`). A/B against 12281 on the served models: prefill and
+decode within +-0.7 % at 2k and 16k, MTP acceptance unchanged, perplexity
+identical (5.3693), vision and tool calls unchanged.
 
 Measured moving from the previous revision to this one (A/B in the same session,
 35B, production preset): short-prompt prefill 269 -> 406 t/s (+50.8 %), decode
