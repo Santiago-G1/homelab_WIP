@@ -130,6 +130,12 @@ independent of which of these you pick.
 - `GGML_AVX2`/FMA/BMI2/AVX512 off, `-march=ivybridge` — the CPU is the rig's.
 - `llamacpp_build_jobs: 2` — nvcc is memory hungry and the host has reset under
   4 parallel LTO jobs. `host_vars/llm` keeps it explicit for the AI host.
+- **Host flags** `-march=ivybridge -mtune=ivybridge -ffp-contract=off`
+  (`CMAKE_C_FLAGS`/`CMAKE_CXX_FLAGS`; they were empty, so the sampler and the draft
+  bookkeeping compiled for SSE2). Measured 11-15 nov, ABBA x3 interleaved on the Swift
+  27B: prefill +0.8 % at 2k and +0.4 % at 16k, decode +1.0 % at 2k and +0.9 % at 16k,
+  perplexity identical (5.3693) and greedy text byte-identical. `-ffp-contract=off`
+  keeps the host arithmetic from contracting into FMA.
 - `GGML_CUDA_FA=ON`, `GGML_CUDA_GRAPHS=ON`.
 
 A crash during linking can leave a truncated `llama-server` that looks newer
