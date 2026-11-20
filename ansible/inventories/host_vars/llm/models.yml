@@ -26,7 +26,7 @@ llm_models_catalogue:
       batch-size: 2048
       ubatch-size: 2048   # prefill +5,7 % d0 / +5,4 % a 16k, decode intacto (OPTLOG 334)
       spec-type: draft-mtp
-      spec-draft-n-max: 2
+      spec-draft-n-max: 1
       spec-draft-p-min: 0.2
       spec-draft-ngl: 99
       spec-draft-n-ubatch: 64
@@ -60,7 +60,7 @@ llm_models_catalogue:
       batch-size: 2048
       ubatch-size: 2048
       spec-type: draft-mtp
-      spec-draft-n-max: 2
+      spec-draft-n-max: 1
       spec-draft-p-min: 0.2
       spec-draft-ngl: 99
       spec-draft-n-ubatch: 64
@@ -92,7 +92,7 @@ llm_models_catalogue:
       batch-size: 2048
       ubatch-size: 2048   # prefill +5,5 % d0 y +5,3 % a 16k, decode intacto (OPTLOG 334)
       spec-type: draft-mtp
-      spec-draft-n-max: 2
+      spec-draft-n-max: 1
       spec-draft-p-min: 0.2
       spec-draft-ngl: 99
       spec-draft-n-ubatch: 64
@@ -132,7 +132,7 @@ llm_models_catalogue:
       batch-size: 2048
       ubatch-size: 2048
       spec-type: draft-mtp
-      spec-draft-n-max: 2
+      spec-draft-n-max: 1
       spec-draft-p-min: 0.2
       spec-draft-ngl: 99
       spec-draft-n-ubatch: 64
