@@ -56,7 +56,26 @@ llamacpp_service: llama-server   # verify.yml runs without the role defaults
 
 # Models marked `fast: true` in models.yml are kept on the local SSD.
 llamacpp_fast_models_dir: /var/lib/llama/models
-llamacpp_fast_models: "{{ llm_models | selectattr('fast', 'defined') | map(attribute='name') | list }}"
+# The gguf to keep on the SSD: the basename of args.model when the preset
+# declares one (the preset id and the file name part ways once the weights are
+# requantized, e.g. Swift-...-IQ4_XS -> ...-Q4_1-BF16.gguf), else the preset name.
+llamacpp_fast_models: >-
+  {%- set out = [] -%}
+  {%- for m in llm_models if 'fast' in m -%}
+  {%- set p = (m.args | default({})).get('model', m.name ~ '.gguf') -%}
+  {%- set _ = out.append(p | basename | regex_replace('\.gguf$', '')) -%}
+  {%- endfor -%}
+  {{ out }}
+
+# Projectors that belong to a fast model live on the same disk: the evict task
+# would otherwise send the vision projector back to the pool on every run.
+llamacpp_fast_mmproj: >-
+  {%- set out = [] -%}
+  {%- for m in llm_models if 'fast' in m -%}
+  {%- set p = (m.args | default({})).get('mmproj', '') -%}
+  {%- if p -%}{%- set _ = out.append(p | basename | regex_replace('\.gguf$', '')) -%}{%- endif -%}
+  {%- endfor -%}
+  {{ out }}
 
 # --- Hermes agents -------------------------------------------------------
 # One container per agent; its state lives on the pool.

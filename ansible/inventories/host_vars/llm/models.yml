@@ -5,10 +5,11 @@
 # default), fast (SSD). Every model here is reachable by the agent.
 # load-mode: dio everywhere: no model here fits the 3 GiB ARC.
 llm_models_catalogue:
-  - name: Swift-1.5-Qwen3.8-27B-IQ4_XS
+  - name: Swift-1.5-Qwen3.8-27B-Q4_1-BF16
     agent: true
     fast: true
     args:
+      model: "{{ llamacpp_models_dir }}/Swift-1.5-Qwen3.8-27B-Q4_1-BF16.gguf"
       load-mode: dio
       n-gpu-layers: 99
       # q8_0 KV is what buys the full 262144 window; f16 stops at ~152k.
@@ -25,7 +26,7 @@ llm_models_catalogue:
       batch-size: 2048
       ubatch-size: 2048   # prefill +5,7 % d0 / +5,4 % a 16k, decode intacto (OPTLOG 334)
       spec-type: draft-mtp
-      spec-draft-n-max: 3
+      spec-draft-n-max: 2
       spec-draft-p-min: 0.2
       spec-draft-ngl: 99
       spec-draft-n-ubatch: 64
@@ -38,13 +39,14 @@ llm_models_catalogue:
       min-p: 0.0
       # long-context prompt states are 3.4-4.3 GB: without this every repeat re-prefills.
       cache-ram: 8192
-  - name: Swift-1.5-Qwen3.8-27B-IQ4_XS:deep
+      slot-save-path: /mnt/data/kv/default
+  - name: Swift-1.5-Qwen3.8-27B-Q4_1-BF16:deep
     args:
       comment: |
         # same weights as the preset above, shallower MTP draft for long context (OPTLOG 345).
         # a tagged section does not inherit the untagged one and the tag cannot resolve the gguf,
         # so the model path has to be explicit here.
-      model: /mnt/data/models/Swift-1.5-Qwen3.8-27B-IQ4_XS.gguf
+      model: /mnt/data/models/Swift-1.5-Qwen3.8-27B-Q4_1-BF16.gguf
       load-mode: dio
       n-gpu-layers: 99
       ctx-size: 262144
@@ -71,34 +73,12 @@ llm_models_catalogue:
       min-p: 0.0
       # long-context prompt states are 3.4-4.3 GB: without this every repeat re-prefills.
       cache-ram: 8192
-
-
-
-
-  - name: Spark-X2.6-4B-Q4_K_M
-    args:
-      n-gpu-layers: 99
-      ctx-size: 131072
-      cache-type-k: f16
-      cache-type-v: f16
-      flash-attn: "on"
-      split-mode: none
-      main-gpu: 1          # Immich ML only binds /dev/nvidia0
-      fit: "off"
-      parallel: 1
-      batch-size: 2048
-      ubatch-size: 1024
-      jinja: "on"
-      temp: 1.0
-      top-p: 0.95
-      top-k: 0
-      min-p: 0.0
-      # long-context prompt states are 3.4-4.3 GB: without this every repeat re-prefills.
-
-  - name: Swift-1.5-Qwen3.8-27B-Uncensored-UD-IQ4_XS
+      slot-save-path: /mnt/data/kv/default
+  - name: Swift-1.5-Qwen3.8-27B-Uncensored-Q4_1-BF16
     profile: uncensored
     fast: true        # keep on the local SSD
     args:
+      model: "{{ llamacpp_models_dir }}/Swift-1.5-Qwen3.8-27B-Uncensored-Q4_1-BF16.gguf"
       load-mode: dio
       n-gpu-layers: 99
       ctx-size: 262144
@@ -112,7 +92,7 @@ llm_models_catalogue:
       batch-size: 2048
       ubatch-size: 2048   # prefill +5,5 % d0 y +5,3 % a 16k, decode intacto (OPTLOG 334)
       spec-type: draft-mtp
-      spec-draft-n-max: 3
+      spec-draft-n-max: 2
       spec-draft-p-min: 0.2
       spec-draft-ngl: 99
       spec-draft-n-ubatch: 64
@@ -135,9 +115,10 @@ llm_models_catalogue:
       # tokens. Costs ~2.4 s more prefill on a new image (2.7 -> 5.1 s at
       # 512-640 px), nothing on a repeated one: the prompt cache covers it.
       image-min-tokens: 1024
-  - name: Swift-1.5-Qwen3.8-27B-Uncensored-UD-IQ4_XS:deep
+      slot-save-path: /mnt/data/kv/uncensored
+  - name: Swift-1.5-Qwen3.8-27B-Uncensored-Q4_1-BF16:deep
     args:
-      model: /mnt/data/models/Swift-1.5-Qwen3.8-27B-Uncensored-UD-IQ4_XS.gguf
+      model: /mnt/data/models/Swift-1.5-Qwen3.8-27B-Uncensored-Q4_1-BF16.gguf
       load-mode: dio
       n-gpu-layers: 99
       ctx-size: 262144
@@ -196,3 +177,4 @@ agent_model: "{{ (llm_models | selectattr('agent', 'defined') | first).name }}"
 profile_models: >-
   {{ llm_models | selectattr('profile', 'defined')
      | items2dict(key_name='profile', value_name='name') }}
+      slot-save-path: /mnt/data/kv/uncensored

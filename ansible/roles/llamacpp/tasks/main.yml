@@ -315,7 +315,7 @@
 - name: Send the models that are no longer fast back to the pool
   ansible.builtin.shell: |
     set -euo pipefail
-    keep=" {{ llamacpp_fast_models | default([]) | join(' ') }} "
+    keep=" {{ ((llamacpp_fast_models | default([])) + (llamacpp_fast_mmproj | default([]))) | join(' ') }} "
     for src in {{ llamacpp_models_dir }}/*.gguf; do
       [ -L "$src" ] || continue
       dst=$(readlink "$src")
