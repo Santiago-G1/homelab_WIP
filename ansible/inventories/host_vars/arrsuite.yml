@@ -18,7 +18,7 @@ stacks:
     src: media-services/arrsuite/seerr
     dirs:
       # Runs as node (uid 1000) and does not chown its data dir.
-      - { path: data, owner: "1000", group: "1000" }
+      - { path: data, owner: "{{ docker_uid }}", group: "{{ docker_gid }}" }
   - { name: sonarr,       src: media-services/arrsuite/sonarr }
   - name: slskd
     src: media-services/arrsuite/slskd

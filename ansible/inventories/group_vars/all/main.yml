@@ -6,13 +6,23 @@ homelab_repo: Santiago-G1/homelab_WIP
 devops_repo_path: /root/nooblab
 
 # Merged into every stack's .env; a host adds to it with `stack_env_host`.
+# Container uid/gid for the images that do not chown their own data dir.
+docker_uid: 1000
+docker_gid: 1000
+
+# The username every dashboard creates on first boot.
+dashboard_admin_user: admin
+
+# The identity hermes commits with on the control node.
+git_commit_identity: "Santiago-G1 <254106790+Santiago-G1@users.noreply.github.com>"
+
 stack_env_common:
   DOMAINNAME_HS: "{{ vault_domainname_hs }}"
   TZ: "{{ timezone }}"
   STACKS_ROOT: "{{ stacks_root }}"
   # The *arr and syncthing images run as this uid/gid inside the container.
-  PUID: "1000"
-  PGID: "1000"
+  PUID: "{{ docker_uid }}"
+  PGID: "{{ docker_gid }}"
 
 stacks_root: /opt/docker
 compose_src_root: "{{ playbook_dir }}/../../docker-compose"

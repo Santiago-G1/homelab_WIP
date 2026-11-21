@@ -172,9 +172,9 @@ stacks:
     src: ai-services/bifrost
     dirs:
       # The container runs as uid 1000 and keeps its SQLite store here.
-      - { path: data, owner: "1000", group: "0", mode: "0775" }
+      - { path: data, owner: "{{ docker_uid }}", group: "0", mode: "0775" }
     files:
-      - { template: bifrost-config.json.j2, dest: data/config.json, owner: "1000", group: "0", mode: "0640" }
+      - { template: bifrost-config.json.j2, dest: data/config.json, owner: "{{ docker_uid }}", group: "0", mode: "0640" }
 
   - name: searxng
     src: ai-services/searxng
@@ -225,7 +225,7 @@ stacks:
       HERMES_VAULT: "{{ hermes_vault }}"
       HERMES_VAULT_RO: "{{ hermes_vault_ro }}"
       HERMES_VAULT_MORI: "{{ hermes_vault_mori }}"
-      HERMES_DASHBOARD_USER: admin
+      HERMES_DASHBOARD_USER: "{{ dashboard_admin_user }}"
       HERMES_DASHBOARD_PASSWORD: "{{ vault_hermes_dashboard_password }}"
       HERMES_DASHBOARD_SECRET: "{{ vault_hermes_dashboard_secret }}"
 
@@ -234,7 +234,7 @@ stacks:
     repo: https://github.com/Santiago-G1/gpupanel.git
     build: true
     env:
-      PANEL_USER: admin
+      PANEL_USER: "{{ dashboard_admin_user }}"
       PANEL_PASSWORD: "{{ vault_gpu_panel_password }}"
       PANEL_TOKEN: "{{ vault_gpu_panel_token }}"
       LLAMA_URL: "http://{{ ansible_host }}:{{ llamacpp_port }}"

@@ -5,7 +5,7 @@ You are an agent of a personal homelab, not of a generic project.
 - The Ansible repo is `{{ devops_repo_path }}` on the `devops` container
   (`{{ hostvars['devops'].ansible_host }}`). A change to the hosts starts there.
 - **Never `git push`.** Commit locally, with the identity
-  `Santiago-G1 <254106790+Santiago-G1@users.noreply.github.com>`.
+  `{{ git_commit_identity }}`.
 - The Obsidian vault is at `{{ hermes_vault }}`: read it freely, **write only
   inside `mori/`**. The rest is a read-only mount, so a write there fails with
   `Read-only file system`.

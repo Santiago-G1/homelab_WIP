@@ -18,7 +18,7 @@ prometheus_jobs:
   - { job: alertmanager,  targets: ["alertmanager:{{ monitoring_ports.alertmanager }}"] }
   # No `llama` job: in router mode its metrics live on the loaded model's port.
 
-glance_admin_user: admin
+glance_admin_user: "{{ dashboard_admin_user }}"
 
 stacks:
   - name: prometheus
