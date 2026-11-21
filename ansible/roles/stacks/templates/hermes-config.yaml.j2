@@ -72,20 +72,3 @@ gateway:
     telegram:
       enabled: true
 {% endif %}
-{% if (hermes_profile_routes | default([])) and (a.telegram | default(false)) %}
-
-# Top level on purpose: the loader only bridges the nested form while it is absent.
-# One bot per channel; these decide which profile answers where.
-profile_routes:
-{% for route in hermes_profile_routes %}
-  - name: {{ route.name }}
-    platform: {{ route.platform }}
-    profile: {{ route.profile }}
-{% if route.user_id is defined %}
-    user_id: "{{ route.user_id }}"
-{% endif %}
-{% if route.chat_id is defined %}
-    chat_id: "{{ route.chat_id }}"
-{% endif %}
-{% endfor %}
-{% endif %}

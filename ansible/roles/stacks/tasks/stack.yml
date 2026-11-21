@@ -127,17 +127,6 @@
     label: "{{ item.dest }}"
   register: stack_files
 
-# Services behind a Compose profile are built here: only their image is wanted.
-- name: "{{ stack.name }} | build the images declared for the stack"
-  ansible.builtin.command:
-    cmd: >-
-      docker compose --profile {{ stack.build_profile | default('tools') }}
-      build {{ stack.build_services | join(' ') }}
-    chdir: "{{ stacks_root }}/{{ stack.name }}"
-  when: (stack.build_services | default([])) | length > 0
-  register: stack_build
-  changed_when: "'Successfully built' in stack_build.stdout"
-
 # POSTGRES_* are read by the first initdb only, so a vault rotation has to be
 # reconciled into the cluster or the app dies on 28P01.
 - name: "{{ stack.name }} | reconcile the Postgres credentials"
@@ -189,27 +178,6 @@
     label: "{{ item.key }}"
   register: hermes_cfg
   when: stack.name == 'hermes'
-
-# The routes live in a file hermes owns (seeded once, never re-rendered), so
-# nothing else would notice them disappearing.
-- name: "{{ stack.name }} | the routes the host declares are in the gateway config"
-  ansible.builtin.assert:
-    that: >-
-      ((item.content | b64decode | from_yaml).get('profile_routes')
-       or (item.content | b64decode | from_yaml).get('gateway', {}).get('profile_routes')
-       or []) | length >= (hermes_profile_routes | default([])) | length
-    fail_msg: >-
-      {{ item.item.key }}: profile_routes is missing from its config.yaml. Hermes
-      owns that file (force: false), so seed it by hand:
-      {{ hermes_profile_routes | default([]) | to_json }}
-    quiet: true
-  loop: "{{ hermes_cfg.results | default([]) }}"
-  loop_control:
-    label: "{{ item.item.key }}"
-  when:
-    - stack.name == 'hermes'
-    - item.item.key == 'default'
-    - hermes_profile_routes | default([]) | length > 0
 
 - name: "{{ stack.name }} | teach the agent each model's window"
   ansible.builtin.command:
