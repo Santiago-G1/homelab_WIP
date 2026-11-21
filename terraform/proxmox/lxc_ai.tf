@@ -7,7 +7,7 @@ module "ai" {
   ip_address = "192.168.10.26"
   cpu_cores  = 4
   memory     = 12288
-  swap       = 9192
+  swap       = 4096
   disk_size  = 92
 
   # PVE creates the nodes root:root 0660, which llama-server (video group)
@@ -17,12 +17,13 @@ module "ai" {
     { path = "/dev/nvidiactl", gid = 44 },
     { path = "/dev/nvidia-uvm", gid = 44 },
     { path = "/dev/nvidia-uvm-tools", gid = 44 },
+    { path = "/dev/nvidia1", gid = 44 },
   ]
 
   mount_points = [
     { volume = "/tank/cloud/llm", mount_path = "/mnt/data" },
     { volume = "/tank/obsidian", mount_path = "/mnt/obsidian", read_only = true },
-    # The agent's only write path into the vault; the vault itself stays read-only.
+    # The agent's only write path into the vault.
     { volume = "/tank/obsidian/mori", mount_path = "/mnt/obsidian-mori" },
   ]
 }
