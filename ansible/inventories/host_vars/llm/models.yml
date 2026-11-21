@@ -39,6 +39,13 @@ llm_models_catalogue:
       min-p: 0.0
       # long-context prompt states are 3.4-4.3 GB: without this every repeat re-prefills.
       cache-ram: 8192
+      # Vision: the projector is what turns pixels into tokens. Both models use
+      # this one (the uncensored weights' projector): the P100 has no native
+      # bf16, so f16 encodes 2.5-3.8% faster, and the floor at 256 (was 1024)
+      # stops padding a 512 px image up to 1083 vision tokens.
+      mmproj: "{{ llamacpp_models_dir }}/mmproj-F16-ajgazin.gguf"
+      mmproj-device: CUDA1
+      image-min-tokens: 256
       slot-save-path: /mnt/data/kv/default
   - name: Swift-1.5-Qwen3.8-27B-Q4_1-BF16:deep
     args:
@@ -73,6 +80,13 @@ llm_models_catalogue:
       min-p: 0.0
       # long-context prompt states are 3.4-4.3 GB: without this every repeat re-prefills.
       cache-ram: 8192
+      # Vision: the projector is what turns pixels into tokens. Both models use
+      # this one (the uncensored weights' projector): the P100 has no native
+      # bf16, so f16 encodes 2.5-3.8% faster, and the floor at 256 (was 1024)
+      # stops padding a 512 px image up to 1083 vision tokens.
+      mmproj: /mnt/data/models/mmproj-F16-ajgazin.gguf
+      mmproj-device: CUDA1
+      image-min-tokens: 256
       slot-save-path: /mnt/data/kv/default
   - name: Swift-1.5-Qwen3.8-27B-Uncensored-Q4_1-BF16
     profile: uncensored
@@ -107,8 +121,8 @@ llm_models_catalogue:
       cache-ram: 8192
       # Vision: the projector is what turns pixels into tokens. It is not part
       # of the model file, so a quant of a VL model is blind without it. This
-      # is the uncensored model's own projector (ajgazin), requantised to f16:
-      # the P100 has no native bf16, so f16 encodes 2.5-3.8% faster.
+      # is the uncensored model's own projector (ajgazin), requantised to f16
+      # because the P100 has no native bf16. Both presets share it.
       mmproj: "{{ llamacpp_models_dir }}/mmproj-F16-ajgazin.gguf"
       # The 27B does not fit in one card. The projector's encode graph needs
       # room to grow, so it sits on the card with headroom. Measured: same
