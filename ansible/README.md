@@ -57,9 +57,10 @@ Docker Compose projects from `docker-compose/` are deployed to `/opt/docker/<sta
    uid `N` to host uid `100000 + N`. Examples:
 
    ```bash
-   setfacl -m u:101000:rwx -m d:u:101000:rwx /tank/obsidian  # uid 1000 inside
-   setfacl -m u:100999:rwx -m d:u:100999:rwx /tank/immich    # uid 999 inside
-   setfacl -m u:110000:rwx -m d:u:110000:rwx /tank/obsidian/mori  # hermes (10000 in AI)
+   install -d -o 110000 -g 110000 -m 0775 /tank/obsidian/mori  # a missing bind source stops the CT
+   setfacl -m u:101000:rwx -m d:u:101000:rwx /tank/obsidian      # uid 1000 inside
+   setfacl -m u:110000:rwx -m d:u:110000:rwx /tank/obsidian/mori # uid 10000 inside
+   setfacl -m u:100999:rwx -m d:u:100999:rwx /tank/immich        # uid 999 inside
    ```
 
 3. **Vault password** in `ansible/.vault_pass` (gitignored). Without it the

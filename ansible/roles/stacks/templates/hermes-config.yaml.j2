@@ -72,7 +72,7 @@ gateway:
     telegram:
       enabled: true
 {% endif %}
-{% if hermes_profile_routes | default([]) and a.telegram | default(false) %}
+{% if (hermes_profile_routes | default([])) and (a.telegram | default(false)) %}
 
 # Top level on purpose: the loader only bridges the nested form while it is absent.
 # One bot per channel; these decide which profile answers where.

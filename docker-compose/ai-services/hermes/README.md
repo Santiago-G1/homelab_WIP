@@ -9,8 +9,8 @@ One runtime, two profiles:
 
 State lives on the pool at `${HERMES_DATA}` (`/tank/cloud/llm/hermes`), one
 directory per profile. `config.yaml`, `.env`, `SOUL.md` and `workspace/AGENTS.md`
-are rendered into it by Ansible; the container mounts the home and the Docker
-socket, nothing else.
+are rendered into it by Ansible; the container mounts the home, the Docker
+socket and the Obsidian vault (read-only except `mori/`).
 
 One profile calls the `agent: true` model, the other an abliterated one; both
 go through Bifrost. One dashboard on 9119 serves both: the sidebar switches
