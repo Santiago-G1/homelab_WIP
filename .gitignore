@@ -23,6 +23,9 @@
 # SAMBA (credenciales, usar users.conf.template)
 **/samba/users.conf
 
+# Stack runtime dirs (compose bind sources, may hold credentials)
+docker-compose/**/data/
+
 # TERRAFORM
 .terraform/
 .terraform.lock.hcl
