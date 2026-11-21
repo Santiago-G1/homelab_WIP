@@ -83,7 +83,6 @@ llamacpp_fast_mmproj: >-
 hermes_llm_uri: "http://bifrost:{{ service_ports.bifrost }}/v1"
 # Container port, not the published one: both stacks share `ai-stack`.
 hermes_searxng_uri: "http://{{ searxng_host }}:{{ searxng_container_port }}"
-hermes_signal_uri: "http://signal-cli:{{ signal_cli_container_port }}"
 hermes_data_root: /mnt/data/hermes   # host side of the mount
 hermes_home: /opt/data               # where the container mounts it
 hermes_profiles_dir: profiles        # hermes' layout: <home>/profiles/<name>
@@ -101,11 +100,8 @@ hermes_vault_ro: /mnt/obsidian         # CT side, mounted read-only
 hermes_vault_mori: /mnt/obsidian-mori  # CT side, the only read-write mount
 
 # Which profile answers where. The bot of every channel lives in `default`; a
-# route hands the conversation to another served profile. Signal goes to the one
-# that does the work (approvals off), Telegram stays on the cautious one.
-hermes_profile_routes:
-  - { name: signal-uncensored, platform: signal, profile: uncensored, user_id: "{{ vault_signal_account }}" }
-
+# route hands the conversation to another served profile. Telegram keeps no route
+# (it stays on `default`) and `uncensored` is dashboard-only on purpose: no channel.
 hermes_agents:
   # Asks before acting; finds another way when nobody answers.
   default:
@@ -116,7 +112,6 @@ hermes_agents:
     terminal_backend: local
     # The only one with messaging channels.
     telegram: true
-    signal: true
     memory_provider: holographic
     # Set to true to review automatic writes with /memory pending.
     memory_write_approval: false
@@ -161,9 +156,6 @@ hermes_agents:
 
       You have the whole host: shell, Docker and the pool. Do the work, do not
       ask, and report what you changed.
-# 0.14.x is Java 25 bytecode (see the stack's Dockerfile).
-signal_cli_version: "0.14.10"
-signal_cli_container_port: 8080
 # On demand: ComfyUI needs the whole card, so the GPU panel starts it in Image mode.
 comfyui_version: v0.42.5
 comfyui_gguf_nodes_version: 6ea2651e7df66d7585f6ffee804b20e92fb38b8a
@@ -198,14 +190,6 @@ stacks:
     env:
       SEARXNG_SECRET: "{{ vault_searxng_secret_key }}"
       SEARXNG_BASE_URL: "{{ searxng_base_url }}"
-
-  - name: signal
-    src: ai-services/signal
-    build: true
-    dirs:
-      - { path: data, mode: "0700" }
-    env:
-      SIGNAL_CLI_VERSION: "{{ signal_cli_version }}"
 
   - name: comfyui
     src: ai-services/comfyui
