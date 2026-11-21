@@ -33,7 +33,7 @@
   roles:
     - tailscale
 
-# llama.cpp in router mode, compiled on the container (LiteLLM, SearXNG, Hermes
+# llama.cpp in router mode, compiled on the container (Bifrost, SearXNG, Hermes
 # and the panel come from the docker_hosts play above).
 - name: AI host (llama.cpp bare metal)
   hosts: ai
