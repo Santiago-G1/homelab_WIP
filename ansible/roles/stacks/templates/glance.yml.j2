@@ -5,6 +5,8 @@
 #}
 {% set monitoring_host = hostvars['monitoring'].ansible_host %}
 {% set gpu_panel = homelab_services | selectattr('host', 'equalto', 'gpu') | first %}
+{% set grafana_svc = homelab_services | selectattr('host', 'equalto', 'grafana') | first %}
+{% set bifrost_svc = homelab_services | selectattr('host', 'equalto', 'bifrost') | first %}
 {% set llm_host = hostvars['llm'].ansible_host %}
 {% set domain = vault_domainname_hs %}
 {% set prometheus_query_url = 'http://' ~ monitoring_host ~ ':' ~ service_ports.prometheus ~ '/api/v1/query' %}
@@ -97,7 +99,7 @@ pages:
               # Homelab-wide numbers from the local Prometheus.
               - type: custom-api
                 title: Homelab
-                title-url: https://grafana.{{ domain }}/
+                title-url: https://{{ grafana_svc.host }}.{{ domain }}/
                 cache: 30s
                 url: {{ prometheus_query_url }}
                 parameters:
@@ -183,7 +185,7 @@ pages:
               - &gpu_panel_widget
                 type: custom-api
                 title: GPU & LLM
-                title-url: https://gpu.{{ domain }}/
+                title-url: https://{{ gpu_panel.host }}.{{ domain }}/
                 cache: 20s
                 url: {{ gpu_panel_url }}/api/status
                 headers:
@@ -264,7 +266,7 @@ pages:
               # card title opens the gateway, which is where the keys live).
               - type: custom-api
                 title: Models
-                title-url: https://bifrost.{{ domain }}/
+                title-url: https://{{ bifrost_svc.host }}.{{ domain }}/
                 cache: 15s
                 url: {{ llama_url }}/v1/models
                 template: |
@@ -288,8 +290,8 @@ pages:
           # The controls themselves, sharing the session.
           - type: iframe
             title: GPU control panel
-            title-url: https://gpu.{{ domain }}/
-            source: https://gpu.{{ domain }}/
+            title-url: https://{{ gpu_panel.host }}.{{ domain }}/
+            source: https://{{ gpu_panel.host }}.{{ domain }}/
             height: 760
 
           - type: split-column
