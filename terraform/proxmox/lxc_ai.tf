@@ -22,5 +22,7 @@ module "ai" {
   mount_points = [
     { volume = "/tank/cloud/llm", mount_path = "/mnt/data" },
     { volume = "/tank/obsidian", mount_path = "/mnt/obsidian", read_only = true },
+    # The agent's only write path into the vault; the vault itself stays read-only.
+    { volume = "/tank/obsidian/mori", mount_path = "/mnt/obsidian-mori" },
   ]
 }

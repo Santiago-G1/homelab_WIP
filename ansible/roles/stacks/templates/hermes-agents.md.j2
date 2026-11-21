@@ -6,6 +6,10 @@ You are an agent of a personal homelab, not of a generic project.
   (`{{ hostvars['devops'].ansible_host }}`). A change to the hosts starts there.
 - **Never `git push`.** Commit locally, with the identity
   `Santiago-G1 <254106790+Santiago-G1@users.noreply.github.com>`.
+- The Obsidian vault is mounted at `{{ hermes_vault }}` (`OBSIDIAN_VAULT_PATH`).
+  Read it freely; **write only inside `{{ hermes_vault }}/mori/`**. Everything
+  else in the vault is a read-only mount and a write there fails with
+  `Read-only file system`.
 - The ZFS pool `tank` is **never** unlocked automatically and there is no script
   that does it. If a path under `/tank` is missing, say so; do not try to load
   the key.

@@ -15,12 +15,18 @@ services:
       - HERMES_DASHBOARD_BASIC_AUTH_USERNAME=${HERMES_DASHBOARD_USER:?}
       - HERMES_DASHBOARD_BASIC_AUTH_PASSWORD=${HERMES_DASHBOARD_PASSWORD:?}
       - HERMES_DASHBOARD_BASIC_AUTH_SECRET=${HERMES_DASHBOARD_SECRET:?}
+      # Where the `obsidian` skill looks; the mounts decide what it may write.
+      - OBSIDIAN_VAULT_PATH=${OBSIDIAN_VAULT_PATH:?}
 
     volumes:
       - ${HERMES_DATA:?}:${HERMES_HOME:?}
       # Ansible renders config.yaml, .env, SOUL.md and AGENTS.md into it: never
       # mount those files, Hermes replaces its config by rename (EBUSY).
       - /var/run/docker.sock:/var/run/docker.sock
+      # Obsidian vault: read-only for the agent, except `mori/`, whose own bind
+      # wins over the read-only parent. The host mounts it the same way.
+      - ${HERMES_VAULT_RO:?}:${HERMES_VAULT:?}:ro
+      - ${HERMES_VAULT_MORI:?}:${HERMES_VAULT:?}/mori
 
     ports:
       - "${PUBLISH_PORT:?}:9119"

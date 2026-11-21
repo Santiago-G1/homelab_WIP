@@ -93,6 +93,12 @@ hermes_llm_key_env: BIFROST_API_KEY  # and the variable it reads the key from
 hermes_request_timeout_s: 1800
 hermes_uid: "10000"
 hermes_gid: "10000"
+# Obsidian vault. The agent reads all of it and writes only in `mori/`: PVE
+# mounts the vault read-only (mp1) and that one directory read-write (mp2), and
+# the Compose file repeats the split inside the container.
+hermes_vault: /opt/vault               # container side; what OBSIDIAN_VAULT_PATH names
+hermes_vault_ro: /mnt/obsidian         # CT side, mounted read-only
+hermes_vault_mori: /mnt/obsidian-mori  # CT side, the only read-write mount
 
 # Which profile answers where. The bot of every channel lives in `default`; a
 # route hands the conversation to another served profile. Signal goes to the one
@@ -236,6 +242,11 @@ stacks:
     env:
       HERMES_DATA: "{{ hermes_data_root }}"
       HERMES_HOME: "{{ hermes_home }}"
+      HERMES_VAULT: "{{ hermes_vault }}"
+      HERMES_VAULT_RO: "{{ hermes_vault_ro }}"
+      HERMES_VAULT_MORI: "{{ hermes_vault_mori }}"
+      # The `obsidian` skill resolves the vault from this variable.
+      OBSIDIAN_VAULT_PATH: "{{ hermes_vault }}"
       HERMES_DASHBOARD_USER: admin
       HERMES_DASHBOARD_PASSWORD: "{{ vault_hermes_dashboard_password }}"
       HERMES_DASHBOARD_SECRET: "{{ vault_hermes_dashboard_secret }}"
