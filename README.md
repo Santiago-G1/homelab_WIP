@@ -49,7 +49,7 @@ The infrastructure is segmented into distinct layers managed via automated pipel
 ### Productivity Services
 - **Vaultwarden (192.168.10.23):** Vaultwarden (8000)
 - **Radicale (192.168.10.24):** Radicale (5232)
-- **Quantum Filebrowser (192.168.10.25):** Quantum Filebrowser (8080), Syncthing (8384)
+- **Quantum Filebrowser (192.168.10.25):** Filebrowser (80), Syncthing (8384)
 - **AI-Stack (192.168.10.26):** llama.cpp server in router mode (8080), Bifrost (4000), SearXNG (8081), GPU control panel (8099)
 
 ---
