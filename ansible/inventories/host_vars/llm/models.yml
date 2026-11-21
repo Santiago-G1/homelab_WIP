@@ -106,15 +106,18 @@ llm_models_catalogue:
       # long-context prompt states are 3.4-4.3 GB: without this every repeat re-prefills.
       cache-ram: 8192
       # Vision: the projector is what turns pixels into tokens. It is not part
-      # of the model file, so a quant of a VL model is blind without it.
-      mmproj: "{{ llamacpp_models_dir }}/mmproj-BF16-ajgazin.gguf"
-      # The 27B does not fit in one card, but the projector goes on the one
-      # with the fast link (0000:01:00.0 = Gen3 x16; the other is Gen2 x4).
-      mmproj-device: CUDA0
-      # Grounding: llama.cpp warns that Qwen-VL wants at least 1024 image
-      # tokens. Costs ~2.4 s more prefill on a new image (2.7 -> 5.1 s at
-      # 512-640 px), nothing on a repeated one: the prompt cache covers it.
-      image-min-tokens: 1024
+      # of the model file, so a quant of a VL model is blind without it. This
+      # is the uncensored model's own projector (ajgazin), requantised to f16:
+      # the P100 has no native bf16, so f16 encodes 2.5-3.8% faster.
+      mmproj: "{{ llamacpp_models_dir }}/mmproj-F16-ajgazin.gguf"
+      # The 27B does not fit in one card. The projector's encode graph needs
+      # room to grow, so it sits on the card with headroom. Measured: same
+      # speed on either card, but a 2875x1500 image OOMs the model.
+      mmproj-device: CUDA1
+      # The floor pads small images with interpolated pixels. Measured on a
+      # 512 px image: 1024 -> 1083 vision tokens / 5.8 s vs 256 -> 315 tokens
+      # / 2.9 s, same answer. Images above the floor are unaffected.
+      image-min-tokens: 256
       slot-save-path: /mnt/data/kv/uncensored
   - name: Swift-1.5-Qwen3.8-27B-Uncensored-Q4_1-BF16:deep
     args:
@@ -145,9 +148,9 @@ llm_models_catalogue:
       min-p: 0.0
       # long-context prompt states are 3.4-4.3 GB: without this every repeat re-prefills.
       cache-ram: 8192
-      mmproj: /mnt/data/models/mmproj-BF16-ajgazin.gguf
-      mmproj-device: CUDA0
-      image-min-tokens: 1024
+      mmproj: /mnt/data/models/mmproj-F16-ajgazin.gguf
+      mmproj-device: CUDA1
+      image-min-tokens: 256
 
 
 # Window for a model that sets none: the router's `[*]` preset, and what hermes
