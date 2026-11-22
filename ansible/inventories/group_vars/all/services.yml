@@ -29,7 +29,6 @@ service_ports:
   prowlarr: 9696
   bazarr: 6767
   seerr: 5055
-  calibre: 8082
   slskd: 5030
   vaultwarden: 8000
   radicale: 5232
@@ -161,14 +160,6 @@ homelab_services:
     icon: di:seerr
     group: Media
     release: seerr-team/seerr
-
-  - host: calibre
-    server: arrsuite
-    port: "{{ service_ports.calibre }}"
-    title: Calibre-Web
-    icon: di:calibre-web
-    group: Media
-    release: janeczku/calibre-web
 
   - host: slskd
     server: arrsuite

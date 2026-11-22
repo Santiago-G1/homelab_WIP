@@ -1,11 +1,22 @@
 ---
-# Media is bind-mounted read-only here; the stacks get its path as DATA_MOUNT.
+# Media is bind-mounted here; the stacks get its path as DATA_MOUNT.
 stack_env_host:
   DATA_MOUNT: /mnt/media
 
 stacks:
   - { name: jellyfin,  src: media-services/frontend/jellyfin }
   - { name: komga,     src: media-services/frontend/komga }
+  - name: epub-fetcher
+    src: media-services/frontend/epub-fetcher
+    # The engine is installed at build time, so a version bump needs the build.
+    build: true
+    dirs:
+      # urls.txt and personal.ini; gitignored, the list never reaches the repo.
+      - { path: data }
+    env:
+      # Revisit the list twice a day; existing epubs only get the new parts.
+      REFRESH_HOURS: "12"
+      IS_ADULT: "true"
   - name: navidrome
     src: media-services/frontend/navidrome
     # The image does not chown its data dir: create it as the container uid.

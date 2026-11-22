@@ -58,3 +58,8 @@ Thumbs.db
 # PYTHON
 __pycache__/
 *.pyc
+
+# EPUB FETCHER (URL list and personal overrides: never commit)
+**/epub-fetcher/data/urls.txt
+**/epub-fetcher/data/personal.ini
+**/epub-fetcher/data/.last-run

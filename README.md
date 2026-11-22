@@ -42,8 +42,8 @@ The infrastructure is segmented into distinct layers managed via automated pipel
   - Glance is the single entry point for the lab: service availability, per-group bookmarks, homelab-wide metrics (read from Prometheus), DNS numbers, upstream releases, the GPU control panel (widget + embedded UI) and the LocalLLaMA/LocalLLM feeds. See [`docs/dashboard.md`](docs/dashboard.md).
 
 ### Media Services
-- **Arrsuite (192.168.10.20):** qBittorrent (8080), Radarr (7878), Sonarr (8989), Prowlarr (9696), Bazarr (6767), Seerr (5055), Flaresolverr (8191), Slskd (5030), Calibre (8082)
-- **Frontend (192.168.10.21):** Navidrome (4533), Jellyfin (8096), Komga (25600)
+- **Arrsuite (192.168.10.20):** qBittorrent (8080), Radarr (7878), Sonarr (8989), Prowlarr (9696), Bazarr (6767), Seerr (5055), Flaresolverr (8191), Slskd (5030)
+- **Frontend (192.168.10.21):** Navidrome (4533), Jellyfin (8096), Komga (25600), epub-fetcher (URL to EPUB on a timer, no port)
 - **Immich (192.168.10.22):** Immich (2283)
 
 ### Productivity Services

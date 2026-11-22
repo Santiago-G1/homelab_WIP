@@ -1,0 +1,6 @@
+# Optional engine overrides. Copy to data/personal.ini; the entrypoint passes it
+# as -c only when that file exists.
+[defaults]
+# Some sites throttle crawlers that walk many pages without pausing.
+slow_down_sleep_time: 1
+include_author_notes: false

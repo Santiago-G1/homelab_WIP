@@ -9,7 +9,6 @@ stack_env_host:
 
 stacks:
   - { name: bazarr,       src: media-services/arrsuite/bazarr }
-  - { name: calibre,      src: media-services/arrsuite/calibre }
   - { name: flaresolverr, src: media-services/arrsuite/flaresolverr }
   - { name: prowlarr,     src: media-services/arrsuite/prowlarr }
   - { name: qbittorrent,  src: media-services/arrsuite/qbittorrent }
@@ -36,4 +35,3 @@ health_checks:
   - { name: qbittorrent, url: "http://127.0.0.1:{{ service_ports.qbittorrent }}/" }
   - { name: seerr,       url: "http://127.0.0.1:{{ service_ports.seerr }}/" }
   - { name: slskd,       url: "http://127.0.0.1:{{ service_ports.slskd }}/" }
-  - { name: calibre,     url: "http://127.0.0.1:{{ service_ports.calibre }}/" }

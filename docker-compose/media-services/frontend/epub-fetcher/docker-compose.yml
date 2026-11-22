@@ -1,0 +1,28 @@
+services:
+  epub-fetcher:
+    build:
+      context: .
+      args:
+        FANFICFARE_VERSION: "4.63.0"
+    image: local/epub-fetcher:1
+    container_name: epub-fetcher
+    environment:
+      - TZ=${TZ:-Etc/UTC}
+      # How often the whole list is revisited. Existing epubs only get the new
+      # parts, so a long document is not downloaded again.
+      - REFRESH_HOURS=${REFRESH_HOURS:-12}
+      # Answers the mature-content gate the CLI cannot ask about interactively.
+      - IS_ADULT=${IS_ADULT:-true}
+    volumes:
+      # urls.txt and personal.ini live here: gitignored, never in the repo.
+      - ./data:/config
+      # The library folder. Files are named after the document they came from.
+      - ${DATA_MOUNT:?DATA_MOUNT is required}/comics/inbox:/out
+    restart: unless-stopped
+    healthcheck:
+      # Written when a pass completes, so an empty list is still healthy.
+      test: ["CMD-SHELL", "test -f /config/.last-run"]
+      interval: 30m
+      timeout: 10s
+      retries: 3
+      start_period: 5m
