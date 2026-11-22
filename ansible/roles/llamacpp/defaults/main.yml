@@ -15,9 +15,10 @@ llamacpp_global_args:
   n-gpu-layers: 99
   c: "{{ llm_default_ctx | default(8192) }}"
   flash-attn: "on"
-  # Host-side prompt cache (MiB). Long prompt states measure 3.4-4.3 GB and were
-  # being discarded at 2048, so every repeat re-prefilled (OPTLOG 367).
-  cache-ram: 8192
+  # Host-side prompt cache (MiB). A 101k-token state measures 8555 MiB and was
+  # discarded with "exceeds cache size limit 8192", which cost 419 s per return
+  # (21-nov). It is a per-entry limit; the CT has 12 GiB, so 9216 is the ceiling.
+  cache-ram: 9216
 llamacpp_model_overrides: {}
 
 cuda_toolkit_package: cuda-toolkit-12-8   # needs the glibc 2.41 patch in tasks/main.yml

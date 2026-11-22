@@ -18,13 +18,14 @@ llm_models_catalogue:
       cache-type-v: q8_0
       flash-attn: "on"
       split-mode: tensor
-      tensor-split: "1,1"
+      tensor-split: "1,0.95"
       fit: "off"
       # One slot: a dense model splits one pass across slots, so more of them
       # only makes each answer slower. Only one model is resident anyway.
       parallel: 1
       batch-size: 2048
-      ubatch-size: 2048   # prefill +5,7 % d0 / +5,4 % a 16k, decode intacto (OPTLOG 334)
+      ubatch-size: 1024   # 2048 daba +5,7 % prefill pero no dejaba hueco para el grafo
+                          # de vision a 262k (OOM de 472 MiB, 21-nov). 1024 cuadra las dos cosas.
       spec-type: draft-mtp
       spec-draft-n-max: 1
       spec-draft-p-min: 0.2
@@ -37,8 +38,9 @@ llm_models_catalogue:
       top-p: 0.95
       top-k: 20
       min-p: 0.0
-      # long-context prompt states are 3.4-4.3 GB: without this every repeat re-prefills.
-      cache-ram: 8192
+      # Prompt states: 3.4-4.3 GB at 40k, 8555 MiB at 101k. The limit is per entry and
+      # a state that does not fit is discarded silently (419 s per return, 21-nov).
+      cache-ram: 9216
       # Vision: the projector is what turns pixels into tokens. Both models use
       # this one (the uncensored weights' projector): the P100 has no native
       # bf16, so f16 encodes 2.5-3.8% faster, and the floor at 256 (was 1024)
@@ -46,6 +48,10 @@ llm_models_catalogue:
       mmproj: "{{ llamacpp_models_dir }}/mmproj-F16-ajgazin.gguf"
       mmproj-device: CUDA1
       image-min-tokens: 256
+      # Techo de tokens por imagen: sin el, la resolucion dinamica de Qwen3-VL
+      # partia una imagen grande en ~100 chunks y pedia un grafo de 472 MiB (OOM).
+      image-max-tokens: 4096
+      mtmd-batch-max-tokens: 512
       slot-save-path: /mnt/data/kv/default
   - name: Swift-1.5-Qwen3.8-27B-Q4_1-BF16:deep
     args:
@@ -61,11 +67,11 @@ llm_models_catalogue:
       cache-type-v: q8_0
       flash-attn: "on"
       split-mode: tensor
-      tensor-split: 1,1
+      tensor-split: 1,0.95
       fit: "off"
       parallel: 1
       batch-size: 2048
-      ubatch-size: 2048
+      ubatch-size: 1024
       spec-type: draft-mtp
       spec-draft-n-max: 1
       spec-draft-p-min: 0.2
@@ -78,8 +84,9 @@ llm_models_catalogue:
       top-p: 0.95
       top-k: 20
       min-p: 0.0
-      # long-context prompt states are 3.4-4.3 GB: without this every repeat re-prefills.
-      cache-ram: 8192
+      # Prompt states: 3.4-4.3 GB at 40k, 8555 MiB at 101k. The limit is per entry and
+      # a state that does not fit is discarded silently (419 s per return, 21-nov).
+      cache-ram: 9216
       # Vision: the projector is what turns pixels into tokens. Both models use
       # this one (the uncensored weights' projector): the P100 has no native
       # bf16, so f16 encodes 2.5-3.8% faster, and the floor at 256 (was 1024)
@@ -87,6 +94,10 @@ llm_models_catalogue:
       mmproj: /mnt/data/models/mmproj-F16-ajgazin.gguf
       mmproj-device: CUDA1
       image-min-tokens: 256
+      # Techo de tokens por imagen: sin el, la resolucion dinamica de Qwen3-VL
+      # partia una imagen grande en ~100 chunks y pedia un grafo de 472 MiB (OOM).
+      image-max-tokens: 4096
+      mtmd-batch-max-tokens: 512
       slot-save-path: /mnt/data/kv/default
   - name: Swift-1.5-Qwen3.8-27B-Uncensored-Q4_1-BF16
     profile: uncensored
@@ -100,11 +111,11 @@ llm_models_catalogue:
       cache-type-v: q8_0
       flash-attn: "on"
       split-mode: tensor
-      tensor-split: "1,1"
+      tensor-split: "1,0.95"
       fit: "off"
       parallel: 1          # dense: see Swift above
       batch-size: 2048
-      ubatch-size: 2048   # prefill +5,5 % d0 y +5,3 % a 16k, decode intacto (OPTLOG 334)
+      ubatch-size: 1024   # idem: 1024 por margen de VRAM para vision a 262k
       spec-type: draft-mtp
       spec-draft-n-max: 1
       spec-draft-p-min: 0.2
@@ -117,8 +128,9 @@ llm_models_catalogue:
       top-p: 0.95
       top-k: 20
       min-p: 0.0
-      # long-context prompt states are 3.4-4.3 GB: without this every repeat re-prefills.
-      cache-ram: 8192
+      # Prompt states: 3.4-4.3 GB at 40k, 8555 MiB at 101k. The limit is per entry and
+      # a state that does not fit is discarded silently (419 s per return, 21-nov).
+      cache-ram: 9216
       # Vision: the projector is what turns pixels into tokens. It is not part
       # of the model file, so a quant of a VL model is blind without it. This
       # is the uncensored model's own projector (ajgazin), requantised to f16
@@ -132,6 +144,10 @@ llm_models_catalogue:
       # 512 px image: 1024 -> 1083 vision tokens / 5.8 s vs 256 -> 315 tokens
       # / 2.9 s, same answer. Images above the floor are unaffected.
       image-min-tokens: 256
+      # Techo de tokens por imagen: sin el, la resolucion dinamica de Qwen3-VL
+      # partia una imagen grande en ~100 chunks y pedia un grafo de 472 MiB (OOM).
+      image-max-tokens: 4096
+      mtmd-batch-max-tokens: 512
       slot-save-path: /mnt/data/kv/uncensored
   - name: Swift-1.5-Qwen3.8-27B-Uncensored-Q4_1-BF16:deep
     args:
@@ -143,11 +159,11 @@ llm_models_catalogue:
       cache-type-v: q8_0
       flash-attn: "on"
       split-mode: tensor
-      tensor-split: 1,1
+      tensor-split: 1,0.95
       fit: "off"
       parallel: 1
       batch-size: 2048
-      ubatch-size: 2048
+      ubatch-size: 1024
       spec-type: draft-mtp
       spec-draft-n-max: 1
       spec-draft-p-min: 0.2
@@ -160,11 +176,16 @@ llm_models_catalogue:
       top-p: 0.95
       top-k: 20
       min-p: 0.0
-      # long-context prompt states are 3.4-4.3 GB: without this every repeat re-prefills.
-      cache-ram: 8192
+      # Prompt states: 3.4-4.3 GB at 40k, 8555 MiB at 101k. The limit is per entry and
+      # a state that does not fit is discarded silently (419 s per return, 21-nov).
+      cache-ram: 9216
       mmproj: /mnt/data/models/mmproj-F16-ajgazin.gguf
       mmproj-device: CUDA1
       image-min-tokens: 256
+      # Techo de tokens por imagen: sin el, la resolucion dinamica de Qwen3-VL
+      # partia una imagen grande en ~100 chunks y pedia un grafo de 472 MiB (OOM).
+      image-max-tokens: 4096
+      mtmd-batch-max-tokens: 512
 
 
 # Window for a model that sets none: the router's `[*]` preset, and what hermes
