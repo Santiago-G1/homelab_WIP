@@ -33,6 +33,10 @@ if [ ! -f "$URLS" ]; then
 fi
 
 fetch_all() {
+  # The stamp means "a pass finished", not "every URL worked": it is written
+  # before the list is read, so an empty list still counts as a healthy pass.
+  : > "$STAMP"
+
   # Comments and blank lines are ignored, so urls.txt can document itself.
   urls=$(grep -vE '^[[:space:]]*(#|$)' "$URLS" || true)
   if [ -z "$urls" ]; then
@@ -61,8 +65,6 @@ fetch_all() {
 $urls
 EOF_URLS
 
-  # The stamp means "a pass finished", not "every URL worked".
-  : > "$STAMP"
   if [ "$failed" -ne 0 ]; then
     log "$failed url(s) failed, see the engine output above"
   fi
