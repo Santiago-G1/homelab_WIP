@@ -1,7 +1,8 @@
 ---
-# 25 %: at 75 % zram filled with llama.cpp's quantised buffers and held ~7 GiB.
+# 40 %: at 25 % the device filled to 87 % and spilled to the swapfile; at 75 % it
+# held ~7 GiB of llama.cpp's quantised buffers and starved the host (22-nov).
 # One device only, a second one costs host memory for the same pages.
-pve_zram_percent: 25
+pve_zram_percent: 40
 pve_zram_algorithm: zstd
 pve_zram_priority: 100
 
