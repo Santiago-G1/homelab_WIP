@@ -229,6 +229,10 @@ stacks:
     # The panel has its own repository: its code is not in this one.
     repo: https://github.com/Santiago-G1/gpupanel.git
     build: true
+    dirs:
+      # The panel's own memory: the auto-switch settings and the per-card power
+      # limits it re-applies on start. A plain file, not a named volume.
+      - { path: state }
     env:
       PANEL_USER: "{{ dashboard_admin_user }}"
       PANEL_PASSWORD: "{{ vault_gpu_panel_password }}"
