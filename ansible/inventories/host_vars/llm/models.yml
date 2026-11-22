@@ -24,7 +24,7 @@ llm_models_catalogue:
       # resident anyway.
       parallel: 1
       batch-size: 2048
-      ubatch-size: 1024   # 1024 leaves room for the vision graph at 262k; 2048 OOMs.
+      ubatch-size: 2048   # +6.3 % prefill at 17k; the vision graph fits at 262k (22-nov)
       spec-type: draft-mtp
       spec-draft-n-max: 2
       spec-draft-p-min: 0.2
@@ -67,7 +67,7 @@ llm_models_catalogue:
       fit: "off"
       parallel: 1
       batch-size: 2048
-      ubatch-size: 1024
+      ubatch-size: 2048
       spec-type: draft-mtp
       spec-draft-n-max: 2
       spec-draft-p-min: 0.2
@@ -109,7 +109,7 @@ llm_models_catalogue:
       fit: "off"
       parallel: 1          # dense: see Swift above
       batch-size: 2048
-      ubatch-size: 1024   # idem: 1024 por margen de VRAM para vision a 262k
+      ubatch-size: 2048   # +6.3 % prefill at 17k; the vision graph fits at 262k (22-nov)
       spec-type: draft-mtp
       spec-draft-n-max: 2
       spec-draft-p-min: 0.2
@@ -151,7 +151,7 @@ llm_models_catalogue:
       fit: "off"
       parallel: 1
       batch-size: 2048
-      ubatch-size: 1024
+      ubatch-size: 2048
       spec-type: draft-mtp
       spec-draft-n-max: 2
       spec-draft-p-min: 0.2
