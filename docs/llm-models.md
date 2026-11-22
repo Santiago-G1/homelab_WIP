@@ -112,15 +112,15 @@ that follows it) and can trigger a long compile. See `llamacpp-build.md`.
 
 ## Where the file lives
 
-`llamacpp_models_dir` (`/mnt/data/models`) is the pool, and the pool reads a
-21 GiB GGUF at ~60 MB/s: 5m40s to load, which is exactly the silence before the
-first token when the panel unloaded the model (or after a restart). The models
+`llamacpp_models_dir` (`/mnt/data/models`) is the pool, and loading a 21 GiB GGUF
+from it is slow: that wait is the silence before the first token when the model
+was unloaded. The models
 the agents use are the ones marked `fast: true` in `models.yml`, and the
 `llamacpp` role moves them to `llamacpp_fast_models_dir`
 (`/var/lib/llama/models`, on the container's root disk, which is the SSD) and
 leaves a symlink in the models directory, so the router keeps seeing the same
-file name. Measured: **3m25s** instead of 5m40s; the rest of that time is CUDA
-context and tensor setup, not I/O.
+file name. Moving them cuts the load roughly in half; the rest is CUDA context
+setup, not I/O.
 
 Two things to keep in mind:
 
@@ -166,18 +166,15 @@ model by guessing its name.
 
 ## Prefill is the wait, and the prefix is what makes it short
 
-The P100 does ~550-900 tokens/s of prompt processing, so a 17k-token prompt is
-~27 s of silence before the first token (llama.cpp sends nothing until the
-prefill ends). llama.cpp reuses its KV cache only while the prompt matches the
-cached one token-for-token: asking the same thing again costs 0.35 s, but as
-soon as the prefix diverges the whole prompt is processed again.
+Prefill dominates the wait: llama.cpp sends nothing until it ends. It reuses its
+KV cache only while the prompt matches the cached one token-for-token; as soon
+as the prefix diverges, the whole prompt is processed again.
 
 Two knobs keep that wait down, both of them in this host's config:
 
 - `cache-reuse: 256` in the 35B presets: after a divergence away from the start,
   llama.cpp shifts the cached KV and reuses the matching chunks instead of
-  starting from zero. Without it the same 12k prompt cost 14.5 s on every turn
-  the agent rebuilt its history; with it, the tail is reused.
+  starting from zero, so the tail of a rebuilt history is reused.
 - Keep tool results small in the prompts you give the agent: every result stays
   in the history and is re-prefilled on later turns, so a 40k-char page is ~10k
   tokens of tax each time.

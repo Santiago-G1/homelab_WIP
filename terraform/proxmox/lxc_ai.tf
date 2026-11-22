@@ -8,8 +8,6 @@ module "ai" {
   cpu_cores  = 4
   memory     = 12288
   # 12 GiB: the prompt cache spills here when two long conversations are live.
-  # The host has 20 GiB of swapfile plus zram, so the container cap was the only
-  # limit; with 4 GiB the restores took 900-1400 s, with 12 GiB they take 16-23 s.
   swap      = 12288
   disk_size = 92
 

@@ -2,10 +2,8 @@
 # Collections the roles call. Install them with:
 #   ansible-galaxy collection install -r requirements.yml
 #
-# ansible-core >= 2.19: `callback_result_format` (the readable output
-# ansible.cfg asks for) is an option of the default callback from that version;
-# before it, the same output came from community.general's `yaml` plugin, which
-# community.general 12.0.0 removed.
+# ansible-core >= 2.19: `callback_result_format` (see ansible.cfg) is an option
+# of the default callback from that version on.
 collections:
   # synchronize, in roles/stacks.
   - name: ansible.posix

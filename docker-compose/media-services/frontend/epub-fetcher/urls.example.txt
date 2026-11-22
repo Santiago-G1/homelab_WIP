@@ -4,5 +4,5 @@
 # Expected shape (a placeholder, not a working link):
 # https://example.com/some/paginated-document
 #
-# Only sites the engine has an adapter for can be fetched; anything else fails
-# and is reported in the container log, one line per URL.
+# Only sources the engine has an adapter for can be fetched; failures are
+# reported in the container log, one line per URL.

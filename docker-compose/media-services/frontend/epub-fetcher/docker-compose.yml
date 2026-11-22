@@ -8,10 +8,9 @@ services:
     container_name: epub-fetcher
     environment:
       - TZ=${TZ:-Etc/UTC}
-      # How often the whole list is revisited. Existing epubs only get the new
-      # parts, so a long document is not downloaded again.
+      # How often the list is revisited. Existing epubs only get the new parts.
       - REFRESH_HOURS=${REFRESH_HOURS:-12}
-      # Answers the mature-content gate the CLI cannot ask about interactively.
+      # Answers the CLI's interactive prompt.
       - IS_ADULT=${IS_ADULT:-true}
     volumes:
       # urls.txt and personal.ini live here: gitignored, never in the repo.

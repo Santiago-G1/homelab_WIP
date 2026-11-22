@@ -16,14 +16,12 @@ llm_gpu_count: 2
 # allow-lists live. Values must keep Bifrost's `sk-bf-` prefix or it replaces
 # them with one it generated.
 bifrost_api_base: "http://{{ ansible_host }}:{{ llamacpp_port }}"
-# Bifrost's default is 5 min, and a 145k-token prefill on the P100s needs ~9:
-# the turn was abandoned at exactly 300 s (504). 30 min for the request, 20 for
-# a stream that goes silent while the router prefills.
+# Bifrost's 5 min default cuts a 145k-token prefill (~9 min): 30 min for the
+# request, 20 for a stream that goes silent while the router prefills.
 bifrost_request_timeout_s: 1800
 bifrost_stream_idle_timeout_s: 1200
 # Every model in models.yml is reachable by the agent; the flags there only pick
-# each profile's default (censored ones for `default`, the abliterated for
-# `uncensored`). Restricting the key to two names left hermes unable to switch.
+# each profile's default (censored for `default`, abliterated for `uncensored`).
 bifrost_agent_models: "{{ llm_models | map(attribute='name') | select('search', '^[^:]+$') | list }}"
 bifrost_virtual_keys:
   # The agent: the models its own profiles use.
@@ -47,18 +45,16 @@ searxng_gid: "977"
 searxng_instance_name: "Homelab search"
 searxng_base_url: "https://search.{{ vault_domainname_hs }}/"
 
-# Declared here as well as in roles/llamacpp/defaults so a playbook that runs
-# without the role (llm-model-add.yml) can use them: they are facts about this
-# host, not role internals.
+# Also in roles/llamacpp/defaults: playbooks that skip the role (llm-model-add.yml)
+# need them.
 llamacpp_models_dir: /mnt/data/models
 llamacpp_user: llama
 llamacpp_service: llama-server   # verify.yml runs without the role defaults
 
 # Models marked `fast: true` in models.yml are kept on the local SSD.
 llamacpp_fast_models_dir: /var/lib/llama/models
-# The gguf to keep on the SSD: the basename of args.model when the preset
-# declares one (the preset id and the file name part ways once the weights are
-# requantized, e.g. Swift-...-IQ4_XS -> ...-Q4_1-BF16.gguf), else the preset name.
+# The gguf kept on the SSD: basename of args.model when the preset sets one, else
+# the preset name.
 llamacpp_fast_models: >-
   {%- set out = [] -%}
   {%- for m in llm_models if 'fast' in m -%}

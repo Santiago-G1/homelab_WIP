@@ -69,8 +69,8 @@
   register: stack_entries
   when: stack.repo is defined
 
-# git writes only into an empty directory: move any rsync-era copy aside.
-# The rendered .env needs no saving, it is rewritten below on this same run.
+# git only clones into an empty directory: move any older copy aside.
+# The rendered .env needs no saving: it is rewritten below on this run.
 - name: "{{ stack.name }} | assert the directory can hold the checkout"
   ansible.builtin.assert:
     that: stack_entries.matched == 0 or stack_checkout.stat.exists

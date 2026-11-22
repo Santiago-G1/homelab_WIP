@@ -1,4 +1,4 @@
-# CREDENCIALES Y SECRETOS
+# Credentials and secrets
 *.tfvars
 *.tfvars.json
 .env
@@ -10,17 +10,17 @@
 *secret*
 *password*
 
-# Plantillas versionables (nunca secretos reales)
+# Versioned templates (never real secrets)
 !.env.example
 !.env.template
 !.env.sample
 
-# FILEBROWSER (runtime data, nunca commitear)
+# FILEBROWSER (runtime data, never commit)
 **/filebrowser/config/database.sqlite
 **/filebrowser/config/*.sqlite
 **/filebrowser/config/*.db
 
-# SAMBA (credenciales, usar users.conf.template)
+# SAMBA (credentials, use users.conf.template)
 **/samba/users.conf
 
 # Stack runtime dirs (compose bind sources, may hold credentials)
@@ -41,7 +41,7 @@ override.tf.json
 *.vault
 .vault_pass
 
-# SISTEMA
+# System
 .DS_Store
 Thumbs.db
 *.swp
@@ -50,7 +50,7 @@ Thumbs.db
 .vscode/
 .idea/
 
-# LOGS Y TEMPORALES
+# Logs and temporary files
 *.log
 *.tmp
 *.bak

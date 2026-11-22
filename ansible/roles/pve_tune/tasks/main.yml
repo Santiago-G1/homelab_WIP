@@ -1,5 +1,4 @@
 ---
-# CPU frequency.
 - name: Install the CPU governor unit
   ansible.builtin.template:
     src: cpu-governor.service.j2

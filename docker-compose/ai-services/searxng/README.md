@@ -1,10 +1,7 @@
 # SearXNG
 
-Metasearch instance on the AI host (`llm`), deployed as a Compose
-stack on the same `ai-stack` network as Bifrost and the agents. It exists because
-the agent's `web_search` tool defaults to DuckDuckGo, whose HTML endpoint starts
-throttling the daemon after a handful of queries; a local metasearch has no
-per-client quota and no API key to rotate.
+Metasearch instance on the AI host (`llm`), on the same `ai-stack` network as
+Bifrost and the agents: no per-client quota and no API key to rotate.
 
 ```
 agent tool call ──► hermes ──► http://searxng:8080/search?…&format=json
@@ -47,13 +44,10 @@ which stays in git.
 ## Why the limiter is off
 
 `server.limiter: false` and `public_instance: false` are the documented pair for
-a private instance. The limiter needs a valkey/redis to keep counts across
-workers, and the agent is the only client — a limiter here would just be a way
-to 429 our own tool calls. **This is also why the instance must not be published
-on the internet**: an open metasearch is a free search proxy for anyone. Caddy
-serves it on the LAN; making `search.<domain>` a public hostname in the
-Cloudflare tunnel needs a valkey service and the limiter (plus bot detection)
-turned on first.
+a private instance: the limiter needs a valkey/redis across workers and the agent
+is the only client. **This is also why the instance must not be published on the
+internet**: an open metasearch is a free search proxy. Making `search.<domain>`
+public needs a valkey service and the limiter (plus bot detection) first.
 
 ## Operating
 

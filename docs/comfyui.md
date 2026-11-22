@@ -80,9 +80,8 @@ it were an LLM):
 ```
 
 The GGUF unets are loaded with **ComfyUI-GGUF** (`UnetLoaderGGUFAdvanced`). The
-stored workflows were written for an older node version: they were updated in
-place (`patch_on_device: false`, required since 2026-01, and `dequant_dtype`
-`float32` -> `float16`; the originals are next to them as `*.bak-20261025`).
+stored workflows need `patch_on_device: false`; the pre-2026 originals are kept
+next to them as `*.bak-20261025`.
 
 The `clip`/`vae` files named `*fp8_e4m3fn*` are fp8 *storage*: ComfyUI casts them
 on load, so they work on Pascal, but they save VRAM only, not time. The fp16

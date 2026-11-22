@@ -9,13 +9,8 @@ use_default_settings:
     remove:
       - ahmia
       - torch
-      # General-category engines a human uses and the agent cannot (measured
-      # 22-nov, 5 queries): only brave, google cse and duckduckgo returned
-      # results. wikidata timed out or 403'd on 5/5 and contributed nothing;
-      # wikipedia answered 429 on 179 lookups and 400/500 on 56, with zero
-      # results; the rest are dictionaries, a translator and a currency
-      # converter. Removing them also removes up to 6 s of wait per query,
-      # because every general engine is queried in parallel.
+      # General engines that returned nothing for the agent: a timeout, a 403/429
+      # or a dictionary. Every one removed also removes its wait from each query.
       - wikidata
       - wikipedia
       - dictzone

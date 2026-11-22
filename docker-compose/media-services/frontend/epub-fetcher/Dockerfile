@@ -1,8 +1,5 @@
-# Scheduled fetcher: takes the URLs listed in urls.txt, turns each one into an
-# epub and drops it in the library folder. The engine is FanFicFare because it
-# already knows how to walk a paginated document and produce a clean epub, and
-# because its adapters are maintained; they break over time, so the version is
-# pinned and bumped on purpose, never floated.
+# Fetches every URL in urls.txt into an epub in the library folder. The engine
+# is pinned on purpose: its adapters break over time.
 FROM python:3.12-slim@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b
 
 ARG FANFICFARE_VERSION=4.63.0

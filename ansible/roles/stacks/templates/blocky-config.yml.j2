@@ -47,14 +47,13 @@ blocking:
       - https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/urlshortener-onlydomains.txt
     special:
       - |
-        # AdGuard blocked_hosts
         version.bind
         id.server
         hostname.bind
   allowlists:
     hagezi:
       - |
-        # AdGuard user_rules: @@||huggingface.co^$important
+        # Model downloads: allowlisted on purpose.
         huggingface.co
         cdn-lfs.huggingface.co
         hf.co

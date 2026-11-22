@@ -1,12 +1,8 @@
 #!/bin/sh
-# Fetch every URL listed in $CONFIG_DIR/urls.txt, then wait and repeat.
+# Fetch every URL in $CONFIG_DIR/urls.txt, then wait and repeat. `-u` updates an
+# existing epub in place, so re-runs do not accumulate duplicates.
 #
-# `-u` updates an existing epub in place, so a document that publishes new
-# parts is appended instead of downloaded from scratch. The output name is
-# derived from the source, so re-runs do not accumulate duplicates.
-#
-# The wait is not a blind sleep: editing urls.txt or sending SIGHUP runs the
-# list again immediately, so adding a URL never means waiting for the timer.
+# Editing urls.txt or sending SIGHUP runs the list again immediately.
 set -eu
 
 CONFIG_DIR="${CONFIG_DIR:-/config}"
@@ -26,15 +22,14 @@ trap 'log "SIGHUP received"; reload=1' HUP
 mkdir -p "$CONFIG_DIR" "$OUT_DIR"
 umask 022
 
-# Seeded once so the container has something to read and can say what to do.
+# Seed an empty list on first start.
 if [ ! -f "$URLS" ]; then
   cp /opt/fetcher/urls.example.txt "$URLS"
   log "no urls.txt, seeded an empty one at $URLS"
 fi
 
 fetch_all() {
-  # The stamp means "a pass finished", not "every URL worked": it is written
-  # before the list is read, so an empty list still counts as a healthy pass.
+  # Written before the list is read: an empty list is still a finished pass.
   : > "$STAMP"
 
   # Comments and blank lines are ignored, so urls.txt can document itself.
@@ -48,8 +43,7 @@ fetch_all() {
   while IFS= read -r url; do
     [ -n "$url" ] || continue
     log "fetching $url"
-    # is_adult answers the mature-content gate: without it the CLI aborts when
-    # nobody is there to type yes.
+    # Answer the CLI's interactive prompt; nobody is there to type it.
     set -- -f epub -u -o "is_adult=${IS_ADULT}"
     if [ -f "$PERSONAL" ]; then
       set -- "$@" -c "$PERSONAL"
@@ -75,7 +69,7 @@ wait_for_work() {
   seen=$(cksum "$URLS" 2>/dev/null || echo none)
   log "idle: next scheduled pass in ${REFRESH_HOURS}h (edit urls.txt or send SIGHUP to run now)"
   while [ "$reload" -eq 0 ] && [ "$(date +%s)" -lt "$deadline" ]; do
-    # A background sleep that `wait` can interrupt when the trap fires.
+    # A sleep `wait` can interrupt when the trap fires.
     sleep "$POLL_SECONDS" &
     wait $! || true
     [ "$reload" -eq 0 ] || break

@@ -66,7 +66,6 @@
     enabled: true
     state: started
 
-# Older revisions of this role added a second device of a fixed size.
 - name: Look for the retired second zram device
   ansible.builtin.stat:
     path: /etc/systemd/system/zram-extra.service

@@ -15,9 +15,8 @@ llamacpp_global_args:
   n-gpu-layers: 99
   c: "{{ llm_default_ctx | default(8192) }}"
   flash-attn: "on"
-  # Host-side prompt cache (MiB). A 101k-token state measures 8555 MiB and was
-  # discarded with "exceeds cache size limit 8192", which cost 419 s per return
-  # (21-nov). It is a per-entry limit; the CT has 12 GiB, so 9216 is the ceiling.
+  # Host prompt cache (MiB), a per-entry limit: the largest state is ~8.6 GB and
+  # the CT has 12 GiB.
   cache-ram: 9216
 llamacpp_model_overrides: {}
 
@@ -86,23 +85,21 @@ llamacpp_kmic_binary: /opt/llama.cpp-kmic/build-opt/bin/llama-server
 llamacpp_kmic_env:
   # No-op here: cross-device copies already stage through host RAM.
   GGML_CUDA_P2P: "1"
-  # CUDA graphs for the single-token MTP draft only (1 = full graphs, OOM).
-  # 4 = verify padded inside the graph: +0.57 % at 5k, identical text.
+  # CUDA graphs for the single-token MTP draft only (1 = full graphs, OOM); 4
+  # pads the verify inside the graph.
   GGML_CUDA_GRAPHS_PRE_VOLTA: "4"
   # The draft samples instead of taking its top token and the verify uses the
   # speculative-sampling rule: same output distribution, more drafts accepted.
   LLAMA_SPEC_SAMPLE_TEMP: "1.0"
   LLAMA_SPEC_DRAFT_TOPK: "20"
-  # 2 skips the fold the f16-KV default takes: +2 % prefill at 16k, decode unchanged.
+  # 2 skips the fold the f16-KV default takes: faster prefill, decode unchanged.
   GGML_CUDA_FA_FOLD: "2"
   GGML_CUDA_FA_FOLD_SPLIT: "4"
   GGML_CUDA_GEMM_FOLD_MINROWS: "512"
   GGML_CUDA_FA_GEMM_MINKV: "1024"
-  # fp16 expert GEMM (p60-moe-gemm.cu): +28 % prefill at 0 depth, +23 % at 16k (OPTLOG 328).
+  # fp16 expert GEMM (p60-moe-gemm.cu): the only fast MoE path on Pascal.
   GGML_CUDA_P60_MOE_GEMM: "1"
   # Lossless: draft mass outside the target's nucleus is never accepted.
-  # +6 % decode at 2k and +4 % at 40k once gated; pairs with LLAMA_MTP_DRAFT_VOCAB.
   LLAMA_SPEC_DRAFT_TOPP: "0.95"
-  # Above this depth the nucleus gains nothing and ungated it loses 2.5 %.
-  # The vocab cut is not deployed: wins at 40k, loses at 2k.
+  # Above this depth the nucleus gains nothing and ungated it loses ground.
   LLAMA_SPEC_DRAFT_TOPP_DEPTH: "16384"

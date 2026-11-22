@@ -16,8 +16,7 @@ pve_tune_zfs_params:
   zfs_arc_max: "{{ pve_tune_arc_max_bytes }}"
   zfs_txg_timeout: "{{ pve_tune_zfs_txg_timeout }}"
 
-# 175 W: within 0.3 % of 200 W on prefill and decode, 12.5 % less draw.
-# Below it prefill starts paying: -3.7 % at 150 W, -10.7 % at 125 W.
+# 175 W: same speed as 200 W, 12.5 % less draw; below it prefill starts paying.
 pve_tune_gpu_power_limit_w: 175
 pve_tune_gpu_clock_mem_mhz: 715    # HBM2 stock; never raise
 pve_tune_gpu_clock_sm_mhz: 1328    # GP100 max boost

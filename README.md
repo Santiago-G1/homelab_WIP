@@ -2,11 +2,11 @@
 > **Work in Progress:** This repository is currently under active development.
 
 # Homelab
-Infrastructure automation repository for shifting from manual Proxmox GUI management to a fully automated, declarative GitOps workflow. This project leverages Terraform for provisioning, Ansible for configuration management, and Docker Compose for application deployment.
+Declarative infrastructure for a Proxmox homelab: Terraform provisions the containers, Ansible configures them, Docker Compose runs the services.
 
 ## Project Goal
 
-The primary objective of this repository is to Automate my homelab in case i make a mess and destroy everything. This includes:
+The goal is a lab that can be rebuilt from this repository. It covers:
 - Declarative Infrastructure as Code (IaC)
 - Automated node and container configuration
 - Containerized service orchestration
@@ -39,7 +39,7 @@ The infrastructure is segmented into distinct layers managed via automated pipel
 
 ### Monitoring Services
 - **Monitor (192.168.10.10):** Prometheus (9090), Grafana (3000), Glance dashboard (8080)
-  - Glance is the single entry point for the lab: service availability, per-group bookmarks, homelab-wide metrics (read from Prometheus), DNS numbers, upstream releases, the GPU control panel (widget + embedded UI) and the LocalLLaMA/LocalLLM feeds. See [`docs/dashboard.md`](docs/dashboard.md).
+  - Glance is the single entry point for the lab: availability, bookmarks, metrics, releases, the GPU panel and the LocalLLaMA feeds. See [`docs/dashboard.md`](docs/dashboard.md).
 
 ### Media Services
 - **Arrsuite (192.168.10.20):** qBittorrent (8080), Radarr (7878), Sonarr (8989), Prowlarr (9696), Bazarr (6767), Seerr (5055), Flaresolverr (8191), Slskd (5030)

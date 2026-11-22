@@ -69,7 +69,7 @@
           - "vision: {{ 'yes' if model_info.vision else 'no' }} · tensors: {{ model_info.tensor_count }}"
 
     # First add turns `llm_models_local: []` into a real list header.
-    # The repository is on the control node; this play targets the AI host.
+    # The repo is on the control node; this play targets the AI host.
     - name: Make room for entries
       ansible.builtin.lineinfile:
         path: "{{ models_local_file }}"

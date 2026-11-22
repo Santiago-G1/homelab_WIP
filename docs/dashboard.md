@@ -52,9 +52,8 @@ It is part of the dashboard, not a separate destination:
 * an **iframe** on the `AI` page with the full panel, so the mode buttons,
   power limit and llama/Immich actions are reachable from the same page.
 
-Both point at the plain API/UI the panel already exposes, so nothing in
-`app.py` had to change and no second dashboard runs anywhere: the panel's UI is
-simply embedded.
+Both use the plain API/UI the panel already exposes: no second dashboard runs
+anywhere, the panel's UI is simply embedded.
 
 ## Widgets
 
