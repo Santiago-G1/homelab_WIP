@@ -24,6 +24,10 @@ services:
     environment:
       - JWT_ENABLED=true
       - JWT_SECRET=${ONLYOFFICE_JWT_SECRET:?ONLYOFFICE_JWT_SECRET is required}
+      # Node's default heap is ~2 GB, more than this container has; a big
+      # spreadsheet could take samba and syncthing down with it. 512 MB each
+      # leaves room for the rest of the stack and covers normal documents.
+      - NODE_OPTIONS=--max-old-space-size=512
     volumes:
       - onlyoffice_data:/var/www/onlyoffice/Data
       - onlyoffice_logs:/var/log/onlyoffice
