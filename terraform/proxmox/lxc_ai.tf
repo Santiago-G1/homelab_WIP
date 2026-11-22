@@ -7,8 +7,11 @@ module "ai" {
   ip_address = "192.168.10.26"
   cpu_cores  = 4
   memory     = 12288
-  swap       = 4096
-  disk_size  = 92
+  # 12 GiB: the prompt cache spills here when two long conversations are live.
+  # The host has 20 GiB of swapfile plus zram, so the container cap was the only
+  # limit; with 4 GiB the restores took 900-1400 s, with 12 GiB they take 16-23 s.
+  swap      = 12288
+  disk_size = 92
 
   # PVE creates the nodes root:root 0660, which llama-server (video group)
   # cannot open; gid is the container-side id (video = 44).
