@@ -244,6 +244,8 @@ stacks:
       JELLYFIN_HOST: "root@{{ hostvars['frontend'].ansible_host }}"
       # Read over the same SSH; the path follows stacks_root.
       JELLYFIN_XML: "{{ stacks_root }}/jellyfin/config/encoding.xml"
+      # Jellyfin's own enum; the card's encoder here is NVENC.
+      JELLYFIN_ACCEL_GPU: "nvenc"
       AI_CTID: "{{ llm_ctid }}"     # for llama-server's journald logs
       # Over the LAN: inside the container 127.0.0.1 is the panel itself.
       COMFY_URL: "http://{{ ansible_host }}:{{ service_ports.comfyui }}"
