@@ -24,7 +24,8 @@ llm_models_catalogue:
       # resident anyway.
       parallel: 1
       batch-size: 2048
-      ubatch-size: 2048   # +6.3 % prefill at 17k; the vision graph fits at 262k (22-nov)
+      ubatch-size: 1024   # 2048 is +6.3 % prefill but OOMs with a vision
+      # request at 262k in production (22-nov): keep 1024.
       spec-type: draft-mtp
       spec-draft-n-max: 2
       spec-draft-p-min: 0.2
@@ -67,7 +68,8 @@ llm_models_catalogue:
       fit: "off"
       parallel: 1
       batch-size: 2048
-      ubatch-size: 2048
+      ubatch-size: 1024   # 2048 is +6.3 % prefill but OOMs with a vision
+      # request at 262k in production (22-nov): keep 1024.
       spec-type: draft-mtp
       spec-draft-n-max: 2
       spec-draft-p-min: 0.2
@@ -109,7 +111,8 @@ llm_models_catalogue:
       fit: "off"
       parallel: 1          # dense: see Swift above
       batch-size: 2048
-      ubatch-size: 2048   # +6.3 % prefill at 17k; the vision graph fits at 262k (22-nov)
+      ubatch-size: 1024   # 2048 is +6.3 % prefill but OOMs with a vision
+      # request at 262k in production (22-nov): keep 1024.
       spec-type: draft-mtp
       spec-draft-n-max: 2
       spec-draft-p-min: 0.2
@@ -151,7 +154,8 @@ llm_models_catalogue:
       fit: "off"
       parallel: 1
       batch-size: 2048
-      ubatch-size: 2048
+      ubatch-size: 1024   # 2048 is +6.3 % prefill but OOMs with a vision
+      # request at 262k in production (22-nov): keep 1024.
       spec-type: draft-mtp
       spec-draft-n-max: 2
       spec-draft-p-min: 0.2
