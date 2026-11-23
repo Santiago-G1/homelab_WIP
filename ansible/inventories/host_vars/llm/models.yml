@@ -31,8 +31,8 @@ llm_models_catalogue:
       spec-draft-p-min: 0.2
       spec-draft-ngl: 99
       spec-draft-n-ubatch: 64
-      spec-draft-type-k: f16
-      spec-draft-type-v: f16
+      spec-draft-type-k: q8_0
+      spec-draft-type-v: q8_0
       jinja: "on"
       temp: 1.0
       top-p: 0.95
@@ -43,7 +43,7 @@ llm_models_catalogue:
       cache-ram: 9216
       # The projector for both presets, requantised to f16: the P100 has no native
       # bf16, and the 256 floor stops padding a 512 px image to 1083 tokens.
-      mmproj: "{{ llamacpp_models_dir }}/mmproj-F16-ajgazin.gguf"
+      mmproj: "{{ llamacpp_models_dir }}/mmproj-Q8_0-ajgazin.gguf"
       mmproj-device: CUDA1
       image-min-tokens: 256
       # Caps vision tokens per image: without it a large image needs a 472 MiB graph
@@ -75,8 +75,8 @@ llm_models_catalogue:
       spec-draft-p-min: 0.2
       spec-draft-ngl: 99
       spec-draft-n-ubatch: 64
-      spec-draft-type-k: f16
-      spec-draft-type-v: f16
+      spec-draft-type-k: q8_0
+      spec-draft-type-v: q8_0
       jinja: "on"
       temp: 1.0
       top-p: 0.95
@@ -87,7 +87,7 @@ llm_models_catalogue:
       cache-ram: 9216
       # The projector for both presets, requantised to f16: the P100 has no native
       # bf16, and the 256 floor stops padding a 512 px image to 1083 tokens.
-      mmproj: /mnt/data/models/mmproj-F16-ajgazin.gguf
+      mmproj: /mnt/data/models/mmproj-Q8_0-ajgazin.gguf
       mmproj-device: CUDA1
       image-min-tokens: 256
       # Caps vision tokens per image: without it a large image needs a 472 MiB graph
@@ -118,8 +118,8 @@ llm_models_catalogue:
       spec-draft-p-min: 0.2
       spec-draft-ngl: 99
       spec-draft-n-ubatch: 64
-      spec-draft-type-k: f16
-      spec-draft-type-v: f16
+      spec-draft-type-k: q8_0
+      spec-draft-type-v: q8_0
       jinja: "on"
       temp: 1.0
       top-p: 0.95
@@ -130,7 +130,7 @@ llm_models_catalogue:
       cache-ram: 9216
       # The uncensored model's own projector, requantised to f16 for the P100.
       # It is not part of the model file, so a VL quant is blind without it.
-      mmproj: "{{ llamacpp_models_dir }}/mmproj-F16-ajgazin.gguf"
+      mmproj: "{{ llamacpp_models_dir }}/mmproj-Q8_0-ajgazin.gguf"
       # The 27B fills one card, so the encode graph goes on the card with headroom.
       mmproj-device: CUDA1
       # The floor only pads small images: 1024 costs ~3.4x the vision tokens of 256.
@@ -161,8 +161,8 @@ llm_models_catalogue:
       spec-draft-p-min: 0.2
       spec-draft-ngl: 99
       spec-draft-n-ubatch: 64
-      spec-draft-type-k: f16
-      spec-draft-type-v: f16
+      spec-draft-type-k: q8_0
+      spec-draft-type-v: q8_0
       jinja: "on"
       temp: 1.0
       top-p: 0.95
@@ -171,7 +171,7 @@ llm_models_catalogue:
       # Per-entry prompt cache: a state that does not fit is dropped and the prompt is
       # processed again.
       cache-ram: 9216
-      mmproj: /mnt/data/models/mmproj-F16-ajgazin.gguf
+      mmproj: /mnt/data/models/mmproj-Q8_0-ajgazin.gguf
       mmproj-device: CUDA1
       image-min-tokens: 256
       # Caps vision tokens per image: without it a large image needs a 472 MiB graph
