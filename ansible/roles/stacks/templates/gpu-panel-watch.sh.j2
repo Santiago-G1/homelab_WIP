@@ -1,8 +1,8 @@
 #!/bin/bash
 # Managed by Ansible (roles/stacks).
 #
-# A green container is not a working panel: it stayed "Up" the night it lost its
-# network and answered nothing. This asks the panel what a client asks it, and
+# A green container is not a working panel: it can lose its network and still
+# answer nothing. This asks the panel what a client asks it, and
 # restarts the container when the panel is the one failing.
 #
 # The two failures look alike from here and are not. A host the probe cannot
