@@ -1,0 +1,58 @@
+#!/bin/bash
+# Managed by Ansible (roles/stacks).
+#
+# A green container is not a working panel: it stayed "Up" the night it lost its
+# network and answered nothing, and /api/status answers 502 while the cards are
+# unreachable. This asks the panel what a client asks it, and restarts the
+# container when the answer is wrong.
+set -uo pipefail
+
+PANEL="http://127.0.0.1:{{ service_ports.gpu_panel }}"
+ENV_FILE="{{ stacks_root }}/gpu-panel/.env"
+# Not in /var: the restart limit belongs to this boot, not to the disk.
+STAMP=/run/gpu-panel-watch.restart
+MIN_INTERVAL=600
+
+fail() {
+    logger -t gpu-panel-watch "$*"
+    local now last
+    now=$(date +%s)
+    last=$(cat "$STAMP" 2>/dev/null || echo 0)
+    if ((now - last < MIN_INTERVAL)); then
+        logger -t gpu-panel-watch \
+            "not restarting: the last restart was $(((now - last) / 60)) min ago"
+        exit 1
+    fi
+    printf '%s\n' "$now" >"$STAMP"
+    logger -t gpu-panel-watch "restarting gpu-panel"
+    if ! docker restart gpu-panel >/dev/null 2>&1; then
+        logger -t gpu-panel-watch "docker restart gpu-panel failed"
+    fi
+    exit 1
+}
+
+# The session endpoint needs no credential and touches no other host: it is the
+# process answering on its own port, and the one the healthcheck already uses.
+curl -fsS -m 5 "$PANEL/api/session" >/dev/null || fail "no answer from /api/session"
+
+# Read the two settings that decide what a good answer is. Neither is echoed:
+# one signs sessions, and the other is the card count this node promises.
+token=$(sed -n 's/^PANEL_TOKEN=//p' "$ENV_FILE" 2>/dev/null | head -n1)
+[ -n "$token" ] || fail "PANEL_TOKEN is not set in $ENV_FILE"
+expected=$(sed -n 's/^GPU_EXPECTED=//p' "$ENV_FILE" 2>/dev/null | head -n1)
+[ -n "$expected" ] || fail "GPU_EXPECTED is not set in $ENV_FILE"
+
+# /api/status drives every card over SSH, which is what catches a broken key or
+# an unreachable host. It takes seconds, so it gets its own longer deadline.
+status=$(curl -fsS -m 25 -H "Authorization: Bearer $token" "$PANEL/api/status") \
+    || fail "/api/status did not answer"
+
+cards=$(jq -r '.gpus | length' <<<"$status" 2>/dev/null) \
+    || fail "/api/status did not answer with JSON"
+[ "$cards" = "$expected" ] || fail "$cards card(s) reported, $expected expected"
+
+# The probe reports what it could not do: an empty list is the only good one.
+errors=$(jq -c '.inventory.probe.errors // []' <<<"$status")
+[ "$errors" = "[]" ] || fail "card probe reports $errors"
+
+exit 0

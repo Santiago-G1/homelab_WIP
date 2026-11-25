@@ -1,0 +1,11 @@
+# Managed by Ansible (roles/stacks).
+[Unit]
+Description=Probe the GPU panel every two minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=2min
+AccuracySec=15s
+
+[Install]
+WantedBy=timers.target

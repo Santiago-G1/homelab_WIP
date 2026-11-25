@@ -142,6 +142,18 @@
   changed_when: "'changed=1' in postgres_creds.stdout"
   when: stack.postgres is defined
 
+# `up -d` only says the container started. The panel is the one stack whose
+# failure is silent: a commit that breaks the import leaves it restarting
+# forever and the playbook reporting success. Keep the image that is running as
+# the rollback target first, so going back is a tag and not a rebuild.
+- name: "{{ stack.name }} | bookmark the running image as the rollback target"
+  ansible.builtin.command:
+    cmd: docker image tag gpu-panel:local gpu-panel:rollback
+  # A bookmark rather than a change, and the first run has nothing to keep.
+  changed_when: false
+  failed_when: false
+  when: stack.name == 'gpu-panel'
+
 # An on-demand stack is created but never started: the GPU panel owns its
 # lifetime. Its image is still built, so a version bump applies now.
 - name: "{{ stack.name }} | bring the stack up"
@@ -154,6 +166,19 @@
   changed_when: >-
     'Started' in compose_up.stdout or 'Created' in compose_up.stdout
     or 'Recreated' in compose_up.stdout
+
+# The image it just built is what the healthcheck judges: a container that
+# cannot import its own app never turns healthy, and this is where that fails
+# the run instead of waiting for someone to load the dashboard.
+- name: "{{ stack.name }} | wait for the container to report healthy"
+  ansible.builtin.command:
+    cmd: "docker inspect -f '{% raw %}{{ .State.Health.Status }}{% endraw %}' gpu-panel"
+  register: gpu_panel_health
+  until: gpu_panel_health.stdout | default('') == 'healthy'
+  retries: 12
+  delay: 5
+  changed_when: false
+  when: stack.name == 'gpu-panel'
 
 # Config files are bind mounted, so `up` alone would not pick up a rewrite.
 - name: "{{ stack.name }} | restart after configuration changes"
@@ -239,3 +264,32 @@
     - (hermes_ctx.results | default([]) | selectattr('changed') | list | length > 0)
       or (hermes_timeout.results | default([]) | selectattr('changed') | list | length > 0)
   changed_when: true
+
+# The panel stays "Up" when it loses its network, and it answers 502 while the
+# cards are unreachable: the healthcheck alone does not see either. This probes
+# it from inside the CT, where 127.0.0.1 is the published port, and restarts the
+# container when the answer is wrong.
+- name: "{{ stack.name }} | install the panel's health probe"
+  ansible.builtin.template:
+    src: gpu-panel-watch.sh.j2
+    dest: /usr/local/sbin/gpu-panel-watch.sh
+    mode: "0755"
+  when: stack.name == 'gpu-panel'
+
+- name: "{{ stack.name }} | install the probe unit and its timer"
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/etc/systemd/system/{{ item }}"
+    mode: "0644"
+  loop:
+    - gpu-panel-watch.service
+    - gpu-panel-watch.timer
+  when: stack.name == 'gpu-panel'
+
+- name: "{{ stack.name }} | run the probe every two minutes"
+  ansible.builtin.systemd:
+    name: gpu-panel-watch.timer
+    enabled: true
+    state: started
+    daemon_reload: true
+  when: stack.name == 'gpu-panel'

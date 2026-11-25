@@ -1,0 +1,11 @@
+# Managed by Ansible (roles/stacks).
+[Unit]
+Description=Probe the GPU panel and restart it when it does not answer
+After=docker.service
+Wants=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/gpu-panel-watch.sh
+# Lower than the panel's own work: a saturated CT is not a dead panel.
+Nice=10
