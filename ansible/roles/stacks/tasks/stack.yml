@@ -270,10 +270,10 @@
       or (hermes_timeout.results | default([]) | selectattr('changed') | list | length > 0)
   changed_when: true
 
-# The panel stays "Up" when it loses its network, and it answers 502 while the
-# cards are unreachable: the healthcheck alone does not see either. This probes
-# it from inside the CT, where 127.0.0.1 is the published port, and restarts the
-# container when the answer is wrong.
+# The panel stays "Up" when it loses its network: the healthcheck alone does not
+# see it. This probes the panel from inside the CT, where 127.0.0.1 is the
+# published port, and restarts the container only when the panel is what fails;
+# a host the cards' probe cannot reach is logged and left alone.
 - name: "{{ stack.name }} | install the panel's health probe"
   ansible.builtin.template:
     src: gpu-panel-watch.sh.j2
