@@ -12,7 +12,13 @@
 # (no /api/session) or a panel that does not answer at all is its own problem.
 set -uo pipefail
 
-PANEL="http://127.0.0.1:{{ service_ports.gpu_panel }}"
+{# Probe the address the port is actually published on: PUBLISH_ADDR pins it to
+   the host's own address, and 127.0.0.1 would then refuse every connection and
+   look exactly like a dead panel. #}
+{% set probe_host = (stack.publish_addr | default('127.0.0.1', true)) | replace('[', '') | replace(']', '') %}
+{% if probe_host in ['0.0.0.0', '::'] %}{% set probe_host = '127.0.0.1' %}
+{% elif ':' in probe_host %}{% set probe_host = '[' ~ probe_host ~ ']' %}{% endif %}
+PANEL="http://{{ probe_host }}:{{ service_ports.gpu_panel }}"
 ENV_FILE="{{ stacks_root }}/gpu-panel/.env"
 # Not in /var: the restart limit belongs to this boot, not to the disk.
 STAMP=/run/gpu-panel-watch.restart
