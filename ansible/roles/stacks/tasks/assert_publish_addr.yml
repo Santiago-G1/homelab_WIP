@@ -1,0 +1,20 @@
+---
+# The address is written into .env as it is declared and the template adds the
+# brackets an IPv6 needs. An empty or malformed one reaches docker compose as a
+# broken short port syntax, and the `up` fails with a message about the port
+# rather than about this value.
+- name: "{{ stack.name }} | assert the publish address is one bare IP"
+  ansible.builtin.assert:
+    that: >-
+      stack.publish_addr is string
+      and (stack.publish_addr | trim) | length > 0
+      and '[' not in stack.publish_addr
+      and ']' not in stack.publish_addr
+      and (stack.publish_addr | trim) is match('^[0-9A-Fa-f:.]+$')
+      and ('.' in stack.publish_addr or stack.publish_addr.count(':') > 1)
+      and (':' not in stack.publish_addr or stack.publish_addr.count(':') > 1)
+    fail_msg: >-
+      publish_addr is {{ stack.publish_addr | to_json }}, and it has to be one
+      IPv4 or IPv6 address and nothing else: no brackets, no port, no name, e.g.
+      192.168.10.26 or ::1.
+    quiet: true

@@ -16,6 +16,11 @@
       of `src:` and `repo:`; it needs exactly one.
     quiet: true
 
+# The address reaches docker compose verbatim, so a bad one fails the `up` there.
+- name: "{{ stack.name }} | check the declared publish address"
+  ansible.builtin.include_tasks: assert_publish_addr.yml
+  when: stack.publish_addr is defined
+
 # rsync would replace a bind-mounted file with a source directory of the same name.
 - name: "{{ stack.name }} | assert no rendered file is a directory in the source"
   ansible.builtin.assert:
